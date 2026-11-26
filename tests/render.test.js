@@ -48,7 +48,7 @@ function whoGets(servers, ms) {
 
 (async () => {
     await check('our socket first, then the Store renderer (mgu-render/1, touch), then the rest of the kit\'s list', () => {
-    const want = [OURS, '/run/mgu-render/render.sock'].concat(kitList.filter((s) => s !== '/run/mgu-render/render.sock'));
+    const want = ['/run/mgu-render/render.sock', OURS].concat(kitList.filter((s) => s !== '/run/mgu-render/render.sock'));
     assert.strictEqual(R.installed, true);
     assert.deepStrictEqual(renderd.SOCKETS, want);
     R.preferOurs();
