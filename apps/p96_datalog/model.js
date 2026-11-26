@@ -194,6 +194,7 @@ const num = (x) => (typeof x === 'number' && isFinite(x) ? x : null);
 /** The app's own settings (after the Display block), in the shape of app.json "settings". */
 const APP_ROWS = [
     { key: 'runLength', label: 'Run length', hint: 'The distance a run is timed over', type: 'choice', default: 402, options: [[201, '201 m'], [402, '402 m'], [804, '1/2 mile']] },
+    E.LIMIT_ROWS.boostMax,
     { key: 'boostTarget', label: 'Boost target', hint: 'The mark on the boost ring', type: 'number', default: 1.45, min: 0.3, max: 3, step: 0.05, decimals: 2, unit: 'bar' },
     { key: 'tyreTarget', label: 'Tyre target (hot)', hint: 'The Tyres page compares with it', type: 'number', default: 2.4, min: 1.5, max: 3.5, step: 0.05, decimals: 2, unit: 'bar' },
     { key: 'units', label: 'Units', hint: 'Speed, pressure and temperature', type: 'choice', default: 'metric', options: [['metric', 'Metric'], ['imperial', 'Imperial']] },

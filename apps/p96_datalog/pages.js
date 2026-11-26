@@ -153,7 +153,7 @@ function pageNow(cv, m, t) {
     }
     if (boost) {
         UI.ring(cv, 196, T + Math.round(UI.hh() / 2), Math.min(170, Math.round(UI.hh() * 0.3)), {
-            value: U.press(v.boost), min: U.press(-1) < 0 ? U.press(-1) : -1, max: U.press(2), decimals: U.pressD,
+            value: U.press(v.boost), min: U.press(-1) < 0 ? U.press(-1) : -1, max: U.press(E.limits(m.car(), (k) => m.setting(k)).boostMax), decimals: U.pressD,
             unit: U.pressU + ', target ' + fix(U.press(target), U.pressD), label: 'Boost', color: 'accent',
             scale: U.imp ? { step: 10, decimals: 0 } : { step: 0.5, decimals: 1 }, target: U.press(target), info: INFO.boost,
         });
@@ -729,7 +729,7 @@ function draw(cv, m, t) {
         const vals = {};
         UI.DISPLAY_SETTINGS.concat(APP_ROWS).forEach((r) => { vals[r.key] = m.setting(r.key); });
         vals.demoCar = m.setting('demoCar');
-        const rows = (m.isDemo() ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'boostTarget' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true)));
+        const rows = (m.isDemo() ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'boostTarget' || r.key === 'boostMax' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true)));
         UI.settingsPage(cv, rows, vals, (k, val) => { if (m.settings) m.settings.set(k, val); }, { title: NAME, appLabel: 'Datalog',
             onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; }, onReport: m.report ? () => m.report.open() : null });
     } else {

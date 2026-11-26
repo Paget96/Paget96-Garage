@@ -610,9 +610,10 @@ function engine(cv, S, V, A, t) {
     }
     if (railOnly) {
         UI.card(cv, rx, TOP, rw, UI.hh(), 'Fuel rail pressure', { info: info('rail') });
-        UI.ring(cv, rx + rw / 2, TOP + 210, 110, { value: ev.rail, min: 0, max: p.rail[1], decimals: 0, unit: 'bar', color: 'ok',
+        const railTop = E.limits(p, (k) => S.values && S.values[k]).rail;
+        UI.ring(cv, rx + rw / 2, TOP + 210, 110, { value: ev.rail, min: 0, max: railTop, decimals: 0, unit: 'bar', color: 'ok',
             scale: { step: p.diesel ? 500 : 50 } });
-        cv.text(p.diesel ? 'common rail: up to about ' + p.rail[1] + ' bar' : 'direct injection: up to about ' + p.rail[1] + ' bar', rx + rw / 2, TOP + 378, 15, C.dim, { align: 'center', literal: true });
+        cv.text(p.diesel ? 'common rail: scale to ' + railTop + ' bar' : 'direct injection: scale to ' + railTop + ' bar', rx + rw / 2, TOP + 378, 15, C.dim, { align: 'center', literal: true });
         return;
     }
     if (!right.length) return;
@@ -695,6 +696,7 @@ const APP_ROWS = [
     { key: 'nightly', label: 'Nightly battery check', hint: 'Reads the 12 V resting voltage after the car sleeps', type: 'choice', default: 'on', options: [['on', 'On'], ['off', 'Off']] },
     { key: 'batteryWarn', label: 'Battery warning at', hint: 'Warn when resting voltage stays below', type: 'number', default: 12.4, steps: [11.8, 11.9, 12.0, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6], decimals: 2, unit: 'V' },
     { key: 'tyreWarn', label: 'Tyre warning at', hint: 'Warn when a tyre is this much lower than the others', type: 'number', default: 0.1, steps: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3], decimals: 2, unit: 'bar' },
+    E.LIMIT_ROWS.railMax,
     { key: 'units', label: 'Units', hint: 'Pressure and temperature', type: 'choice', default: 'metric', options: [['metric', 'Metric'], ['imperial', 'Imperial']] },
     { key: 'intervals', label: 'Our intervals', hint: 'Oil, plugs, air filter, gearbox oil, coolant', type: 'choice', default: 'strict', options: [['strict', 'Strict'], ['car', 'As the car']] },
 ];

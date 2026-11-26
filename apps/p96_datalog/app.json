@@ -2,7 +2,7 @@
   "id": "p96_datalog",
   "title": "Datalog",
   "description": "Paget96 Garage: 402 m runs with splits and weather corrected times, dyno sheet, boost and wastegate, air, tyres, temperatures, run log and compare",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "vendor": "Paget96",
   "author": "Danijel Markov (Paget96)",
   "loggingId": "P96D",
@@ -372,6 +372,38 @@
         [
           804,
           "1/2 mile"
+        ]
+      ]
+    },
+    {
+      "key": "boostMax",
+      "label": "Boost scale",
+      "type": "choice",
+      "default": "auto",
+      "options": [
+        [
+          "auto",
+          "Auto"
+        ],
+        [
+          1,
+          "1.0 bar"
+        ],
+        [
+          1.5,
+          "1.5 bar"
+        ],
+        [
+          2,
+          "2.0 bar"
+        ],
+        [
+          2.5,
+          "2.5 bar"
+        ],
+        [
+          3,
+          "3.0 bar"
         ]
       ]
     },
