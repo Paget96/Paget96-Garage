@@ -90,7 +90,7 @@ changes, also when the Ambient config app changes it for a driving mode: the car
 signal changes with it, and for its own per-mode looks the app's saved `mode_<mode>` look is read for
 the mode the car reports (`FES statusFESVehicleDynamicSwitchHMI`), if readable. The accent glides
 to the new colour (about 0.5 s). Short overlays (turn glow, open door red, strobe, welcome) are
-ignored so the UI does not blink (proposed, claude).
+ignored so the UI does not blink.
 
 **Only the chrome follows (owner, 17:19, D14).** `C.accent` is the chrome: title, selected tab, tab
 arrows and dots, the button glyphs. Every chart, sparkline, ring, gauge, bar, pill and status text
