@@ -21,12 +21,16 @@ function ui() {
 const UI = ui();
 const E = (function () { try { return require('./garage_engine'); } catch (e) { return require('../../lib/engine'); } })();
 const PR = require('./presets');
+const { drawCarView, MAX_PITCH, MAX_ROLL } = require('./carview');
+const LIN = require('./lin');
 const C = UI.C, T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN;
 const lit = { literal: true };
 const TITLE = 'LIGHTS';
 const TABS = ['Ambient', 'Party', 'Flash', 'Outside'];
 
 const APP_ROWS = [
+    { key: 'doorRed', label: 'Open door red', hint: 'The lights on an open door blink red, as the car\'s own warning does', type: 'choice', default: 'on',
+        options: [['on', 'On'], ['off', 'Off']] },
     { key: 'arm', label: 'Light control', hint: 'Simulated: shown on the drawing only, nothing is sent to the car', type: 'choice', default: 'off',
         options: [['off', 'Simulated'], ['on', 'Armed']] },
 ];
@@ -120,10 +124,27 @@ function gateLine(v, what) {
 function pageAmbient(cv, v, st, t, act) {
     const lw = 640, s = (v.ambient && v.ambient.scene) || {}, up = s.upper || { rgb: COLOURS[4][1], bright: 70 };
     UI.card(cv, L, T, lw, UI.hh(), 'Ambient light', { info: INFO.ambient });
-    const k = Math.min(1.3, (UI.hh() - 90) / 320);
+    // the cabin seen through, every ambient light at its place in the colour it shows, turnable (owner, 2026-11-27
+    // 00:40: rotate the car and see where which colour is): the car's own lights when it listed them, else BMW's set
     const glow = s.kind === 'breathing' ? 0.35 + 0.65 * (0.5 - 0.5 * Math.cos(t * 1.6)) : 1;
-    const rgb = s.kind === 'rainbow' || s.kind === 'wave' ? hsv((t * 40) % 360) : up.rgb;
-    carLamps(cv, L + lw / 2, T + UI.hh() / 2 + 8, k, null, s.own ? null : [rgb[0], rgb[1], rgb[2], Math.round(150 * glow * up.bright / 100)]);
+    const shown = v.ambient && v.ambient.lights && v.ambient.lights.length ? v.ambient.lights : LIN.sample();
+    const rc = v.regionColours || {};
+    const colourOf = (light) => {
+        const own = rc[regionOf(light)];
+        if (own) return { rgb: own.rgb, bright: own.bright };
+        if (s.own) return null;
+        const rgb = s.kind === 'rainbow' || s.kind === 'wave' ? hsv((t * 40 + (light.y || 0) * 120) % 360) : up.rgb;
+        return { rgb: rgb, bright: Math.round(up.bright * glow) };
+    };
+    const view = v.view || { pitch: 0, roll: 0 };
+    drawCarView(cv, t, { x: L + 70, y: T + 66, w: lw - 140, h: UI.hh() - 176 }, shown, colourOf, view);
+    // turning: left and right about its length, back over the boot and up again
+    [['<', -1, 0], ['>', 1, 0], ['tilt', 0, 1], ['top', 0, -1]].forEach((b, i) => {
+        const bx = L + 24 + i * 58, by = T + UI.hh() - 104, w = b[0].length > 1 ? 52 : 44;
+        cv.roundRect(bx, by, w, 40, 20, '#2a2d34');
+        cv.text(b[0], bx + w / 2, by + 26, b[0].length > 1 ? 13 : 20, C.accent, { font: 'bold', align: 'center', literal: true });
+        if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1] * 20, b[2] * 25), 'lturn|' + i, 20);
+    });
     const g = gateLine(v, 'ambient');
     cv.text(g[0], L + 20, T + UI.hh() - 16, 14, g[1], lit);
     // what the car's own menu says now, and which lights the body controller has (read from the car)
@@ -302,4 +323,4 @@ function draw(cv, v, st, t, act) {
 const DEFAULTS = {};
 UI.DISPLAY_SETTINGS.concat(APP_ROWS, [E.DEMO_ROW]).forEach((r) => { DEFAULTS[r.key] = r.default; });
 
-module.exports = { regionOf, regionsOf, REGIONS, draw, TABS, TOPICS, APP_ROWS, PAGES, DEFAULTS, COLOURS, TITLE, carLamps, INFO, OUTSIDE };
+module.exports = { MAX_PITCH, MAX_ROLL, regionOf, regionsOf, REGIONS, draw, TABS, TOPICS, APP_ROWS, PAGES, DEFAULTS, COLOURS, TITLE, carLamps, INFO, OUTSIDE };

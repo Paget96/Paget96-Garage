@@ -18,6 +18,7 @@ sequences from Paget96's Exterior Lights, PR #254). Not tried on a car as Lights
 | Page | Screenshot |
 |---|---|
 | Ambient | ![](../../docs/media/p96_lights/ambient.png) |
+| Ambient, the car turned, door pockets red | ![](../../docs/media/p96_lights/ambient-turned.png) |
 | Party | ![](../../docs/media/p96_lights/party.png) |
 | Flash | ![](../../docs/media/p96_lights/flash.png) |
 | Outside | ![](../../docs/media/p96_lights/outside.png) |

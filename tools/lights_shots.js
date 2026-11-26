@@ -29,9 +29,10 @@ function shot(name, set, t) {
     play(rec.words(), cv);
     fs.writeFileSync(path.join(out, name + '.png'), cv.png(9));
 }
-v.ambient.lights = [{ name: 'Dash line centre' }, { name: 'Driver front door line' }, { name: 'Driver rear door line' }, { name: 'Driver front door pocket' }, { name: 'Console line driver front' }, { name: 'Sunroof front left' }];
-v.carAmbient = 4; v.ambient.n = 6;
-shot('ambient', { tab: 0 }); shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
+v.ambient.lights = require('../apps/p96_lights/lin').sample();
+v.carAmbient = 4; v.ambient.n = v.ambient.lights.length;
+shot('ambient', { tab: 0 });
+v.view = { pitch: 35, roll: -25 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.view = null; v.regionColours = {}; shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
 v.live = { on: true, rows: [['Left headlight, channel 1', '75 %', true], ['Left headlight, channel 9', '41 %', true], ['Right headlight, channel 1', '75 %', true], ['Body controller outputs on', '6', false]] };
 shot('outside', { tab: 3 });
 shot('help', { page: 'help', topic: 1 }, 1); shot('settings', { page: 'settings' });

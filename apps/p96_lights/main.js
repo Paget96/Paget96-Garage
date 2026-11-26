@@ -77,7 +77,7 @@ mgu.run({
         const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'WAIT', statusColor: 'dim', demo: false, now: t0 };
         st.report = Report.forApp(ctx);
         const presets = PR.load(path.join(ctx.dataDir, 'presets.json'));
-        const V = { region: 'all', regionColours: {}, paused: null, outsideWant: settings.get('outsideWant') || {}, live: { on: false, rows: [], note: null }, preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
+        const V = { view: { pitch: 0, roll: 0 }, region: 'all', regionColours: {}, paused: null, outsideWant: settings.get('outsideWant') || {}, live: { on: false, rows: [], note: null }, preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
             flash: { pattern: 'both', rate: 'normal' }, playAt: null };
 
         const sendScene = () => { if (armed()) link().then(() => { if (lights && !allowed('ambient')) { if (V.scene.own) lights.carColour(); else lights.show(V.scene); } }); };
@@ -99,6 +99,27 @@ mgu.run({
             V.regionColours = {}; V.scene = Object.assign({}, V.scene, { own: true }); V.ours = false;
             if (why) log.info('lights: stopped, ' + why);
         };
+        /*
+         * An open door: every light on that door blinks red (owner, 2026-11-27 00:40: as the car's own warning does on
+         * cars that have it), over whatever colour is on, until the door shuts. Setting Open door red; armed only.
+         */
+        const DOOR_FIELDS = { statusDoorSwitchDRD: /^Driver front door/, statusDoorSwitchPSD: /^Passenger front door/,
+            statusDoorSwitchDRDR: /^Driver rear door/, statusDoorSwitchPSDR: /^Passenger rear door/ };
+        let openDoors = [];
+        ctx.signals.watch('de.bmw.body.DoorsWindowsRoofMirrors', '1', {
+            CentralLockingSystemAndPanelStatus: (v) => {
+                const now2 = Object.keys(DOOR_FIELDS).filter((k) => v && (v[k] === 1 || /_OFFEN$/.test(String(v[k]))));
+                if (now2.join() === openDoors.join()) return;
+                const was = openDoors; openDoors = now2;
+                if (!armed() || val('doorRed') !== 'on') return;
+                link().then(() => {
+                    if (!lights) return;
+                    was.filter((k) => now2.indexOf(k) < 0).forEach((k) => lights.overlay('door|' + k, null));
+                    now2.forEach((k) => lights.overlay('door|' + k, (l) => DOOR_FIELDS[k].test((l && l.name) || ''), (ms) => ({ rgb: [255, 0, 0], bright: Math.floor(ms / 500) % 2 ? 0 : 100 })));
+                });
+            },
+        }, log).catch(() => {});
+
         /* ---------- the lamps as the car drives them now: reads only, while Lamps now is on ---------- */
         async function readLive() {
             if (!V.live.on || !armed() || !diag || st.tab !== 3) return;
@@ -123,6 +144,11 @@ mgu.run({
             set: (k, v) => { settings.set(k, v, 'user'); if (k === 'arm' && v === 'on') link(); if (k === 'arm' && v !== 'on') stopAll('disarmed'); },
             stopAll: () => stopAll('Stop all'),
             region: (k) => { V.region = k; },
+            // turning the car on the Ambient page: dr about its length (degrees), dp leaning back (-1 dp: straight above)
+            turn: (dr, dp) => {
+                V.view = { roll: Math.max(-P.MAX_ROLL, Math.min(P.MAX_ROLL, V.view.roll + dr)), pitch: dp < 0 ? 0 : Math.max(0, Math.min(P.MAX_PITCH, V.view.pitch + dp)) };
+                if (dp < 0) V.view.roll = 0;
+            },
             outside: (k, v) => { V.outsideWant = Object.assign({}, V.outsideWant, { [k]: v }); settings.set('outsideWant', V.outsideWant, 'user'); },
             live: () => { V.live.on = !V.live.on; V.live.rows = []; if (V.live.on) link(); },
             pause: () => {
@@ -178,7 +204,7 @@ mgu.run({
             return {
                 armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, beat: beat, flash: V.flash,
                 ambient: { state: lights ? lights.state : null, n: lights ? lights.lights.length : 0, lights: lights ? lights.lights : [], scene: V.scene, ours: !!V.ours && armed() },
-                carAmbient: carAmbient, region: V.region, regionColours: V.regionColours, paused: V.paused, outsideWant: V.outsideWant, outside: {}, live: V.live,
+                carAmbient: carAmbient, view: V.view, region: V.region, regionColours: V.regionColours, paused: V.paused, outsideWant: V.outsideWant, outside: {}, live: V.live,
                 lamps: lamps ? { kind: lamps.kind, running: lamps.running, note: lamps.note } : { running: V.playAt != null && !armed() ? null : null },
             };
         }
