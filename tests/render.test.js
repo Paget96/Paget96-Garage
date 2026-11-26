@@ -47,11 +47,12 @@ function whoGets(servers, ms) {
 }
 
 (async () => {
-    await check('our socket is first, the kit\'s list follows unchanged', () => {
+    await check('our socket first, then the Store renderer (mgu-render/1, touch), then the rest of the kit\'s list', () => {
+    const want = [OURS, '/run/mgu-render/render.sock'].concat(kitList.filter((s) => s !== '/run/mgu-render/render.sock'));
     assert.strictEqual(R.installed, true);
-    assert.deepStrictEqual(renderd.SOCKETS, [OURS].concat(kitList));
+    assert.deepStrictEqual(renderd.SOCKETS, want);
     R.preferOurs();
-    assert.deepStrictEqual(renderd.SOCKETS, [OURS].concat(kitList), 'twice: still once');
+    assert.deepStrictEqual(renderd.SOCKETS, want, 'twice: still once');
 });
     // the rest use stand-in renderers in the temp folder, in the same order
     renderd.SOCKETS.splice(0, renderd.SOCKETS.length, OURS, STORE, COMMUNITY);
