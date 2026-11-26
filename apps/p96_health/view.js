@@ -122,7 +122,7 @@ function overviewCards(S) {
     const cp = S.caps, has = (k) => M.has(cp, k);
     return [
         { cap: 'faults', label: 'Faults', info: 'faults', color: sc.faults ? sc.faults.color : 'dim', value: S.units ? String(fl.length) : '--',
-            unit: act ? 'active' : 'stored', sub: !S.units ? 'not read yet' : act ? act + ' failing now' : fl.length ? 'none active, nothing urgent' : 'all clear' },
+            unit: act ? 'active' : 'stored', sub: S.ready && S.ready.mil ? 'the engine light is on' : !S.units ? 'not read yet' : act ? act + ' failing now' : fl.length ? 'none active, nothing urgent' : 'all clear' },
         { cap: 'volts', label: '12 V battery', info: 'battery12', color: bv.color, value: b.rest != null ? b.rest.toFixed(1) : '--', unit: 'V resting',
             frac: b.rest != null ? M.restCharge(b.rest) / 100 : null, sub: b.rest != null ? 'about ' + M.restCharge(b.rest) + ' % charged' : bv.word.toLowerCase() },
         { cap: 'oilLevel', label: 'Engine oil', info: 'oil', color: oil.oilCl == null ? 'dim' : oil.oilCl < 20 ? 'bad' : 'ok', value: oil.oilCl == null ? '--' : oil.oilCl < 20 ? 'LOW' : 'OK',
@@ -140,12 +140,12 @@ function overviewCards(S) {
 
 /* ---------- Faults ---------- */
 
-const MEMS = [['fault', 'Fault memory'], ['info', 'Info memory'], ['perm', 'Permanent'], ['history', 'History']];
-/** The memories this car answers (history goes with the fault memory). */
-const memsFor = (S) => MEMS.filter((m) => M.has(S.caps, m[0] === 'perm' ? 'perm' : m[0] === 'info' ? 'info' : 'faults'));
+const MEMS = [['fault', 'Fault memory'], ['info', 'Info memory'], ['perm', 'Permanent'], ['history', 'History'], ['ready', 'Readiness']];
+/** The memories this car answers (history goes with the fault memory; Readiness only when the engine unit answers 01 01). */
+const memsFor = (S) => MEMS.filter((m) => M.has(S.caps, m[0] === 'perm' ? 'perm' : m[0] === 'info' ? 'info' : m[0] === 'ready' ? 'readiness' : 'faults'));
 
 function memTabs(cv, x, y, S, V, A) {
-    const opts = memsFor(S).map((m) => [m[0], m[1] + (m[0] === 'history' ? '' : ' (' + M.listOf(S.units, m[0]).length + ')')]);
+    const opts = memsFor(S).map((m) => [m[0], m[1] + (m[0] === 'history' || m[0] === 'ready' ? '' : ' (' + M.listOf(S.units, m[0]).length + ')')]);
     // segmented() is right aligned: its width is the labels' (bold 16) plus 40 each, plus 8
     const w = opts.reduce((a, o) => a + Math.ceil(cv.textWidth(o[1], 16, { font: 'bold' })) + 40, 8);
     return UI.segmented(cv, x + w, y, opts, V.mem, A.mem, 'memtabs');
@@ -168,9 +168,10 @@ function faults(cv, S, V, A, t) {
     if (!rows.length) cv.text(S.units ? 'No unit answered' : 'Scanning when the page opens', X0 + 20, TOP + 80, 17, C.dim, { literal: true });
     // the list
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, 392, '', { info: info('memories') });
+    UI.card(cv, rx, TOP, rw, 392, '', { info: info(V.mem === 'ready' ? 'readiness' : 'memories') });
     if (V.detail) return faultDetail(cv, S, V, A, t, rx, rw);
     memTabs(cv, rx + 20, TOP + 34, S, V, A);
+    if (V.mem === 'ready') return readinessView(cv, S, V, A, t, rx, rw);
     let bx = X1 - 56;              // clear of the card's (i)
     const clearW = UI.dialogButton(cv, bx, TOP + 10, 'Clear faults...', 'bad');
     if (cv.target) cv.target(bx - clearW, TOP + 10, clearW, 48, A.askClear, 'clear', 24);
@@ -309,6 +310,100 @@ function faultHistory(cv, S, V, A, t) {
         cv.text('Every scan is kept, so a fault that comes', rx + 20, TOP + 362, 14, C.dim, { literal: true });
         cv.text('and goes still shows when and how often.', rx + 20, TOP + 382, 14, C.dim, { literal: true });
     }
+}
+
+/** Faults, Readiness tab (I22): the engine light and each emission monitor the car has, ready or not, read only. */
+function readinessView(cv, S, V, A, t, rx, rw) {
+    const r = S.ready;
+    if (!r) { cv.text('Reading the readiness from the engine unit...', rx + 20, TOP + 120, 19, C.dim, { literal: true }); return; }
+    // left: the summary and the engine light
+    const sx = rx + 20, sw = 300;
+    cv.text('READY SINCE THE LAST CLEAR', sx, TOP + 96, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+    const big = cv.text(String(r.ready), sx, TOP + 152, 52, C.text, { font: 'num', literal: true });
+    cv.text('of ' + r.total, sx + big + 12, TOP + 150, 20, C.dim, { literal: true });
+    cv.text(r.word, sx, TOP + 186, 20, col(r.color), { font: 'bold', spacing: 1, literal: true });
+    UI.bar(cv, sx, TOP + 200, sw - 40, 10, r.total ? r.ready / r.total : 0, r.color, 'ready|bar');
+    // the engine light: an engine glyph, lit amber when on
+    const ly = TOP + 252, lc = r.mil ? C.amber : '#4a4e56';
+    cv.strokeRoundRect(sx, ly - 18, 46, 30, 8, 3, lc);
+    cv.line(sx + 46, ly - 3, sx + 54, ly - 3, 3, lc);
+    cv.line(sx + 12, ly - 18, sx + 12, ly - 26, 3, lc);
+    cv.line(sx + 6, ly - 26, sx + 22, ly - 26, 3, lc);
+    cv.text('Engine light ' + (r.mil ? 'ON' : 'off'), sx + 70, ly + 4, 19, r.mil ? C.amber : C.text, { font: 'bold', literal: true });
+    cv.text(r.dtcCount ? r.dtcCount + (r.dtcCount === 1 ? ' emission fault' : ' emission faults') + ' stored' : 'no emission fault stored', sx + 70, ly + 30, 15, C.dim, { literal: true });
+    UI.wrap(cv, r.text, 15, sw - 20).slice(0, 3).forEach((ln, i) => cv.text(ln, sx, TOP + 312 + i * 21, 15, C.dim, { literal: true }));
+    // right: the monitors in two columns
+    const mx = rx + sw + 20, mw = rx + rw - 56 - mx, colW = Math.floor((mw - 20) / 2);
+    const rows = r.rows, per = Math.ceil(rows.length / 2), rh = Math.min(56, Math.floor(270 / Math.max(1, per)));
+    cv.text('MONITOR', mx, TOP + 96, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+    if (r.drive) cv.text('THIS DRIVE', mx + colW + 20, TOP + 96, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+    rows.forEach((m, i) => {
+        const cx = mx + (i < per ? 0 : colW + 20), yy = TOP + 110 + (i % per) * rh;
+        const c = m.complete ? 'ok' : 'warm';
+        cv.roundRect(cx, yy, colW, rh - 8, 14, [255, 255, 255, 8]);
+        cv.circle(cx + 20, yy + (rh - 8) / 2, 7, col(c));
+        cv.text(fit(cv, m.name, 18, colW - 190), cx + 38, yy + (r.drive ? 22 : (rh - 8) / 2 + 7), 18, C.text, { font: 'bold', literal: true });
+        if (r.drive) cv.text(m.continuous ? 'checked all the time' : { done: 'done this drive', running: 'running this drive', off: 'not run this drive' }[m.drive],
+            cx + 38, yy + 42, 14, m.drive === 'done' ? C.green : C.dim, { literal: true });
+        pillRight(cv, cx + colW - 12, yy + (rh - 8) / 2 - 16, m.complete ? 'READY' : 'NOT READY', c, false);
+    });
+    cv.text('Read only, from the engine unit (OBD, SAE J1979). A clear of the engine unit sets these back to not ready.', rx + 20, TOP + 380, 14, C.dim, { literal: true });
+}
+
+/**
+ * The Clear faults dialog (D19, I22): every unit with a fault in its fault memory with a tick, the engine unit unticked
+ * until the user ticks it, and the readiness warning only while it is ticked.
+ * units: [{ addr, dtcs }] with faults; ticked: addresses; h: { tick(addr), all(), cancel(), run() }.
+ */
+function clearDialog(units, ticked, h) {
+    const n = units.filter((u) => ticked.indexOf(u.addr) >= 0)
+        .reduce((a, u) => a + u.dtcs.filter((d) => d.mem === 'fault').length, 0);
+    const k = ticked.length, warning = M.clearWarning(ticked);
+    const d = { label: 'Clear fault memory', labelColor: 'bad', w: 1240, h: 480, ticked: ticked, warning: warning,
+        title: k ? 'Clear ' + n + (n === 1 ? ' fault' : ' faults') + ' in ' + k + (k === 1 ? ' unit?' : ' units?') : 'Tick the units to clear',
+        buttons: [{ label: 'Cancel', run: h.cancel }, k ? { label: 'Yes, clear', kind: 'bad', run: h.run } : { label: 'Yes, clear', kind: null, run: null }] };
+    d.body = (cv, x, y, w, hh) => {
+        // left: the units
+        const lw = 470;
+        cv.text('UNITS WITH FAULTS', x, y + 14, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+        const aw = Math.ceil(cv.textWidth('All but the engine', 15, { font: 'bold' })) + 30;
+        cv.strokeRoundRect(x + lw - aw, y - 6, aw, 30, 15, 1.5, C.accent);
+        cv.text('All but the engine', x + lw - aw / 2, y + 14, 15, C.accent, { font: 'bold', align: 'center', literal: true });
+        if (cv.target) cv.target(x + lw - aw, y - 6, aw, 30, h.all, 'clearall', 15);
+        units.slice(0, 5).forEach((u, i) => {
+            const yy = y + 34 + i * 46, on = ticked.indexOf(u.addr) >= 0, eng = M.isEngine(u.addr);
+            cv.roundRect(x, yy, lw, 40, 14, on ? [255, 128, 40, 30] : '#22252b');
+            checkBox(cv, x + 10, yy + 7, on);
+            const nf = u.dtcs.filter((q) => q.mem === 'fault').length;
+            cv.text(M.unitName(u.addr), x + 48, yy + 27, 18, on ? C.text : C.dim, { font: on ? 'bold' : 'label', literal: true });
+            cv.text(eng && !on ? 'needs its own tick' : nf + (nf === 1 ? ' fault' : ' faults'), x + lw - 14, yy + 26, 15, eng ? C.amber : C.dim, { align: 'right', literal: true });
+            if (cv.target) cv.target(x, yy, lw, 40, () => h.tick(u.addr), 'tick|' + u.addr, 14);
+        });
+        cv.text('Only with the engine off and the ignition on. Never while driving.', x, y + hh - 4, 15, C.amber, { literal: true });
+        // right: what happens, and the engine warning while the engine unit is ticked
+        const rx = x + lw + 36, rw = w - lw - 36;
+        UI.wrap(cv, 'Health saves the full report first (Share keeps it). Only the fault memory of the ticked units is cleared; a fault that is still there comes back at once.', 16, rw)
+            .slice(0, 3).forEach((ln, i) => cv.text(ln, rx, y + 14 + i * 24, 16, '#c8ced6', { literal: true }));
+        const by = y + 92, bh = hh - 92;
+        if (warning) {
+            cv.roundRect(rx, by, rw, bh, 16, [255, 186, 70, 22]);
+            cv.strokeRoundRect(rx, by, rw, bh, 16, 1.5, [255, 186, 70, 120]);
+            cv.text('ENGINE UNIT TICKED: READINESS GOES BACK TO NOT READY', rx + 18, by + 28, 14, C.amber, { font: 'bold', spacing: 1, literal: true });
+            UI.wrap(cv, warning, 15, rw - 36).slice(0, 7).forEach((ln, i) => cv.text(ln, rx + 18, by + 54 + i * 21, 15, C.text, { literal: true }));
+        } else if (units.some((u) => M.isEngine(u.addr))) {
+            UI.wrap(cv, 'The engine unit is not ticked: its faults, freeze frames and the emission readiness stay as they are.', 15, rw)
+                .forEach((ln, i) => cv.text(ln, rx, by + 24 + i * 21, 15, C.dim, { literal: true }));
+        }
+    };
+    return d;
+}
+
+/** The words after a clear: what came back, what was refused, and (engine unit cleared) that the readiness was reset. */
+function clearedText(back, failed, engine) {
+    let t = back.length ? 'Back at once: ' + back.map(M.unitName).join(', ') + '. ' + (back.length === 1 ? 'Its' : 'Their') + ' cause is still there: have it looked at.' : 'Nothing came back.';
+    if (failed && failed.length) t += '\n\nNot cleared: ' + failed.map((f) => M.unitName(f.addr) + ' (' + f.why + ')').join(', ') + '.';
+    if (engine) t += '\n\nThe engine unit was cleared, so its emission readiness is reset: the monitors show not ready until a drive cycle has run them again. Faults, Readiness shows each one, and History notes when they are ready again.';
+    return t;
 }
 
 /* ---------- Battery ---------- */
@@ -586,4 +681,4 @@ function draw(cv, S, V, A, t) {
     UI.overlay(cv, t);
 }
 
-module.exports = { draw, TABS, APP_ROWS, appRowsFor, overviewCards, addPartBody, info, helpTopics, MEMS };
+module.exports = { draw, TABS, APP_ROWS, appRowsFor, overviewCards, addPartBody, clearDialog, clearedText, info, helpTopics, MEMS };

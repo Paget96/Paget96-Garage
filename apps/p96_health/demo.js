@@ -51,6 +51,21 @@ const SNAPSHOT = {
     '801C20': { rows: [['Window', 'moving up'], ['Motor current', '0.0 A'], ['Door', 'closed'], ['Km', '47 880'], ['Battery', '12.4 V']] },
 };
 
+/**
+ * OBD readiness (I22) as a B48 engine unit answers 01 01 and 01 41: engine light off; misfire, fuel system, components,
+ * catalyst, evaporative system, oxygen sensors and their heaters, EGR / VVT; all ready but the evaporative system (the
+ * slowest, it needs a cold start after hours parked with the tank between a quarter and three quarters).
+ */
+function obd() {
+    return { r01: M.parseReadiness([0x41, 0x01, 0x00, 0x07, 0xE5, 0x04], 0x01),
+        r41: M.parseReadiness([0x41, 0x41, 0x00, 0x07, 0xE1, 0x80], 0x41, 'spark') };
+}
+/** The same right after the engine unit was cleared: every monitor not ready, the ones enabled this drive running. */
+function obdAfterClear() {
+    return { r01: M.parseReadiness([0x41, 0x01, 0x00, 0x07, 0xE5, 0xE5], 0x01),
+        r41: M.parseReadiness([0x41, 0x41, 0x00, 0x07, 0xE1, 0xE1], 0x41, 'spark') };
+}
+
 /** A daily series ending now: fn(i of n) per day. */
 const days = (now, n, fn) => { const out = []; for (let i = 0; i < n; i++) out.push([now - (n - 1 - i) * DAY, fn(i, n)]); return out; };
 
@@ -64,6 +79,7 @@ function state(now) {
         seen: SEEN,
         snapshots: SNAPSHOT,
         cc: 0,
+        obd: obd(),
         battery: {
             rest: 12.62, restAt: now - 3 * 3600000, startMin: 10.4, soc: 82,
             nights: days(now, 14, (i) => 12.64 + 0.03 * wob(i, 0.9, 0.3) - (i > 4 && i < 9 ? 0.04 : 0)),
@@ -102,6 +118,8 @@ function state(now) {
             { t: now - 2 * DAY, kind: 'warm', text: 'Charge air pressure fault stored' },
             { t: now - 9 * DAY, kind: 'warm', text: 'Rear left door fault stored' },
             { t: now - 21 * DAY, kind: 'warm', text: 'Rear left tyre started to lose air' },
+            { t: now - 29 * DAY, kind: 'ok', text: 'Catalyst monitor ready again' },
+            { t: now - 34 * DAY, kind: 'info', text: 'Fault memory cleared: Engine (DME), readiness reset' },
             { t: now - 42 * DAY, kind: 'ok', text: 'Oil service done, score +3' },
         ],
     };
@@ -113,4 +131,4 @@ function dueIn(now, n) {
     return ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
 }
 
-module.exports = { state, units, faultLog, SEEN, SNAPSHOT };
+module.exports = { state, units, faultLog, obd, obdAfterClear, SEEN, SNAPSHOT };

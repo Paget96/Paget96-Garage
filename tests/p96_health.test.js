@@ -208,7 +208,8 @@ test('gate: reads pass, everything else throws', () => {
     assert.throws(() => check(0x12, 0x11, [0x01], false, true));               // no resets
     assert.throws(() => check(0x12, 0x14, [0xFF, 0x00, 0x00], false, true));   // only the whole memory
     assert.throws(() => check(0xDF, 0x10, [0x03], true, true));                // no session change to all units
-    assert.strictEqual(check(0xDF, 0x14, [0xFF, 0xFF, 0xFF], true, true), 'clear');
+    assert.throws(() => check(0xDF, 0x14, [0xFF, 0xFF, 0xFF], true, true));     // never a clear to all units (I22)
+    assert.strictEqual(check(0x40, 0x14, [0xFF, 0xFF, 0xFF], false, true), 'clear');
     assert.strictEqual(check(0x60, 0x2E, M.resetRequest(0x01), false, true), 'cbs');
 });
 test('gate: no request while the screen is hidden; writes need a grant, a confirmation, the report and the engine off', async () => {
@@ -267,6 +268,132 @@ test('capabilities: what the car does not report is left out of items, score and
     none.caps = { cbs: true };
     M.derive(none, {});
     assert.ok(none.service.every((i) => !i.resettable), 'no reset before the cluster listed its items');
+});
+
+/* ---------- readiness and the clear dialog (I22) ---------- */
+test('readiness PID 01: engine light, emission fault count, spark monitors supported and complete', () => {
+    // MIL on, 2 faults; misfire, fuel, components supported, fuel not complete; catalyst, evap, O2, O2 heater, EGR/VVT supported, catalyst and evap not complete
+    const r = M.parseReadiness([0x41, 0x01, 0x82, 0x27, 0xE5, 0x05], 0x01);
+    assert.ok(r.ok);
+    assert.strictEqual(r.mil, true);
+    assert.strictEqual(r.dtcCount, 2);
+    assert.strictEqual(r.engine, 'spark');
+    assert.deepStrictEqual(r.monitors.map((m) => m.key), ['misfire', 'fuel', 'components', 'catalyst', 'evap', 'o2', 'o2Heater', 'egr']);
+    const by = {}; r.monitors.forEach((m) => { by[m.key] = m.complete; });
+    assert.deepStrictEqual(by, { misfire: true, fuel: false, components: true, catalyst: false, evap: false, o2: true, o2Heater: true, egr: true });
+    assert.ok(r.monitors.filter((m) => m.continuous).length === 3);
+    // engine light off, nothing supported but the continuous ones: only what the car has is listed
+    const r2 = M.parseReadiness([0x41, 0x01, 0x00, 0x07, 0x00, 0x00], 0x01);
+    assert.strictEqual(r2.mil, false);
+    assert.deepStrictEqual(r2.monitors.map((m) => m.key), ['misfire', 'fuel', 'components']);
+});
+test('readiness PID 01: a compression ignition engine names its own monitors', () => {
+    const r = M.parseReadiness([0x41, 0x01, 0x00, 0x0F, 0xC3, 0x40], 0x01);
+    assert.strictEqual(r.engine, 'compression');
+    assert.deepStrictEqual(r.monitors.filter((m) => !m.continuous).map((m) => m.key + (m.complete ? '+' : '-')), ['nmhc+', 'nox+', 'pm-', 'egr+']);
+});
+test('readiness: refusals and wrong replies give nothing; PID 41 shows this drive beside it', () => {
+    assert.ok(!M.parseReadiness([0x7F, 0x01, 0x12], 0x01).ok);
+    assert.ok(!M.parseReadiness([0x41, 0x41, 0, 0, 0, 0], 0x01).ok);
+    assert.ok(!M.parseReadiness(null, 0x01).ok);
+    assert.strictEqual(M.readiness(M.parseReadiness(null, 0x01), null), null);
+    const d = DEMO.obd(), r = M.readiness(d.r01, d.r41);
+    assert.strictEqual(r.total, 8);
+    assert.strictEqual(r.ready, 7);
+    assert.strictEqual(r.word, '1 NOT READY');
+    assert.strictEqual(r.color, 'warm');
+    const row = (k) => r.rows.filter((x) => x.key === k)[0];
+    assert.strictEqual(row('evap').drive, 'off');
+    assert.strictEqual(row('egr').drive, 'running');
+    assert.strictEqual(row('catalyst').drive, 'done');
+    const noDrive = M.readiness(d.r01, null);
+    assert.strictEqual(noDrive.drive, false);
+    assert.strictEqual(noDrive.rows[0].drive, null);
+});
+test('readiness: never part of the score; History gets reset, ready again and the engine light', () => {
+    const s = DEMO.state(Date.now());
+    M.derive(s, {}, () => 'x');
+    const before = s.score.value;
+    s.obd = DEMO.obdAfterClear();
+    M.derive(s, {}, () => 'x');
+    assert.strictEqual(s.score.value, before);
+    assert.ok(s.score.checks.every((c) => c.key !== 'readiness'));
+    assert.ok(/Readiness: 3 of 8 ready \(not: catalyst/.test(s.report), s.report);
+    const d = DEMO.obd(), after = M.readiness(DEMO.obdAfterClear().r01), now = M.readiness(d.r01);
+    assert.deepStrictEqual(M.readinessChanges(now, after).map((c) => c.text), ['Readiness reset: 4 monitors not ready']);
+    assert.deepStrictEqual(M.readinessChanges(after, now).map((c) => c.text).slice(0, 2), ['Catalyst monitor ready again', 'Oxygen sensors monitor ready again']);
+    const all = M.readiness(M.parseReadiness([0x41, 0x01, 0x00, 0x07, 0xE5, 0x00], 0x01));
+    assert.deepStrictEqual(M.readinessChanges(now, all).map((c) => c.text), ['All readiness monitors ready again']);
+    const mil = M.readiness(M.parseReadiness([0x41, 0x01, 0x81, 0x07, 0xE5, 0x04], 0x01));
+    assert.deepStrictEqual(M.readinessChanges(now, mil).map((c) => c.text), ['Engine light came on']);
+    assert.deepStrictEqual(M.readinessChanges(null, now), []);
+});
+test('clear dialog: the engine unit is not ticked, also not by All but the engine; the others are', () => {
+    const units = DEMO.units().filter((u) => u.dtcs.some((d) => d.mem === 'fault'));
+    units.push({ addr: 0x13, dtcs: [{ code: '111111', status: 8, mem: 'fault' }] }, { addr: 0x29, dtcs: [{ code: '222222', status: 8, mem: 'info' }] });
+    assert.deepStrictEqual(M.clearDefaults(units), [0x40]);
+    assert.ok(M.isEngine(0x12) && M.isEngine(0x13) && !M.isEngine(0x40));
+    assert.strictEqual(M.clearWarning([0x40]), null);
+    assert.strictEqual(M.clearWarning([]), null);
+    assert.ok(/not ready/.test(M.clearWarning([0x40, 0x12])) && /drive cycle/.test(M.clearWarning([0x12])));
+    assert.ok(/should not be cleared/.test(M.CLEAR_ENGINE_WARNING));
+});
+/** A stand-in canvas that keeps every text drawn and every target. */
+function textCanvas() {
+    const texts = [], targets = [];
+    const cv = new Proxy({ textScale: 1, w: 1600, h: 520 }, { get: (o, k) => {
+        if (k in o) return o[k];
+        if (k === 'text') return (s) => { texts.push(String(s)); return String(s).length * 8; };
+        if (k === 'textWidth') return (s, size) => String(s).length * (size || 16) * 0.5;
+        if (k === 'target') return (x, y, w, h, fn, key) => targets.push({ key: key, fn: fn });
+        if (k === 'targets') return targets;
+        return () => 0;
+    } });
+    return { cv: cv, texts: texts, targets: targets };
+}
+test('clear dialog drawn: the warning only while the engine unit is ticked; ticking it, All but the engine', () => {
+    const VIEW = require(path.join(APP, 'view'));
+    const UI = require(path.join(__dirname, '..', 'lib', 'ui'));
+    const units = DEMO.units().filter((u) => u.dtcs.some((d) => d.mem === 'fault'));
+    let ticked = M.clearDefaults(units);
+    const h = { tick: (a) => { ticked = ticked.indexOf(a) >= 0 ? ticked.filter((x) => x !== a) : ticked.concat([a]); },
+        all: () => { ticked = M.clearDefaults(units); }, cancel: () => {}, run: () => {} };
+    const drawn = () => { const c = textCanvas(); UI.dialog(c.cv, VIEW.clearDialog(units, ticked, h), 0, { a: 1 }); return c; };
+    const warned = (c) => c.texts.some((t) => /READINESS GOES BACK/.test(t));
+    let c = drawn();
+    assert.deepStrictEqual(ticked, [0x40]);
+    assert.ok(!warned(c), 'no warning while the engine unit is not ticked');
+    assert.ok(c.texts.indexOf('needs its own tick') >= 0);
+    assert.ok(c.texts.indexOf('Clear 1 fault in 1 unit?') >= 0, c.texts.join('|'));
+    c.targets.filter((q) => q.key === 'tick|' + 0x12)[0].fn();
+    c = drawn();
+    assert.ok(warned(c), 'the warning shows once the engine unit is ticked');
+    assert.ok(c.texts.indexOf('Clear 2 faults in 2 units?') >= 0);
+    c.targets.filter((q) => q.key === 'clearall')[0].fn();
+    c = drawn();
+    assert.deepStrictEqual(ticked, [0x40]);
+    assert.ok(!warned(c));
+    c.targets.filter((q) => q.key === 'tick|' + 0x40)[0].fn();
+    c = drawn();
+    assert.ok(c.texts.indexOf('Tick the units to clear') >= 0);
+    assert.ok(!c.targets.some((q) => q.key === 'p96dlg|1'), 'Yes, clear cannot be pressed with nothing ticked');
+    assert.ok(/readiness is reset/.test(VIEW.clearedText([], [], true)) && !/readiness/.test(VIEW.clearedText([0x40], [], false)));
+});
+test('clear goes to each ticked unit, never to all units at once; readiness reads only 01 01 / 01 41', async () => {
+    const sent = [];
+    const fake = { proxy: async () => ({}), on: async () => {}, onAvailable: async (p, fn) => fn(true),
+        call: async (p, m, a) => { sent.push([a.targetAddress, a.serviceID].concat(Array.from(a.udsData))); return 'NO_ERROR'; } };
+    const quiet = { info() {}, warn() {}, error() {} };
+    const link = new HealthLink(fake, quiet, { engineStopped: () => true });
+    await link.init();
+    link.setShown(true);
+    const g = link.grant('clear', { confirmed: true, reportSaved: true });
+    const res = await Promise.race([link.clearFaults(g, [0x40]), new Promise((r) => setTimeout(() => r('timeout'), 30000))]);
+    assert.ok(sent.length > 0, 'the clear went out');
+    assert.ok(sent.every((q) => q[0] === 0x40), 'only to the ticked unit: ' + JSON.stringify(sent));
+    assert.ok(sent.some((q) => q[1] === 0x14));
+    assert.ok(res === 'timeout' || res.failed.length === 1);
+    assert.throws(() => link.readReadiness(0x02), /PID 01 or 41/);
 });
 
 (async () => {

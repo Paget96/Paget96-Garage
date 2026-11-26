@@ -83,6 +83,8 @@ const popupOnly = (rec) => { if (rec.targets.map((q) => q.key).join(',') !== 'p9
 const S0 = state();
 const clearUnits = S0.units.filter((u) => u.dtcs.some((d) => d.mem === 'fault'));
 const dlg = (d) => { V.dialog = { d: d, open: true, a: 1 }; };
+/** The Clear faults dialog as the app builds it, with these units ticked (default: as it opens, the engine unit not ticked). */
+const clearDlg = (ticked) => VIEW.clearDialog(clearUnits, ticked || M.clearDefaults(clearUnits), { tick: noop, all: noop, cancel: noop, run: noop });
 
 if (!gifDir) {
     // pages
@@ -92,20 +94,16 @@ if (!gifDir) {
     shot('faults-permanent', () => { V.page = 1; V.mem = 'perm'; });
     shot('faults-history', () => { V.page = 1; V.mem = 'history'; });
     shot('faults-unit', () => { V.page = 1; V.unit = 0x40; });
+    shot('faults-readiness', () => { V.page = 1; V.mem = 'ready'; });
     shot('fault-details', () => { V.page = 1; V.detail = M.listOf(S0.units, 'fault')[0]; });
-    shot('clear', () => {
-        V.page = 1;
-        dlg({ label: 'Clear fault memory', labelColor: 'bad', h: 400, title: 'Clear 2 faults in 2 units?',
-            text: 'Before clearing, Health saves the full report (Share keeps it), so your mechanic can still see what was there.\n\nOnly the fault memory is cleared. Info memory and permanent emission faults stay. A fault that is still there comes back at once, and Health shows you which ones did.',
-            note: 'Only with the engine off and the ignition on. Never while driving.',
-            chips: clearUnits.map((u) => ({ text: M.unitName(u.addr) + '  1' })),
-            buttons: [{ label: 'Cancel', run: noop }, { label: 'Yes, clear', kind: 'bad', run: noop }] });
-    }, onlyDialogButtons(2));
+    // the clear dialog: its two buttons, "All but the engine" and one tick per unit stay pressable
+    shot('clear', () => { V.page = 1; dlg(clearDlg()); }, onlyDialogButtons(2 + 1 + clearUnits.length));
+    shot('clear-engine', () => { V.page = 1; dlg(clearDlg(clearUnits.map((u) => u.addr))); }, onlyDialogButtons(2 + 1 + clearUnits.length));
     shot('cleared', () => {
         V.page = 1;
-        dlg({ label: 'Fault memory cleared', labelColor: 'warm', h: 330, title: 'Cleared 2 of 2 units',
-            text: 'Back at once: Engine (DME). Their cause is still there: have it looked at.', buttons: [{ label: 'OK', kind: 'primary', run: noop }] });
-    }, onlyDialogButtons(1));
+        dlg({ label: 'Fault memory cleared', labelColor: 'warm', h: 420, title: 'Cleared 2 of 2 units', text: VIEW.clearedText([0x12], [], true),
+            buttons: [{ label: 'OK', run: noop }, { label: 'See readiness', kind: 'primary', run: noop }] });
+    }, onlyDialogButtons(2));
     shot('service-add', () => {
         V.page = 3;
         const d = { label: 'Add a part', title: 'Pick what you plan to change', w: 1080, h: 460, pick: ['Air filter', 'Cabin filter'] };
@@ -126,11 +124,11 @@ if (!gifDir) {
     shot('help', () => { V.mode = 'help'; });
     shot('settings', () => { V.mode = 'settings'; });
     // every info popup, from the page its card is on
-    const PAGE_OF = { score: 0, faults: 0, battery12: 0, oil: 0, service: 0, tyres: 0, cc: 0, byUnit: 1, memories: 1, timeline: 1, rest: 2, start: 2, charge: 2,
+    const PAGE_OF = { score: 0, faults: 0, battery12: 0, oil: 0, service: 0, tyres: 0, cc: 0, byUnit: 1, memories: 1, timeline: 1, readiness: 1, rest: 2, start: 2, charge: 2,
         verdict: 2, nights: 2, cbs: 3, ours: 3, parts: 3, pressure: 4, trend: 4, levels: 5, warmup: 5, hist: 6, changes: 6, qr: 7 };
     fs.mkdirSync(path.join(out, 'popups'), { recursive: true });
     Object.keys(T.INFO).forEach((k) => {
-        Object.assign(V, { page: PAGE_OF[k] || 0, mode: 'main', mem: k === 'timeline' ? 'history' : 'fault', dialog: null, detail: null });
+        Object.assign(V, { page: PAGE_OF[k] || 0, mode: 'main', mem: k === 'timeline' ? 'history' : k === 'readiness' ? 'ready' : 'fault', dialog: null, detail: null });
         UI.closeInfo(); settle(300);
         UI.openInfo(VIEW.info(k));
         settle(2600);
@@ -165,13 +163,12 @@ if (!gifDir) {
     V.page = 1; take(1.6);
     V.detail = M.listOf(S1.units, 'fault')[0]; take(1.6);
     V.detail = null; V.mem = 'history'; take(1.6);
+    V.mem = 'ready'; take(1.8);
     V.mem = 'fault';
-    dlg({ label: 'Clear fault memory', labelColor: 'bad', h: 400, title: 'Clear 2 faults in 2 units?',
-        text: 'Before clearing, Health saves the full report (Share keeps it), so your mechanic can still see what was there.\n\nOnly the fault memory is cleared. Info memory and permanent emission faults stay.',
-        note: 'Only with the engine off and the ignition on. Never while driving.', chips: clearUnits.map((u) => ({ text: M.unitName(u.addr) + '  1' })),
-        buttons: [{ label: 'Cancel', run: noop }, { label: 'Yes, clear', kind: 'bad', run: noop }] });
+    dlg(clearDlg());
     const fadeIn = (secs) => { const steps = secs * 12.5; for (let i = 0; i < steps; i++) { V.dialog.a = Math.min(1, (i + 1) / 3); take(0.08); } };
-    fadeIn(1.8);
+    fadeIn(1.6);
+    V.dialog.d = clearDlg(clearUnits.map((u) => u.addr)); take(2.0);
     V.dialog = null;
     V.page = 2; take(1.4);
     UI.openInfo(VIEW.info('rest')); take(3.4); UI.closeInfo(); take(0.4);

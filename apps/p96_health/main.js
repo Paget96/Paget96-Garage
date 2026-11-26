@@ -14,13 +14,14 @@
  *     CheckControlMaster basicList (the messages on now)
  *   diagnostic requests, only while the screen is shown (diaglink.js checks every one):
  *     19 02 / 19 17 to all units (fault and info memory), 0A to the engine (permanent emission faults), 19 03 / 04 /
- *     06 for an opened fault; 22 5853 (12 V voltage), 22 5811 (oil level), 22 4404 (oil km), 22 4163 (spark plug
+ *     06 for an opened fault; 01 01 / 01 41 (OBD readiness, only while the Faults page is shown); 22 5853 (12 V voltage), 22 5811 (oil level), 22 4404 (oil km), 22 4163 (spark plug
  *     km) from the engine unit; 22 1001 / 1002 from the cluster before a service reset
  * The 12 V resting voltage has no broadcast signal: Health reads it the first time the screen is shown after the car
  * slept (setting Nightly battery check), never in the background.
  *
  * Writes (D19, D20), each only on a tap and its confirmation, with the engine off, never by itself:
- *   Clear faults    the report is saved first, then 14 FF FF FF, then a new scan shows what came back
+ *   Clear faults    the units the user ticked (the engine unit never ticked for him, I22), the report saved first,
+ *                   then 14 FF FF FF to each, a new scan shows what came back
  *   Reset (Service) one of the car's own service items, when the cluster allows it, then the item read again
  *
  * Reminders (I11): the app has no way to put up a notification (FINDINGS), so a service that comes near shows on
@@ -53,7 +54,7 @@ mgu.run({
         let P = {};
         try { P = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { /* first start */ }
         P = Object.assign({ log: {}, nights: [], starts: [], socHist: [], cold: {}, km: 0, done: {}, parts: [], partsOff: [], scores: [],
-            changes: [], seen: {}, reminded: {}, lastDriveEnd: null, warm: null, rest: null, restAt: null, startMin: null, caps: {}, carKey: 'car' }, P);
+            changes: [], seen: {}, reminded: {}, obd: null, readyLast: null, lastDriveEnd: null, warm: null, rest: null, restAt: null, startMin: null, caps: {}, carKey: 'car' }, P);
         /** What this car supports, remembered per car (by its VIN, read from the engine unit when the screen first shows). */
         const caps = () => (P.caps[P.carKey] = P.caps[P.carKey] || {});
         const found = (k, yes) => { if (M.found(caps(), k, yes)) { save(); changed(); } };
@@ -331,6 +332,36 @@ mgu.run({
             } catch (e) { log.warn('engine values: ' + e); }
             changed();
         }
+        /** OBD readiness (I22), read only through ReadOnlyDiag, only while the Faults page is shown: PID 01 and, when the
+         * car answers it, PID 41. What changed since the last read goes to History. */
+        async function readReadiness() {
+            if (useDemo() || !shown || V.page !== 1 || readingReady || caps().readiness === false) return;
+            readingReady = true;
+            try {
+                await getLink();
+                const r01 = M.parseReadiness(await link.readReadiness(0x01), 0x01);
+                found('readiness', r01.ok);
+                if (!r01.ok) return;
+                let r41 = null;
+                if (caps().readinessDrive !== false) {
+                    r41 = M.parseReadiness(await link.readReadiness(0x41), 0x41, r01.engine);
+                    found('readinessDrive', r41.ok);
+                }
+                P.obd = { r01: r01, r41: r41 && r41.ok ? r41 : null, at: Date.now() };
+                const now = M.readiness(r01, r41);
+                M.readinessChanges(P.readyLast, now).forEach((c) => change(c.kind, c.text));
+                P.readyLast = { mil: now.mil, rows: now.rows.map((r) => ({ key: r.key, complete: r.complete })), ready: now.ready, total: now.total };
+                save();
+            } catch (e) { log.warn('readiness: ' + e); } finally { readingReady = false; changed(); }
+        }
+        let readingReady = false, readyTimer = null;
+        /** Reads the readiness now and every 15 s while the Faults page is shown; stops when it is left. */
+        function watchReadiness() {
+            const on = shown && V.page === 1;
+            if (on && !readyTimer) { readReadiness(); readyTimer = setInterval(readReadiness, 15000); }
+            if (!on && readyTimer) { clearInterval(readyTimer); readyTimer = null; }
+        }
+
         /** One resting voltage a night (the first after the car slept), into the 14 night chart. */
         function restReading(v) {
             const now = Date.now(), day = Math.floor(now / DAY), last = P.nights[P.nights.length - 1];
@@ -398,7 +429,7 @@ mgu.run({
                     pressures: live.pressures, cold: P.cold, coldNow: P.lastDriveEnd && now - P.lastDriveEnd > REST_AFTER,
                     fluids: { oilCl: live.oilCl, oilTemp: live.oil, coolantTemp: live.coolant, coolantLow: coolantLow, washerLow: washerLow },
                     warm: P.warm ? { oil: P.warm.oil, coolant: P.warm.coolant, minutes: Math.max(1, P.warm.oil.length / 2), when: M.ago(P.warm.at, now) } : null,
-                    scores: P.scores, changes: P.changes,
+                    scores: P.scores, changes: P.changes, obd: P.obd,
                 };
             }
             M.derive(S, vals, T.faultShort);
@@ -445,7 +476,7 @@ mgu.run({
         }
 
         const A = {
-            tab: (i) => { V.page = i; V.detail = null; changed(); },
+            tab: (i) => { V.page = i; V.detail = null; watchReadiness(); changed(); },
             mem: (m) => { V.mem = m; V.first = 0; V.detail = null; changed(); },
             unit: (a) => { V.unit = V.unit === a ? null : a; V.first = 0; V.detail = null; if (V.mem === 'history') V.mem = 'fault'; changed(); },
             scroll: (d) => { V.first = Math.max(0, V.first + d); changed(); },
@@ -477,15 +508,20 @@ mgu.run({
             },
             askClear: () => {
                 const units = (S.units || []).filter((u) => u.dtcs.some((d) => d.mem === 'fault'));
-                const n = units.reduce((a, u) => a + u.dtcs.filter((d) => d.mem === 'fault').length, 0);
-                if (!n) return okDialog('Clear fault memory', 'Nothing to clear', 'No unit holds a fault in its fault memory.', 'ok');
-                openDialog({ label: 'Clear fault memory', labelColor: 'bad', h: 400,
-                    title: 'Clear ' + n + (n === 1 ? ' fault' : ' faults') + ' in ' + units.length + (units.length === 1 ? ' unit?' : ' units?'),
-                    text: 'Before clearing, Health saves the full report (Share keeps it), so your mechanic can still see what was there.\n\n' +
-                        'Only the fault memory is cleared. Info memory and permanent emission faults stay. A fault that is still there comes back at once, and Health shows you which ones did.',
-                    note: 'Only with the engine off and the ignition on. Never while driving.',
-                    chips: units.slice(0, 4).map((u) => ({ text: M.unitName(u.addr) + '  ' + u.dtcs.filter((d) => d.mem === 'fault').length })),
-                    buttons: [{ label: 'Cancel', run: closeDialog }, { label: 'Yes, clear', kind: 'bad', run: () => doClear(units) }] });
+                if (!units.length) return okDialog('Clear fault memory', 'Nothing to clear', 'No unit holds a fault in its fault memory.', 'ok');
+                // every unit with a fault is ticked, except the engine unit: it needs its own tick (I22)
+                let ticked = M.clearDefaults(units);
+                const h = {
+                    tick: (a) => { ticked = ticked.indexOf(a) >= 0 ? ticked.filter((x) => x !== a) : ticked.concat([a]); show(); },
+                    all: () => { ticked = M.clearDefaults(units); show(); },
+                    cancel: closeDialog,
+                    run: () => doClear(units.filter((u) => ticked.indexOf(u.addr) >= 0)),
+                };
+                const show = () => {
+                    const d = VIEW.clearDialog(units, ticked, h);
+                    if (V.dialog && V.dialog.open && V.dialog.d.ticked) { V.dialog.d = d; changed(); } else openDialog(d);
+                };
+                show();
             },
             askReset: (it) => askReset(it),
             askDone: (o) => askDone(o),
@@ -519,11 +555,20 @@ mgu.run({
 
         /** D19: the report saved, a grant (engine off, confirmed), 14 FF FF FF, a new scan, what came back. */
         async function doClear(units) {
+            const engine = units.some((u) => M.isEngine(u.addr));
+            const names = units.map((u) => M.unitName(u.addr));
+            const what = 'Fault memory cleared: ' + names.slice(0, 2).join(', ') + (names.length > 2 ? ' and ' + (names.length - 2) + ' more' : '') + (engine ? ', readiness reset' : '');
             if (useDemo()) {
                 openDialog({ label: 'Clear fault memory', labelColor: 'info', title: 'Clearing...', text: 'Demo data: nothing is sent to the car.', h: 300, buttons: [] });
                 await new Promise((r) => setTimeout(r, 900));
-                demo.units.forEach((u) => { u.dtcs = u.dtcs.filter((d) => d.mem !== 'fault' || u.addr === 0x12); });
-                return okDialog('Cleared (demo)', 'Cleared 2 units', 'Back at once: Engine (DME) 1 fault. Its cause is still there: have it looked at.', 'warm');
+                const picked = units.map((u) => u.addr);
+                demo.units.forEach((u) => { if (picked.indexOf(u.addr) >= 0) u.dtcs = u.dtcs.filter((d) => d.mem !== 'fault' || u.addr === 0x12); });
+                if (engine) demo.obd = DEMO.obdAfterClear();
+                demo.changes.unshift({ t: Date.now(), kind: 'info', text: what });
+                return openDialog({ label: 'Cleared (demo)', labelColor: 'warm', h: engine ? 420 : 330, title: 'Cleared ' + units.length + (units.length === 1 ? ' unit' : ' units'),
+                    text: VIEW.clearedText(engine ? [0x12] : [], [], engine),
+                    buttons: engine ? [{ label: 'OK', run: closeDialog }, { label: 'See readiness', kind: 'primary', run: () => { closeDialog(); A.tab(1); A.mem('ready'); } }]
+                        : [{ label: 'OK', kind: 'primary', run: closeDialog }] });
             }
             if (!engineStopped()) return okDialog('Not cleared', 'Switch the engine off first', 'Clearing works only with the engine off and the ignition on, and never while driving.', 'warm');
             try { saveReport(); } catch (e) { return okDialog('Not cleared', 'The report could not be saved', String(e.message || e) + '\n\nNothing was cleared.', 'bad'); }
@@ -536,12 +581,17 @@ mgu.run({
             } catch (e) { log.warn('clear: ' + e); return okDialog('Not cleared', 'Nothing was cleared', String(e.message || e), 'bad'); }
             M.markCleared(P.log, Date.now());
             log.info('clear: ' + res.cleared.length + ' cleared, ' + res.failed.length + ' not');
+            const engineCleared = res.cleared.some(M.isEngine);
+            if (res.cleared.length) change('info', what.replace(', readiness reset', '') + (engineCleared ? ', readiness reset' : ''));
             await new Promise((r) => setTimeout(r, 1500));
             await scan();
-            const back = (live.units || []).filter((u) => res.cleared.indexOf(u.addr) >= 0 && u.dtcs.some((d) => d.mem === 'fault'));
-            const text = (back.length ? 'Back at once: ' + back.map((u) => M.unitName(u.addr)).join(', ') + '. Their cause is still there: have it looked at.' : 'Nothing came back.') +
-                (res.failed.length ? '\n\nNot cleared: ' + res.failed.map((f) => M.unitName(f.addr) + ' (' + f.why + ')').join(', ') + '.' : '');
-            okDialog('Fault memory cleared', 'Cleared ' + res.cleared.length + ' of ' + units.length + (units.length === 1 ? ' unit' : ' units'), text, back.length || res.failed.length ? 'warm' : 'ok');
+            if (engineCleared) await readReadiness();
+            const back = (live.units || []).filter((u) => res.cleared.indexOf(u.addr) >= 0 && u.dtcs.some((d) => d.mem === 'fault')).map((u) => u.addr);
+            const text = VIEW.clearedText(back, res.failed, engineCleared);
+            openDialog({ label: 'Fault memory cleared', labelColor: back.length || res.failed.length || engineCleared ? 'warm' : 'ok', h: engineCleared ? 420 : 330,
+                title: 'Cleared ' + res.cleared.length + ' of ' + units.length + (units.length === 1 ? ' unit' : ' units'), text: text,
+                buttons: engineCleared && M.has(caps(), 'readiness') ? [{ label: 'OK', run: closeDialog }, { label: 'See readiness', kind: 'primary', run: () => { closeDialog(); A.tab(1); A.mem('ready'); } }]
+                    : [{ label: 'OK', kind: 'primary', run: closeDialog }] });
         }
 
         /** D20: is the item one Health resets, does the cluster allow it now, then the confirmation. */
@@ -680,6 +730,7 @@ mgu.run({
             link.setShown(on);
             watchShown(on);
             probeStart(on);
+            watchReadiness();
             clearInterval(engineTimer); engineTimer = null;
             if (on) {
                 getLink().then(() => {

@@ -6,14 +6,17 @@
  *
  * Reads (any time the app's screen is shown, never in the background):
  *   22 <DID>        one value from one unit           kit readonly-diag.js (ReadOnlyDiag), untouched
+ *   01 01 / 01 41   OBD readiness (since the clear / this drive), the engine unit only, also through ReadOnlyDiag
  *   19 02 / 19 17   fault memory / info memory        to all units (0xDF), as BMW's teleservice reads them
  *   19 03 / 04 / 06 a fault's snapshot list, one snapshot (freeze frame), its extended data: one unit
  *   0A              OBD permanent emission faults     the engine unit only
  *
  * The two writes the owner approved (D19, D20), each only with a grant (grant() below): made by a tap and its
  * confirmation, single use, good for 15 s, and only while the engine is off (engine speed 0, checked again here):
- *   clear     14 FF FF FF   the fault memory, to all units, then to each unit that did not confirm; a unit that
- *                           refuses for its session is asked once more in the extended session (10 03, back to 10 01)
+ *   clear     14 FF FF FF   the fault memory of the units the user ticked, one by one (never to all units at once:
+ *                           that would also clear the engine unit, and with it the readiness, when it was not ticked);
+ *                           a unit that refuses for its session is asked once more in the extended session (10 03,
+ *                           back to 10 01)
  *   cbsReset  2E 10 01 ..   one service item in the instrument cluster (0x60), when its own 22 10 02 allows it
  *
  * Anything else throws before it reaches the transport. The kit's readonly-diag.js has no fault reads (19), so the
@@ -50,6 +53,7 @@ function check(target, sid, data, functional, write) {
     if (!write) throw new Error('health: service ' + sid.toString(16) + ' is not a read');
     if (sid === 0x14) {
         if (data.length !== 3 || data[0] !== 0xFF || data[1] !== 0xFF || data[2] !== 0xFF) throw new Error('health: only 14 FF FF FF');
+        if (functional) throw new Error('health: a clear goes to one unit, never to all at once');
         return 'clear';
     }
     if (sid === 0x10) {
@@ -113,6 +117,12 @@ class HealthLink {
         const params = mem === 'info' ? [0x17, mask, 0x01] : [0x02, mask];
         return this._send('read', ALL, 0x19, params, { onReply: onReply }).then((m) => ({ params: params, replies: m }));
     }
+    /** OBD readiness from the engine unit, read only: PID 0x01 (since the last clear) or 0x41 (this drive). The reply or null. */
+    readReadiness(pid) {
+        this._gate();
+        if (pid !== 0x01 && pid !== 0x41) throw new Error('health: readiness is PID 01 or 41');
+        return PRIVATE.get(this).ro.physical(ENGINE, 0x01, [pid], 1500, (u) => (u[0] === 0x41 && u[1] === pid) || (u[0] === 0x7F && u[1] === 0x01));
+    }
     /** OBD permanent faults (0A) from the engine unit: the reply or null. */
     readPermanent() { return this._send('read', ENGINE, 0x0A, []); }
     /** What one unit kept about one fault: its snapshot ids, the first snapshot (freeze frame), the extended data. */
@@ -152,18 +162,15 @@ class HealthLink {
     }
 
     /**
-     * Clears the fault memory of `units` (addresses with faults): first to all units at once, then each that did not
-     * confirm. Resolves { cleared: [addr], failed: [{ addr, why }] }. The grant is used up.
+     * Clears the fault memory of `units` (the addresses the user ticked), each on its own: a request to all units would
+     * clear the ones left unticked too. Resolves { cleared: [addr], failed: [{ addr, why }] }. The grant is used up.
      */
     async clearFaults(grant, units) {
         this._use(grant, 'clear');
         const cleared = [], failed = [];
         try {
-            let all = new Map();
-            try { all = await this._send('clear', ALL, 0x14, [0xFF, 0xFF, 0xFF], { idleMs: 5000 }, grant); } catch (e) { this.log.warn('clear all: ' + e); }
             for (const a of units) {
-                const r0 = all.get(a);
-                if (r0 && r0[0] === 0x54) { cleared.push(a); continue; }
+                if (a === ALL) throw new Error('health: clear one unit at a time');
                 const ask = () => this._send('clear', a, 0x14, [0xFF, 0xFF, 0xFF], { timeoutMs: 8000 }, grant);
                 let r = (await ask()) || (await ask());
                 if (r && r[0] === 0x7F && [0x22, 0x31, 0x33, 0x7E, 0x7F].indexOf(r[2]) >= 0) {

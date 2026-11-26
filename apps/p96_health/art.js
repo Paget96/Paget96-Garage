@@ -199,13 +199,40 @@ function cc(cv, x, y, w, h, t) {
     }
 }
 
-const ART = { rest: rest, start: start, score: score, faults: faults, tyre: tyre, warm: warm, cbs: cbs, qr: qr, oil: oil, cc: cc };
+/**
+ * Readiness: a drive along a road (cold start, town, steady), the monitors turning ready one by one; then a clear of the
+ * engine unit sets them all back to not ready, and the loop starts again.
+ */
+function ready(cv, x, y, w, h, t) {
+    const mons = [['Catalyst', 0.55], ['Oxygen sensors', 0.35], ['O2 heaters', 0.15], ['Evap system', 0.8], ['EGR / VVT', 0.45], ['Misfire', 0.05]];
+    const p = loop(t, 7), drive = Math.min(1, p / 0.82), cleared = p > 0.86;
+    // the road with the car on it
+    const rx = x + 40, rw = w - 80, ry = y + 56;
+    UI.curve(cv, [[rx, ry], [rx + rw, ry]], 6, '#30343c');
+    ['cold start', 'town', 'steady', 'idle'].forEach((s, i) => cv.text(s, rx + rw * (0.06 + i * 0.29), ry + 30, 13, DIM, { align: 'center', literal: true }));
+    const cx = rx + rw * (cleared ? 0 : drive);
+    cv.roundRect(cx - 18, ry - 13, 36, 20, 8, C.orange);
+    cv.circle(cx - 9, ry + 8, 5, '#141414'); cv.circle(cx + 9, ry + 8, 5, '#141414');
+    // the monitors
+    mons.forEach((m, i) => {
+        const col = i % 2, row = Math.floor(i / 2), mx = x + 40 + col * (w - 80) / 2, my = y + 120 + row * 54;
+        const on = !cleared && drive >= m[1];
+        cv.roundRect(mx, my, (w - 80) / 2 - 16, 42, 14, on ? '#1e3a2a' : '#2a2620');
+        cv.circle(mx + 22, my + 21, 7, on ? C.green : C.amber);
+        cv.text(m[0], mx + 40, my + 27, 15, C.text, { literal: true });
+        cv.text(on ? 'READY' : 'NOT READY', mx + (w - 80) / 2 - 32, my + 27, 13, on ? C.green : C.amber, { font: 'bold', align: 'right', literal: true });
+    });
+    cv.text(cleared ? 'engine unit cleared: all back to not ready' : drive >= 0.8 ? 'all ready' : 'driving: each self-test runs when its conditions come',
+        x + w / 2, y + h - 22, 14, cleared ? C.amber : drive >= 0.8 ? C.green : DIM, { align: 'center', literal: true });
+}
+
+const ART = { ready: ready, rest: rest, start: start, score: score, faults: faults, tyre: tyre, warm: warm, cbs: cbs, qr: qr, oil: oil, cc: cc };
 /** The art a card's info uses when it names none. */
 const BY_INFO = {
     score: 'score', hist: 'score', changes: 'score', faults: 'faults', byUnit: 'faults', memories: 'faults', timeline: 'faults',
     battery12: 'rest', rest: 'rest', nights: 'rest', verdict: 'rest', charge: 'rest', start: 'start', oil: 'oil', levels: 'oil',
     service: 'cbs', cbs: 'cbs', ours: 'cbs', parts: 'cbs', tyres: 'tyre', pressure: 'tyre', trend: 'tyre', warmup: 'warm',
-    cc: 'cc', qr: 'qr',
+    cc: 'cc', qr: 'qr', readiness: 'ready',
 };
 function artFor(key, info) { return ART[(info && info.art) || BY_INFO[key]] || score; }
 

@@ -10,6 +10,8 @@
  *   battery     the verdict on the resting voltage
  *   service     the car's CBS list (KombiInterface_2 cbsDataServiceList) as items with what is left
  *   tyres       a slow leak from the daily cold pressures
+ *   readiness   OBD 01 PID 01 / 41 (SAE J1979): the engine light and the emission monitors, ready or not
+ *   clear       which units the Clear faults dialog ticks, and its engine unit warning
  *   report      the plain-text report the Share page puts in a QR code
  *
  * Node 8: no optional chaining, no ??, no object spread.
@@ -428,6 +430,111 @@ function score(inp) {
 }
 
 
+/* ---------- OBD readiness (I22): service 01, PID 01 and PID 41, as SAE J1979 lays them out ---------- */
+
+/**
+ * The monitors, by their bit. Byte B bits 0 to 2 are the continuous ones (misfire, fuel system, components), bits 4 to 6
+ * their "not complete" flags; bit 3 is the engine type (0 spark, 1 compression). Bytes C and D: the other monitors,
+ * C "supported" (PID 41: "enabled this drive"), D "not complete", with their meaning by engine type.
+ */
+const READY_CONT = [['misfire', 'Misfire'], ['fuel', 'Fuel system'], ['components', 'Components']];
+const READY_SPARK = [['catalyst', 'Catalyst'], ['heatedCat', 'Heated catalyst'], ['evap', 'Evaporative system'], ['secAir', 'Secondary air'],
+    ['ac', 'A/C refrigerant'], ['o2', 'Oxygen sensors'], ['o2Heater', 'Oxygen sensor heaters'], ['egr', 'EGR / VVT']];
+const READY_DIESEL = [['nmhc', 'NMHC catalyst'], ['nox', 'NOx aftertreatment'], null, ['boost', 'Boost pressure'],
+    null, ['exhaustSensor', 'Exhaust gas sensor'], ['pm', 'Particulate filter'], ['egr', 'EGR / VVT']];
+
+/**
+ * A reply to 01 01 (pid 0x01) or 01 41 (pid 0x41): 41 <pid> A B C D. Returns { ok, pid, mil, dtcCount, engine
+ * ('spark' or 'compression'), monitors: [{ key, name, continuous, on, complete }] } with only the monitors this car has
+ * (PID 01: supported; PID 41: all it lists, on = enabled this drive). engine: the type from PID 01, for PID 41 replies.
+ */
+function parseReadiness(uds, pid, engine) {
+    const out = { ok: false, pid: pid, mil: null, dtcCount: null, engine: engine || 'spark', monitors: [] };
+    if (!uds || uds.length < 6 || uds[0] !== 0x41 || uds[1] !== pid) return out;
+    const A = uds[2], B = uds[3], C = uds[4], D = uds[5];
+    out.ok = true;
+    if (pid === 0x01) {
+        out.mil = !!(A & 0x80);
+        out.dtcCount = A & 0x7F;
+        out.engine = B & 0x08 ? 'compression' : 'spark';
+    }
+    const first = pid === 0x41;            // PID 41 lists every monitor the car has, enabled or not
+    READY_CONT.forEach((m, i) => {
+        const on = !!(B & (1 << i));
+        if (on || first) out.monitors.push({ key: m[0], name: m[1], continuous: true, on: on, complete: !(B & (0x10 << i)) });
+    });
+    (out.engine === 'compression' ? READY_DIESEL : READY_SPARK).forEach((m, i) => {
+        if (!m) return;
+        const on = !!(C & (1 << i));
+        if (on || first) out.monitors.push({ key: m[0], name: m[1], continuous: false, on: on, complete: !(D & (1 << i)) });
+    });
+    return out;
+}
+
+/**
+ * What the Readiness card shows: PID 01 (since the last clear) with PID 41 (this drive) beside it when the car answers it.
+ * Returns null without a PID 01 reply, else { mil, dtcCount, rows: [{ key, name, continuous, complete, drive }],
+ * ready, total, word, color, text }. drive: 'done' (complete this drive), 'running' (enabled, not complete yet),
+ * 'off' (not enabled this drive), or null (no PID 41).
+ */
+function readiness(r01, r41) {
+    if (!r01 || !r01.ok) return null;
+    const dm = {};
+    if (r41 && r41.ok) r41.monitors.forEach((m) => { dm[m.key] = !m.on ? 'off' : m.complete ? 'done' : 'running'; });
+    const rows = r01.monitors.map((m) => ({ key: m.key, name: m.name, continuous: m.continuous, complete: m.complete,
+        drive: r41 && r41.ok ? dm[m.key] || 'off' : null }));
+    const ready = rows.filter((r) => r.complete).length, total = rows.length;
+    const notReady = rows.filter((r) => !r.complete).map((r) => r.name.toLowerCase());
+    return {
+        mil: r01.mil, dtcCount: r01.dtcCount, engine: r01.engine, rows: rows, ready: ready, total: total, drive: !!(r41 && r41.ok),
+        word: r01.mil ? 'ENGINE LIGHT ON' : ready === total ? 'ALL READY' : (total - ready) + ' NOT READY',
+        color: r01.mil ? 'bad' : ready === total ? 'ok' : 'warm',
+        text: r01.mil ? 'The engine light is on: the engine unit reports an emission fault.'
+            : ready === total ? 'Every monitor has finished its self-test since the last clear.'
+            : 'Not ready yet: ' + notReady.join(', ') + '. They finish by themselves over normal drives.',
+    };
+}
+
+/**
+ * What changed between two readiness reads, as History lines: a monitor that finished again, all of them ready again,
+ * or monitors back to not ready (a clear, or the 12 V battery disconnected). prev, now: readiness() results.
+ */
+function readinessChanges(prev, now) {
+    const out = [];
+    if (!prev || !now) return out;
+    const was = {};
+    prev.rows.forEach((r) => { was[r.key] = r.complete; });
+    const back = now.rows.filter((r) => was[r.key] === false && r.complete);
+    const reset = now.rows.filter((r) => was[r.key] === true && !r.complete);
+    if (reset.length) out.push({ kind: 'warm', text: 'Readiness reset: ' + reset.length + (reset.length === 1 ? ' monitor' : ' monitors') + ' not ready' });
+    if (back.length && now.ready === now.total) out.push({ kind: 'ok', text: 'All readiness monitors ready again' });
+    else back.forEach((r) => out.push({ kind: 'ok', text: r.name + ' monitor ready again' }));
+    if (prev.mil === false && now.mil === true) out.push({ kind: 'bad', text: 'Engine light came on' });
+    if (prev.mil === true && now.mil === false) out.push({ kind: 'ok', text: 'Engine light went off' });
+    return out;
+}
+
+/* ---------- the clear dialog (I22): which units are ticked, and the engine warning ---------- */
+
+/** The engine units: clearing one of them also resets the emission readiness. */
+const ENGINE_UNITS = [0x12, 0x13];
+const isEngine = (addr) => ENGINE_UNITS.indexOf(addr) >= 0;
+/**
+ * The units ticked when the dialog opens, and what "All but the engine" ticks: every unit with a fault in its fault
+ * memory, except the engine units. They need their own tick. units: [{ addr, dtcs }].
+ */
+function clearDefaults(units) {
+    return (units || []).filter((u) => !isEngine(u.addr) && u.dtcs.some((d) => d.mem === 'fault')).map((u) => u.addr);
+}
+const CLEAR_ENGINE_WARNING = 'Clearing the engine unit also sets its emission readiness monitors (catalyst, oxygen sensors, misfire, ' +
+    'fuel system and the others) back to not ready and erases its freeze frames. They come back only after a drive cycle: ' +
+    'a cold start and a mix of town and steady driving, often over a few days. Until then an emissions test can fail. ' +
+    'The learned adaptations (fuel trims, throttle, knock) are a separate function and should not be cleared by this.';
+/** The warning the dialog shows, only when an engine unit is ticked; null otherwise. ticked: addresses. */
+function clearWarning(ticked) {
+    return (ticked || []).some(isEngine) ? CLEAR_ENGINE_WARNING : null;
+}
+
 /* ---------- what this car supports (owner rule, 2026-11-26 18:21) ---------- */
 
 /**
@@ -435,7 +542,7 @@ function score(inp) {
  * once its capability is true. A capability is found at start or on first use and remembered per car: true (the car
  * reports it), false (asked, no answer), missing (not asked yet). Demo data has them all.
  */
-const CAPS = ['faults', 'info', 'perm', 'volts', 'soc', 'oilLevel', 'oilTemp', 'coolantTemp', 'oilKm', 'plugKm', 'speed', 'tpms', 'cbs', 'cc'];
+const CAPS = ['faults', 'info', 'perm', 'readiness', 'readinessDrive', 'volts', 'soc', 'oilLevel', 'oilTemp', 'coolantTemp', 'oilKm', 'plugKm', 'speed', 'tpms', 'cbs', 'cc'];
 const ALL_CAPS = (function () { const o = { cbsIds: null }; CAPS.forEach((k) => { o[k] = true; }); return o; })();
 const has = (caps, k) => !!(caps && caps[k] === true);
 /** Notes what a reply or a signal showed: sets caps[k] and says whether it changed. A true is never taken back by a miss. */
@@ -486,7 +593,7 @@ const dayMonth = (t) => { const d = new Date(t); return d.getDate() + ' ' + MON[
 /**
  * The plain-text report for the QR code: short lines a phone camera shows as they are. s = {
  *   at, km, score, faults: [{ addr, code, text, status, count }], battery, batteryVerdict, oil, service: [cbsItems],
- *   tyres: tyreCheck, pressures, parts: [names] }. Stays within one QR code (about 1000 bytes).
+ *   tyres: tyreCheck, pressures, parts: [names], ready: readiness() or null }. Stays within one QR code (about 1000 bytes).
  */
 function report(s) {
     const L = [];
@@ -509,6 +616,9 @@ function report(s) {
     if (ty && ty.leak) L.push('Tyres: ' + WHEEL_NAMES[ty.leak].toLowerCase() + ' ' + (s.pressures && s.pressures[ty.leak] != null ? s.pressures[ty.leak].toFixed(2) + ' bar, ' : '') + 'slowly losing air.');
     else if (ty && ty.low) L.push('Tyres: ' + WHEEL_NAMES[ty.low].toLowerCase() + ' ' + ty.lowBy.toFixed(2) + ' bar low.');
     else if (ty && ty.color === 'ok') L.push('Tyres: all four OK.');
+    const rd = s.ready;
+    if (rd) L.push('Readiness: ' + rd.ready + ' of ' + rd.total + ' ready' + (rd.ready < rd.total ? ' (not: ' + rd.rows.filter((r) => !r.complete)
+        .map((r) => r.name.toLowerCase()).join(', ') + ')' : '') + ', engine light ' + (rd.mil ? 'on' : 'off') + '.');
     if (s.parts && s.parts.length) L.push('Next service parts: ' + s.parts.join(', ') + '.');
     let text = L.join('\n');
     if (Buffer.byteLength(text, 'utf8') > 1000) text = text.slice(0, 990) + '...';
@@ -534,9 +644,11 @@ function derive(S, values, textOf) {
     const bat = has(caps, 'volts') && S.battery ? S.battery.rest : null;
     S.score = score({ faults: fl, battery: bat, batteryWarn: vals.batteryWarn, oil: oil, service: S.service, tyres: S.tyres, cc: has(caps, 'cc') ? S.cc : null });
     S.score.checks = S.score.checks.filter((c) => c.color !== 'dim');
+    // readiness (I22): shown on its own, never part of the score: "not ready" after a clear is normal, not a fault
+    S.ready = has(caps, 'readiness') && S.obd ? readiness(S.obd.r01, has(caps, 'readinessDrive') ? S.obd.r41 : null) : null;
     const rep = fl && fl.map((f) => Object.assign({}, f, { text: textOf ? textOf(f.code) : '', count: S.seen && S.seen[f.code] ? S.seen[f.code].count : null }));
     S.report = report({ at: now, km: S.km, score: S.score, faults: rep, battery: bat, oil: oil, service: S.service, tyres: S.tyres,
-        pressures: S.pressures, parts: S.parts });
+        pressures: S.pressures, parts: S.parts, ready: S.ready });
     S.cards = null;
     return S;
 }
@@ -548,4 +660,5 @@ module.exports = {
     batteryVerdict, restCharge, startVerdict,
     CBS, RESETTABLE, parseWay, parseDue, cbsItems, fmtThousands, resettableNow, resetRequest, OURS, ourItems, PARTS,
     slopePerWeek, WHEELS, WHEEL_NAMES, tyreCheck, score, weekly, ago, dateText, dayMonth, report,
+    parseReadiness, readiness, readinessChanges, ENGINE_UNITS, isEngine, clearDefaults, clearWarning, CLEAR_ENGINE_WARNING,
 };

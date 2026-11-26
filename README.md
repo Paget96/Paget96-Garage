@@ -173,7 +173,9 @@ and only the service items the car itself can reset get a Reset. The screenshots
 | Faults: one unit | ![](docs/media/p96_health/faults-unit.png) |
 | Faults: details and freeze frame | ![](docs/media/p96_health/fault-details.png) |
 | Faults: history (every scan kept) | ![](docs/media/p96_health/faults-history.png) |
-| Clear faults: the confirmation | ![](docs/media/p96_health/clear.png) |
+| Faults: readiness (engine light and emission monitors) | ![](docs/media/p96_health/faults-readiness.png) |
+| Clear faults: the confirmation (the engine unit not ticked) | ![](docs/media/p96_health/clear.png) |
+| Clear faults: the engine unit ticked, with its warning | ![](docs/media/p96_health/clear-engine.png) |
 | Clear faults: what came back | ![](docs/media/p96_health/cleared.png) |
 | Battery: resting voltage, start dip, charge, 14 nights | ![](docs/media/p96_health/battery.png) |
 | Service: the car's items, our intervals, your parts | ![](docs/media/p96_health/service.png) |
@@ -195,14 +197,22 @@ Every card's info popup is in [docs/media/p96_health/popups/](docs/media/p96_hea
 service list the cluster shows, and the Check Control messages. Over the head unit's diagnostic link, only while
 Health's screen is shown: the fault memory and info memory of every unit, the engine's permanent emission faults,
 a fault's freeze frame when you open it, and from the engine unit the 12 V voltage, the oil level and the km on the
-oil and spark plugs. Nothing is read in the background over the diagnostic link.
+oil and spark plugs. While the Faults page is shown, the engine unit's OBD readiness (service 01, PID 01 and, when the
+car answers it, PID 41 for this drive): the engine light and each emission monitor the car has, ready or not. Nothing is read in the background over the diagnostic link.
 
 **What it writes, and only these two.** Both only when you tap and confirm, with the engine off and the ignition on,
 never by themselves:
 
-- **Clear faults** empties the fault memory of the units that hold a fault (UDS 14 FF FF FF), the way a workshop
-  tester does. Health saves the full report first. Info memory and permanent emission faults stay. Afterwards it
-  scans again and shows which faults came back at once: their cause is still there.
+- **Clear faults** empties the fault memory of the units you tick (UDS 14 FF FF FF to each of them, never to all
+  units at once), the way a workshop tester does. Every unit with a fault is ticked for you except the engine unit
+  (DME): it needs its own tick, also with "All but the engine". Clearing it also sets the OBD readiness monitors
+  (catalyst, oxygen sensors, misfire, fuel system and the others) back to not ready and erases its freeze frames;
+  they come back only after a drive cycle, so an emissions test can fail until then. The dialog says so as soon as
+  the engine unit is ticked. The learned adaptations (fuel trims, throttle, knock) are a separate function and
+  should not be cleared by this (not yet checked on a car). Health saves the full report first. Info memory and
+  permanent emission faults stay. Afterwards it scans again and shows which faults came back at once: their cause
+  is still there; after an engine unit clear it says the readiness was reset and opens Faults, Readiness on a tap.
+  History notes the clear and each monitor that is ready again.
 - **Reset a service item** (oil, front or rear brakes, brake fluid, vehicle check) in the instrument cluster, the
   workshop's own CBS reset, and only when the cluster itself says the item may be reset now. Afterwards the item is
   read again.
@@ -215,6 +225,8 @@ never by themselves:
 - Fault texts: the car keeps none and BMW's text tables are not ours to share, so a fault Health has no words for
   shows its code and unit: look it up by both.
 - Coolant and washer fluid have only a low warning in the car, no level.
+- Readiness is read only, and never lowers the score: not ready after a clear is normal. It is read only while the
+  Faults page is shown, so History notes a monitor ready again when Health next sees it, not the moment it finished.
 - Air filter, gearbox oil and coolant are counted from when you mark them done on the Service page.
 - Health cannot put up a notification on the screen: reminders show on its home-screen widget and once when you
   open the app.
