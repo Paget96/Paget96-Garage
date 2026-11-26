@@ -19,11 +19,27 @@ const M = require('./maths');
 const { RunLog } = require('./runs');
 const { Demo, seedRuns } = require('./demo');
 const { PullLog } = require('./dyno');
+function need(local, repo) {
+    try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
+}
+const E = need('./garage_engine', '../../lib/engine');
 
 /** The values the pages use. Temperatures °C, pressures bar absolute (kPa for the air), speed km/h, wastegate % open. */
 const FIELDS = ['speed', 'rpm', 'torque', 'gear', 'oil', 'coolant', 'gearbox', 'outside', 'intake', 'charge', 'manifold',
-    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal', 'wastegate', 'wgDuty'];
-const HIST = ['kPa', 'intake', 'outside', 'charge', 'boost', 'manifold', 'ambient', 'oil', 'coolant', 'gearbox', 'speed', 'wastegate'];
+    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal', 'wastegate', 'wgDuty', 'boost2', 'wastegate2'];
+const HIST = ['kPa', 'intake', 'outside', 'charge', 'boost', 'manifold', 'ambient', 'oil', 'coolant', 'gearbox', 'speed', 'wastegate', 'boost2', 'wastegate2'];
+/**
+ * What a demo car reports (lib/engine.js DEMO_CARS): an electric car no engine values at all (no boost, no engine
+ * temperatures, no torque from an engine unit, so no Dyno); a diesel no wastegate (its turbo has variable vanes);
+ * only a V8 with two engine units bank 2's boost and wastegate.
+ */
+function demoHas(p, k) {
+    if (!p) return true;
+    if (p.engine === false) return ['speed', 'gear', 'outside', 'tyres', 'tyreTemp', 'coolant'].indexOf(k) >= 0;
+    if (k === 'wastegate' || k === 'wgDuty') return p.ewg !== false;
+    if (k === 'boost2' || k === 'wastegate2') return p.units === 2 && (k === 'boost2' || p.ewg !== false);
+    return true;
+}
 const N1 = 60, N10 = 120;            // 60 s at 1 a second, 10 min at one every 5 s
 
 class Model {
@@ -55,7 +71,14 @@ class Model {
      * Does this car report value k (a FIELDS name, or 'tyres', 'tyreTemp')? Seen once, it stays (the file keeps it); the
      * demo shows everything. The pages show a card, a chart line, a tab or a setting only when it does.
      */
-    has(k) { return this.isDemo() || !!this.seen[k]; }
+    has(k) { return this.isDemo() ? demoHas(this.car(), k) : !!this.seen[k]; }
+    /** The engine the pages draw: the demo car of Settings, else what the car answered (lib/engine.js, engine.json). */
+    car() {
+        if (this.isDemo()) return E.demoCar(this.setting('demoCar'));
+        const now = Date.now();
+        if (!this._car || now - this._carAt > 5000) { this._car = E.profile(this.o.facts ? this.o.facts() : {}); this._carAt = now; }
+        return this._car;
+    }
     _see(v) {
         let added = false;
         const mark = (k) => { if (!this.seen[k]) { this.seen[k] = true; added = true; } };
@@ -66,16 +89,22 @@ class Model {
         if (added && this.carFile) { try { fs.writeFileSync(this.carFile, JSON.stringify({ v: 1, seen: Object.keys(this.seen) })); } catch (e) { if (this.o.log) this.o.log.warn('car: ' + e.message); } }
     }
 
-    setting(k) { const v = this.settings && this.settings.get(k); return v === undefined || v === null ? DEFAULTS[k] : v; }
+    setting(k) {
+        const v = this.settings && this.settings.get(k);
+        if ((v === undefined || v === null) && k === 'boostTarget' && this.isDemo()) { const c = E.demoCar(this.setting('demoCar')); if (c.boost && c.id !== 'b48') return Math.round((c.boost - 0.05) * 20) / 20; }
+        return v === undefined || v === null ? DEFAULTS[k] : v;
+    }
     isDemo() { return !!(this.o.demo && this.o.demo()); }
     log() { return this.isDemo() && this.demoLog ? this.demoLog : this.real; }
 
     _demoOn(t) {
+        const car = E.demoCar(this.setting('demoCar'));
+        if (this.demo && this.demo.car !== car) { this.demo = null; HIST.forEach((k) => { this.h1[k].length = 0; this.h10[k].length = 0; }); }
         if (!this.demo) {
-            this.demo = new Demo(7, t);
+            this.demo = new Demo(7, t, null, car);
             this.demoLog = new RunLog({ file: null, length: () => this.setting('runLength'), air: () => this.v });
             this.demoDyno = new PullLog({ file: null, air: () => this.v });
-            seedRuns(this.demoLog, this.setting('runLength'), t, this.demoDyno);
+            seedRuns(this.demoLog, this.setting('runLength'), t, this.demoDyno, car);
             this.demo.last = null;
         }
         this.demo.runLen = this.setting('runLength');
@@ -168,6 +197,6 @@ const APP_ROWS = [
 ];
 const DEFAULTS = {};
 APP_ROWS.forEach((r) => { DEFAULTS[r.key] = r.default; });
-Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, followAmbient: true, demo: 'auto' });
+Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, followAmbient: true, demo: 'auto', demoCar: 'b48' });
 
-module.exports = { Model, APP_ROWS, DEFAULTS, FIELDS, HIST };
+module.exports = { Model, APP_ROWS, DEFAULTS, FIELDS, HIST, demoHas };

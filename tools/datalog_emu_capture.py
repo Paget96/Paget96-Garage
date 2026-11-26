@@ -52,6 +52,7 @@ def setup(upstream, emu):
     app = os.path.join(emu, 'apps', 'p96_datalog')
     shutil.copytree(os.path.join(ROOT, 'apps', 'p96_datalog'), app, ignore=shutil.ignore_patterns('README.md'))
     shutil.copy(os.path.join(ROOT, 'lib', 'ui.js'), os.path.join(app, 'garage_ui.js'))
+    shutil.copy(os.path.join(ROOT, 'lib', 'engine.js'), os.path.join(app, 'garage_engine.js'))
     os.makedirs(os.path.join(emu, 'oap-sdk'))
     open(os.path.join(emu, 'oap-sdk', 'index.js'), 'w').write('module.exports = {};\n')
     open(os.path.join(emu, 'oap-sdk', 'package.json'), 'w').write('{"name": "oap-sdk", "version": "0.0.0"}\n')

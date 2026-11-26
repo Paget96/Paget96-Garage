@@ -17,6 +17,21 @@ const lbl = (cv, s, x, y, c, size, bold) => cv.text(s, x, y, size || 14, c || C.
 const ease = (f) => f * f * (3 - 2 * f);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+/* ---------- the engine the drawings show ---------- */
+/** Set each frame by pages.js from the car or the demo car (lib/engine.js profile); null: one turbo, four cylinders. */
+let ENGINE = null;
+function setEngine(p) { ENGINE = p || null; }
+const twinTurbo = () => !!(ENGINE && ENGINE.turbos === 2);
+/** The engine block's cylinder dots: as many as the engine has (two rows for a V8), four when not known. */
+function cylDots(cv, cx, cy, w, h) {
+    const n = ENGINE && ENGINE.cylinders ? ENGINE.cylinders : 4, rows = ENGINE && ENGINE.banks === 2 ? 2 : 1, per = Math.ceil(n / rows);
+    const pitch = Math.min(18, (w - 16) / per), r = Math.max(3, Math.min(7, pitch * 0.38));
+    for (let b = 0; b < rows; b++) for (let k = 0; k < Math.min(per, n - b * per); k++) {
+        const yy = rows === 2 ? cy - h * 0.22 + b * h * 0.44 : cy - h * 0.16;
+        cv.arc(cx - (per - 1) * pitch / 2 + k * pitch, yy, r * 0.7, r, 0, 360, DIMLINE);
+    }
+}
+
 /* ---------- the air path: filter, turbo, intercooler, throttle, engine ---------- */
 
 /**
@@ -31,12 +46,17 @@ function airPath(focus) {
         // filter
         cv.strokeRoundRect(at(0.1) - 25, cy - 35, 50, 70, 10, 3, GREY);
         for (let k = 0; k < 4; k++) cv.line(at(0.1) - 17 + k * 11, cy - 28, at(0.1) - 17 + k * 11, cy + 28, 2, DIMLINE);
-        // turbo, spinning
-        cv.arc(at(0.33), cy, 36, 39, 0, 360, GREY);
-        for (let k = 0; k < 5; k++) {
-            const a = t * 12 + k * 1.2566;
-            cv.line(at(0.33), cy, at(0.33) + 26 * Math.cos(a), cy + 26 * Math.sin(a), 3, GREY);
-        }
+        // turbo, spinning (two turbos: one above the other, each fed by its own bank or exhaust half)
+        const tys = twinTurbo() ? [cy - 26, cy + 26] : [cy], tr = twinTurbo() ? 24 : 36;
+        tys.forEach((ty, i) => {
+            if (twinTurbo()) cv.line(at(0.33) - 30, ty, at(0.33) + 30, ty, 14, TRACK);
+            cv.circle(at(0.33), ty, tr + 2, '#16181c');
+            cv.arc(at(0.33), ty, tr, tr + 3, 0, 360, GREY);
+            for (let k = 0; k < 5; k++) {
+                const a = t * 12 + k * 1.2566 + i * 0.6;
+                cv.line(at(0.33), ty, at(0.33) + (tr - 10) * Math.cos(a), ty + (tr - 10) * Math.sin(a), 3, GREY);
+            }
+        });
         // intercooler
         cv.strokeRoundRect(at(0.56) - 35, cy - 45, 70, 90, 10, 3, GREY);
         for (let k = 0; k < 6; k++) cv.line(at(0.56) - 29, cy - 36 + k * 14, at(0.56) + 29, cy - 36 + k * 14, 2, '#5a8cc8');
@@ -46,7 +66,7 @@ function airPath(focus) {
         cv.circle(at(0.75), cy, 6, GREY);
         // engine
         cv.strokeRoundRect(at(0.93) - 40, cy - 45, 80, 90, 14, 3, GREY);
-        cv.arc(at(0.93) - 16, cy - 14, 8, 10, 0, 360, DIMLINE); cv.arc(at(0.93) + 16, cy - 14, 8, 10, 0, 360, DIMLINE);
+        cylDots(cv, at(0.93), cy, 80, 90);
         // the air: cool before the turbo, hot after it, cooler after the intercooler
         for (let i = 0; i < 16; i++) {
             const f = (t * 0.5 + i / 16) % 1, px = x0 + f * (at(0.9) - x0);
@@ -69,7 +89,7 @@ function airPath(focus) {
         });
         // the mirror: a little housing at the top left, the outside air around it
         cv.strokeRoundRect(x0 - 60, y + 30, 40, 30, 10, 2.5, GREY);
-        [[0.1, 'filter'], [0.33, 'turbo'], [0.56, 'intercooler'], [0.75, 'throttle'], [0.93, 'engine']].forEach((p) => lbl(cv, p[1], at(p[0]), cy + 72, C.dim, 13));
+        [[0.1, 'filter'], [0.33, twinTurbo() ? 'two turbos' : 'turbo'], [0.56, 'intercooler'], [0.75, 'throttle'], [0.93, 'engine']].forEach((p) => lbl(cv, p[1], at(p[0]), cy + 72, C.dim, 13));
         lbl(cv, 'air in', x0 - 30, cy + 5, C.blue, 13);
     };
 }
@@ -176,7 +196,8 @@ function wastegateArt(cv, x, y, w, h, t) {
     const py = y + 132, ex = x + 120, out = x + w - 26, tx = x + w * 0.56, tr = 42;
     const bx0 = tx - 104, bx1 = tx + 104, by = y + 54;
     cv.strokeRoundRect(x + 24, py - 52, 96, 104, 16, 3, GREY);
-    for (let k = 0; k < 3; k++) cv.circle(x + 50 + k * 22, py - 14, 8, DIMLINE);
+    cylDots(cv, x + 72, py + 4, 96, 104);
+    if (twinTurbo()) lbl(cv, 'two turbos: each has its own wastegate, both work like this', x + w / 2, y + 14, C.dim, 13);
     lbl(cv, 'engine', x + 72, py + 30, C.dim, 13);
     cv.line(ex, py, out, py, 26, TRACK);
     cv.line(bx0, py, bx0, by, 22, TRACK); cv.line(bx0, by, bx1, by, 22, TRACK); cv.line(bx1, by, bx1, py, 22, TRACK);
@@ -400,4 +421,4 @@ function compareArt(cv, x, y, w, h, t) {
     if (k >= 1) lbl(cv, 'B: 0.14 s slower, 6 °C warmer charge air', x + w / 2, y + 30, C.amber, 16, true);
 }
 
-module.exports = { airPath, boostArt, wastegateArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };
+module.exports = { setEngine, airPath, boostArt, wastegateArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };

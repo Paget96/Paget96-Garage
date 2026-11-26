@@ -20,6 +20,11 @@ const { column } = require('./runs');
 const { sheet } = require('./dyno');
 const { INFO, TOPICS } = require('./info');
 const { APP_ROWS } = require('./model');
+const ART = require('./art');
+function need(local, repo) {
+    try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
+}
+const E = need('./garage_engine', '../../lib/engine');
 
 const NAME = 'DATALOG';
 const TABS = ['Now', 'Runs', 'Dyno', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log', 'Compare'];
@@ -136,8 +141,13 @@ function trend(a, k) {
 }
 function pageNow(cv, m, t) {
     const v = m.v, U = units(m), h = m.h1, log = m.log(), now = m.lastT || Date.now();
-    const target = m.setting('boostTarget'), ring = m.has('boost');
-    if (ring) {
+    const target = m.setting('boostTarget'), boost = m.has('boost'), ring = boost || m.has('speed');
+    if (!boost && ring) {
+        // no boost to show (an electric car, a car without the engine unit's values): the speed ring in its place
+        UI.ring(cv, 196, T + 196, 118, { value: U.speed(v.speed), min: 0, max: U.speed(250), decimals: 0, unit: U.speedU, label: 'Speed', color: 'accent',
+            scale: { step: U.imp ? 50 : 50, decimals: 0 }, info: INFO.run });
+    }
+    if (boost) {
         UI.ring(cv, 196, T + 196, 118, {
             value: U.press(v.boost), min: U.press(-1) < 0 ? U.press(-1) : -1, max: U.press(2), decimals: U.pressD,
             unit: U.pressU + ', target ' + fix(U.press(target), U.pressD), label: 'Boost', color: 'accent',
@@ -169,9 +179,17 @@ function pageNow(cv, m, t) {
             history: h.coolant.map(U.temp), info: INFO.coolant, seq: m.seq1 }],
         ['outside', { label: 'Outside air', value: U.temp(v.outside), decimals: 0, unit: U.tempU, sub: 'mirror sensor', color: 'info',
             history: h.outside.map(U.temp), info: INFO.outside, seq: m.seq1 }],
+        ['tyres', (function () {
+            const tp = (v.tyres || {}).p || {}, ks = M.WHEELS.filter((k) => isNum(tp[k]));
+            const lo = ks.length ? ks.reduce((a, k) => (tp[k] < tp[a] ? k : a), ks[0]) : null;
+            return { label: 'Tyres', value: lo ? U.press(tp[lo]) : null, decimals: U.pressD, unit: U.pressU, color: 'ok',
+                sub: lo ? 'lowest: ' + lo + ', of the four' : 'from the tyre sensors', info: INFO.tyresNow };
+        })()],
     ].filter((c) => !c[0] || m.has(c[0])).map((c) => c[1]);
     // with the boost ring: 3 x 2 cards beside it; without: 4 x 2 over the whole width
-    const cols = ring ? 3 : 4, x0 = ring ? 390 : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), gh = 189;
+    // (three cards or fewer: one row, each the full height, so the page is not half empty)
+    // (four cards beside the ring: two by two, so none is left alone on a row)
+    const cols = ring ? (cards.length === 4 ? 2 : 3) : 4, x0 = ring ? 390 : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), one = cards.length <= cols, gh = one ? 392 : 189;
     cards.slice(0, cols * 2).forEach((g, i) => UI.stat(cv, x0 + (i % cols) * (w + gap), T + Math.floor(i / cols) * (gh + 14), w, gh, g));
 }
 
@@ -378,10 +396,14 @@ function wastegateCard(cv, m, x, y, w, h) {
     const vw = cv.text(isNum(pos) ? String(Math.round(pos)) : '--', x + 20, y + 80, 48, isNum(pos) ? C.text : C.dim, { font: 'num', literal: true });
     ltext(cv, '% open', x + 28 + vw, y + 76, 18, C.dim);
     cv.text(M.wastegateState(v.wastegate), x + w - 20, y + 76, 17, isNum(v.wastegate) ? WG_COL : C.dim, { font: 'bold', align: 'right', literal: true });
-    UI.bar(cv, x + 20, y + 94, w - 40, 10, isNum(v.wastegate) ? v.wastegate / 100 : 0, WG_COL, 'dlwg' + Math.round(x));
+    if (m.has('wastegate2')) {
+        // two turbos, each with its wastegate: bank 1 and bank 2, a bar each
+        UI.bar(cv, x + 20, y + 88, w - 40, 8, isNum(v.wastegate) ? v.wastegate / 100 : 0, WG_COL, 'dlwg' + Math.round(x));
+        UI.bar(cv, x + 20, y + 102, w - 40, 8, isNum(v.wastegate2) ? v.wastegate2 / 100 : 0, WG_COL, 'dlwg2' + Math.round(x));
+    } else UI.bar(cv, x + 20, y + 94, w - 40, 10, isNum(v.wastegate) ? v.wastegate / 100 : 0, WG_COL, 'dlwg' + Math.round(x));
     const sm = wastegateSamples(m);
     ltext(cv, 'closed', x + 20, y + 122, 12, C.dim);
-    cv.text(isNum(v.wgDuty) ? 'actuator ' + Math.round(v.wgDuty) + ' %' : sm.from, x + w / 2, y + 122, 12, C.dim, { align: 'center', literal: true });
+    cv.text(m.has('wastegate2') ? 'bank 1, bank 2 ' + (isNum(v.wastegate2) ? Math.round(v.wastegate2) + ' %' : '--') : isNum(v.wgDuty) ? 'actuator ' + Math.round(v.wgDuty) + ' %' : sm.from, x + w / 2, y + 122, 12, C.dim, { align: 'center', literal: true });
     cv.text('open', x + w - 20, y + 122, 12, C.dim, { align: 'right', literal: true });
     const story = M.wastegateStory(sm.pairs, sm.target);
     // a run starts at the launch: how it sits at idle comes from the last minute
@@ -399,7 +421,8 @@ function pageBoost(cv, m) {
     const ch = 180, last = m.log().last, gap = 16, cw = Math.floor((CW - (n - 1) * gap) / n);
     const target = m.setting('boostTarget');
     const cards = [
-        { label: 'Boost', value: U.press(v.boost), decimals: U.pressD, unit: U.pressU, sub: 'manifold minus outside', color: 'accent', history: h.boost.map(U.press), minSpan: 0.5, info: INFO.boost },
+        { label: m.has('boost2') ? 'Boost, bank 1' : 'Boost', value: U.press(v.boost), decimals: U.pressD, unit: U.pressU,
+            sub: m.has('boost2') ? 'bank 2 ' + (isNum(v.boost2) ? fix(U.press(v.boost2), U.pressD) + ' ' + U.pressU : '--') : m.car().turbos === 2 ? 'two turbos, one manifold' : 'manifold minus outside', color: 'accent', history: h.boost.map(U.press), minSpan: 0.5, info: INFO.boost },
         { label: 'Manifold pressure', value: U.press(v.manifold), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'what the engine gets', color: C.text, history: h.manifold.map(U.press), minSpan: 0.5, info: INFO.manifold },
         { label: 'Outside pressure', value: U.press(v.ambient), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'weather and altitude', color: 'info', history: h.ambient.map(U.press), minSpan: 0.5, info: INFO.ambient },
     ];
@@ -421,6 +444,7 @@ function pageBoost(cv, m) {
             { name: 'outside (abs)', color: 'info', values: traceOver(last, 'ambient', rl.end).map(U.press) },
             { name: 'boost', color: 'accent', values: traceOver(last, 'boost', rl.end).map(U.press) },
         ];
+        if (m.has('boost2') && column(last, 'boost2').some(isNum)) series.push({ name: 'boost bank 2', color: 'warm', values: traceOver(last, 'boost2', rl.end).map(U.press) });
         if (wg && column(last, 'wastegate').some(isNum)) series.push({ name: 'wastegate (%)', color: WG_COL, axis: 'right', values: traceOver(last, 'wastegate', rl.end) });
         xl = rl.labels; label = 'Pressure over the last run';
     } else {
@@ -429,10 +453,13 @@ function pageBoost(cv, m) {
             { name: 'outside (abs)', color: 'info', values: h.ambient.map(U.press) },
             { name: 'boost', color: 'accent', values: h.boost.map(U.press) },
         ];
+        if (m.has('boost2')) series.push({ name: 'boost bank 2', color: 'warm', values: h.boost2.map(U.press) });
         if (wg) series.push({ name: 'wastegate (%)', color: WG_COL, axis: 'right', values: h.wastegate });
         xl = ['-60 s', '-45 s', '-30 s', '-15 s', 'now']; label = 'Pressure, last minute';
     }
-    const withWg = series.length > 3;
+    // two banks: their two boost lines in place of the manifold (its card is above), so the legend keeps four lines
+    if (m.has('boost2')) { series = series.filter((q) => q.name !== 'manifold (abs)'); series.forEach((q) => { if (q.name === 'boost') q.name = 'boost bank 1'; }); }
+    const withWg = series.some((q) => q.axis === 'right');
     UI.chart(cv, L, T + ch + 14, CW, CH - ch - 14, series, { label: withWg ? label + ' and the wastegate' : label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
         note: withWg ? null : 'boost = manifold minus outside', info: withWg ? INFO.pressureWgChart : INFO.pressureChart, fill: false,
         right: withWg ? { min: 0, max: 100, unit: '%', color: WG_COL } : null });
@@ -635,6 +662,7 @@ const PAGES = { Now: pageNow, Runs: pageRuns, Dyno: pageDyno, Correction: pageCo
 /** Draw one frame of what model.ui shows. t: seconds (the animations). */
 function draw(cv, m, t) {
     const ui = m.ui;
+    ART.setEngine(m.car());
     if (ui.view === 'help') {
         const topics = TOPICS.filter((tp) => !tp.needs || m.has(tp.needs));
         if (ui.topic >= topics.length) ui.topic = 0;
@@ -643,7 +671,8 @@ function draw(cv, m, t) {
     } else if (ui.view === 'settings') {
         const vals = {};
         UI.DISPLAY_SETTINGS.concat(APP_ROWS).forEach((r) => { vals[r.key] = m.setting(r.key); });
-        const rows = APP_ROWS.filter((r) => (r.key === 'boostTarget' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true));
+        vals.demoCar = m.setting('demoCar');
+        const rows = (m.isDemo() ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'boostTarget' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true)));
         UI.settingsPage(cv, rows, vals, (k, val) => { if (m.settings) m.settings.set(k, val); }, { title: NAME, appLabel: 'Datalog',
             onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; } });
     } else {

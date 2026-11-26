@@ -127,6 +127,42 @@
       ]
     },
     {
+      "key": "demoCar",
+      "label": "Demo car",
+      "type": "choice",
+      "default": "b48",
+      "options": [
+        [
+          "b48",
+          "B48"
+        ],
+        [
+          "b58",
+          "B58"
+        ],
+        [
+          "s58",
+          "S58"
+        ],
+        [
+          "s63",
+          "S63 V8"
+        ],
+        [
+          "b57",
+          "B57 diesel"
+        ],
+        [
+          "phev",
+          "PHEV"
+        ],
+        [
+          "ev",
+          "EV"
+        ]
+      ]
+    },
+    {
       "key": "runLength",
       "label": "Run length",
       "type": "choice",

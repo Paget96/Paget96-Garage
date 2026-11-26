@@ -62,6 +62,9 @@ class PullLog {
             this.cur = { at: t, gear: gear, top: rpm, rpm: [], torque: [], intake: a.intake, kPa: a.kPa };
         }
         const p = this.cur;
+        // a pull is a few seconds in one gear: one that never ends (held at the limiter, a stuck reading) is cut at 3 000
+        // samples, so its arrays never grow without end
+        if (p.rpm.length >= 3000) { this._end(t); return; }
         if (rpm >= p.top) p.top = rpm;
         p.rpm.push(Math.round(rpm)); p.torque.push(Math.round(nm * 10) / 10);
     }

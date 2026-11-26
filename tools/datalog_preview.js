@@ -31,11 +31,14 @@ const { Model } = require(path.join(APP, 'model'));
 const P = require(path.join(APP, 'pages'));
 const { INFO } = require(path.join(APP, 'info'));
 
-const media = path.resolve(process.argv[2] || path.join(ROOT, '.stage', 'datalog-preview'));
-const framesDir = path.resolve(process.argv[3] || path.join(ROOT, '.stage', 'datalog-frames'));
+// --car <id>: the pages of one demo car of lib/engine.js (the compatibility gallery), no GIF frames
+let argv = process.argv.slice(2), CAR = null;
+if (argv[0] === '--car') { CAR = argv[1]; argv = argv.slice(2); }
+const media = path.resolve(argv[0] || path.join(ROOT, '.stage', 'datalog-preview'));
+const framesDir = path.resolve(argv[1] || path.join(ROOT, '.stage', 'datalog-frames'));
 fs.mkdirSync(media, { recursive: true });
 
-const values = { demo: 'on' };
+const values = { demo: 'on', demoCar: CAR || 'b48' };
 const settings = { get: (k) => values[k], set: (k, v) => { values[k] = v; } };
 const m = new Model({ settings, demo: () => true });
 
@@ -84,6 +87,17 @@ function press(key) {
 run(5 * 60000);                         // five minutes of demo: a few runs, warm fluids, ten minutes of nothing yet
 // wait for the moment a run has just ended and the car stands again
 while (m.log().state !== 'ready') run(250);
+if (CAR) {
+    const tabs = P.tabsFor(m), shots = [];
+    tabs.forEach((tab) => { m.ui.page = tab; shot(tab.toLowerCase()); shots.push(tab.toLowerCase()); });
+    if (tabs.indexOf('Boost') >= 0) {
+        m.ui.page = 'Boost'; UI.openInfo(INFO.boost); shot('popup-boost', 3200); UI.closeInfo(); run(400); shots.push('popup-boost');
+        if (m.has('wastegate')) { UI.openInfo(INFO.wastegate); shot('popup-wastegate', ((5.5 - ((VT - START) / 1000) % 9) + 18) % 9 * 1000); UI.closeInfo(); shots.push('popup-wastegate'); }
+    }
+    m.ui.view = 'settings'; shot('settings'); shots.push('settings');
+    console.log(CAR + ': ' + shots.length + ' pictures in ' + media + ' (' + shots.join(', ') + ')');
+    process.exit(0);
+}
 const pages = P.TABS.map((x) => x.toLowerCase());
 const page = (name) => P.TABS[pages.indexOf(name)];
 pages.forEach((name) => { m.ui.page = page(name); shot(name); });

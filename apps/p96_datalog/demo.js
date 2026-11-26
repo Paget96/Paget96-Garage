@@ -42,8 +42,19 @@ function rng(seed) {
 const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 
 class Demo {
-    /** air: the day's weather { intake (°C after the filter), kPa } (default 20.5 °C, 97.9 kPa, about 300 m up). */
-    constructor(seed, t0, air) {
+    /**
+     * air: the day's weather { intake (°C after the filter), kPa } (default 20.5 °C, 97.9 kPa, about 300 m up).
+     * car: a demo car of lib/engine.js (default the B48): its power, torque, boost and rev limit shape the runs; a diesel
+     * has no wastegate (variable vanes) and revs lower; a V8 with two engine units has bank 2's boost too; an electric
+     * car has no boost, no engine temperatures and no engine unit torque.
+     */
+    constructor(seed, t0, air, car) {
+        this.car = car || null;
+        const c = car || { power: 190, torque: 400, boost: 1.4, redline: 6500 };
+        this.ev = car && car.engine === false; this.diesel = !!(car && car.diesel); this.twin = !!(car && car.units === 2);
+        this.kW = c.power / 190;                                     // power against the B48 the base figures are for
+        this.tqK = c.torque / 400; this.boostTo = c.boost || 1.42;
+        this.shift = c.redline ? c.redline - (this.diesel ? 300 : 0) : SHIFT;
         this.rand = rng(seed || 7);
         this.t0 = t0 == null ? Date.now() : t0;
         this.last = null;
@@ -60,7 +71,7 @@ class Demo {
         this.runNo++;
         // the air costs power as SAE J1349 says it does (so corrected times agree across days), and so does heat soak
         const cf = M.sae(this.air.intake, this.air.kPa) || 1;
-        this.power = P_M * (0.975 + this.rand() * 0.04) / cf * (1 - 0.003 * Math.max(0, this.charge - 30));
+        this.power = P_M * Math.min(2.3, this.kW) * (0.975 + this.rand() * 0.04) / cf * (1 - 0.003 * Math.max(0, this.charge - 30));
         this.react = 0.32 + this.rand() * 0.2;
         this.grip = TRACTION * (0.97 + this.rand() * 0.05);
     }
@@ -102,9 +113,10 @@ class Demo {
             if (this.v >= 11 && this.phaseT > 6) { this.phase = 'pull'; this.phaseT = 0; }
         } else if (this.phase === 'pull') {
             throttle = 1;
-            const rpm3 = rpmFor(this.v, 3), tq = torqueAt(rpm3) * this.power / P_M;
+            const rpm3 = rpmFor(this.v, 3), tq = this.torqueAt(rpm3) * this.power / P_M / Math.min(2.3, this.kW);
             a = tq * RATIOS[3] * FINAL * 0.9 / WHEEL_R / MASS - DRAG * this.v * this.v - 0.12;
-            if (rpm3 >= SHIFT) { this.phase = 'lift2'; this.phaseT = 0; }
+            // (a weak car that cannot reach the limit in 3rd lifts after 25 s, as a driver would)
+            if (rpm3 >= this.shift || this.phaseT > 25) { this.phase = 'lift2'; this.phaseT = 0; }
         } else if (this.phase === 'lift2') {
             a = -1;
             if (this.phaseT > 1) { this.phase = 'brake2'; this.phaseT = 0; }
@@ -118,14 +130,14 @@ class Demo {
 
         // engine: idle, throttle blip before the car moves, rpm through the gears while running
         const third = this.phase === 'roll' || this.phase === 'pull' || this.phase === 'lift2';
-        const gear = this.v < 0.3 ? 0 : third ? 3 : gearFor(this.v);
+        const gear = this.v < 0.3 ? 0 : third ? 3 : this.gearFor(this.v);
         let rpm = 780 + 15 * Math.sin(t / 310);
         if (this.phase === 'arm') rpm = 780 + Math.min(1, this.phaseT / 0.25) * 2200;
         else if (gear) rpm = Math.max(this.phase === 'run' && gear === 1 ? 3000 : 800, rpmFor(this.v, gear));
-        const torque = throttle ? torqueAt(rpm) * this.power / P_M + (this.rand() - 0.5) * 6 : 30;
+        const torque = throttle ? this.torqueAt(rpm) * this.power / P_M / Math.min(2.3, this.kW) + (this.rand() - 0.5) * 6 : 30;
 
         // boost: vacuum at idle, spools up under throttle (lags), falls when lifting
-        const want = throttle ? 1.42 + 0.03 * Math.sin(this.runNo * 1.7) : -0.55;
+        const want = throttle ? this.boostTo + 0.03 * Math.sin(this.runNo * 1.7) : this.diesel ? 0.05 : -0.55;
         this.boostNow += (want - this.boostNow) * Math.min(1, dt * (throttle ? 1.3 : 3));
         const ambientBar = (this.kPaBase + 0.05 * Math.sin(t / 60000)) / 100;
         const manifold = ambientBar + this.boostNow;
@@ -151,32 +163,48 @@ class Demo {
             this.tyreP[k] = (k === 'RL' ? 2.07 : 2.18) + (this.tyreT[k] - 19) * 0.0115;
         });
         const r = (x, k) => Math.round(x * k) / k;
-        return {
+        if (this.ev) {
+            return {
+                demo: true, speed: kmh, gear: gear ? 1 : 0, pedal: throttle ? 100 : 0, coolant: 31 + Math.min(6, this.runNo),
+                outside: this.air.intake - 2.5 + 0.3 * Math.sin(t / 90000),
+                tyres: {
+                    p: { FL: r(this.tyreP.FL, 100), FR: r(this.tyreP.FR, 100), RL: r(this.tyreP.RL, 100), RR: r(this.tyreP.RR, 100) },
+                    t: { FL: Math.round(this.tyreT.FL), FR: Math.round(this.tyreT.FR), RL: Math.round(this.tyreT.RL), RR: Math.round(this.tyreT.RR) },
+                    target: { FL: 2.5, FR: 2.5, RL: 2.7, RR: 2.7 },
+                },
+            };
+        }
+        const twin = this.twin ? { boost2: M.boost(manifold, ambientBar) - 0.03 + 0.02 * Math.sin(t / 700), wastegate2: clampN(this.wg + 4 * Math.sin(t / 900), 0, 100) } : {};
+        const out = Object.assign(twin, {
             demo: true, speed: kmh, rpm: rpm, torque: torque, gear: gear, pedal: throttle ? 100 : 0,
             oil: this.oil, coolant: this.coolant, gearbox: this.gearbox, outside: this.air.intake - 2.5 + 0.3 * Math.sin(t / 90000),
             intake: this.intake, charge: this.charge, manifold: manifold, ambient: ambientBar, kPa: ambientBar * 100,
-            boost: M.boost(manifold, ambientBar), boostTarget: throttle ? 1.45 : null, egt: this.egtNow(throttle, dt),
+            boost: M.boost(manifold, ambientBar), boostTarget: throttle ? this.boostTo + 0.03 : null, egt: this.egtNow(throttle, dt),
             wastegate: this.wg, wgDuty: throttle ? 18 + 0.55 * (100 - this.wg) : 6,
             tyres: {
                 p: { FL: r(this.tyreP.FL, 100), FR: r(this.tyreP.FR, 100), RL: r(this.tyreP.RL, 100), RR: r(this.tyreP.RR, 100) },
                 t: { FL: Math.round(this.tyreT.FL), FR: Math.round(this.tyreT.FR), RL: Math.round(this.tyreT.RL), RR: Math.round(this.tyreT.RR) },
                 target: { FL: 2.3, FR: 2.3, RL: 2.3, RR: 2.3 },
             },
-        };
+        });
+        if (this.diesel) { delete out.wastegate; delete out.wgDuty; }
+        return out;
     }
+    torqueAt(rpm) { return torqueAt(rpm * 6500 / Math.max(4000, this.shift + (this.diesel ? 300 : 0))) * this.tqK; }
+    gearFor(ms) { for (let g = 1; g < RATIOS.length; g++) if (rpmFor(ms, g) < this.shift) return g; return RATIOS.length - 1; }
 }
 
 /**
  * Fill a demo RunLog (and a PullLog): two earlier sessions and a few runs today, each one simulated through the real timer, so
  * Runs, Log and Compare have something to show from the first second.
  */
-function seedRuns(log, length, now, pulls) {
+function seedRuns(log, length, now, pulls, car) {
     now = now == null ? Date.now() : now;
     // [start, runs, seed, weather]: a cold dense evening, a warm one, today
     const plan = [[now - 9 * 86400000, 3, 11, { intake: 9, kPa: 101.6 }], [now - 2 * 86400000, 4, 23, { intake: 27, kPa: 99.2 }],
         [now - 25 * 60000, 3, 5, null]];
     plan.forEach((p) => {
-        const d = new Demo(p[2], p[0], p[3]);
+        const d = new Demo(p[2], p[0], p[3], car);
         d.runLen = length;
         let t = p[0], got = 0;
         const add = log.o.onDone, air = log.o.air;

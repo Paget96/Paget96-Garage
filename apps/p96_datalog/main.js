@@ -18,7 +18,10 @@ const mgu = require('./kit/mgu');
 const Car = require('./kit/car');
 const { ReadOnlyDiag } = require('./kit/readonly-diag');
 const { Model } = require('./model');
-const { DmeReader } = require('./dme');
+const { DmeReader, Bank2Reader } = require('./dme');
+const fs = require('fs');
+const path = require('path');
+const E = require('./garage_engine');
 const P = require('./pages');
 
 const W = 1600, H = 520;
@@ -28,7 +31,11 @@ mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
         let car = null;
-        const m = new Model({ settings, dataDir: ctx.dataDir, log, demo: () => !!(car && car.data().demo) });
+        /* the engine (lib/engine.js): asked once, kept in engine.json; a V8's second engine unit gives bank 2 */
+        const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));
+        let detector = null, bank2 = null;
+        const m = new Model({ settings, dataDir: ctx.dataDir, log, demo: () => !!(car && car.data().demo),
+            facts: () => (detector ? detector.facts : engineStore.get() || {}) });
         const L = m.live;
 
         /* ---------- broadcast signals: only listened to ---------- */
@@ -89,6 +96,10 @@ mgu.run({
             if (typeof L.kPa === 'number') L.ambient = L.kPa / 100;
             if ('boostTargetAbs' in v && typeof L.ambient === 'number') L.boostTarget = v.boostTargetAbs - L.ambient;
         };
+        const onBank2 = (v) => {
+            if ('charge2' in v && typeof L.ambient === 'number') L.boost2 = v.charge2 - L.ambient;
+            if ('wastegate2' in v) L.wastegate2 = v.wastegate2;
+        };
         async function dmeOn() {
             if (!shown || m.isDemo()) return;
             if (!dme) {
@@ -97,14 +108,17 @@ mgu.run({
                         link = new ReadOnlyDiag(ctx.signals, log);
                         await link.init();
                         dme = new DmeReader(link, { log, onValues });
+                        detector = new E.Detector(link, engineStore, log);
                         log.info('engine unit: read only link ready');
                     })().catch((e) => { log.warn('engine unit: ' + (e && e.message ? e.message : e)); opening = null; });
                 }
                 await opening;
             }
             if (dme && shown && !m.isDemo()) dme.start();
+            if (detector && !detector.known()) await detector.run();
+            if (detector && detector.facts.units === 2 && shown && !m.isDemo()) { if (!bank2) bank2 = new Bank2Reader(link, { onValues: onBank2 }); bank2.start(); }
         }
-        const dmeOff = () => { if (dme) dme.stop(); };
+        const dmeOff = () => { if (dme) dme.stop(); if (bank2) bank2.stop(); };
         ui.onVisible((name, v) => {
             if (name !== SCREEN) return;
             shown = !!v;

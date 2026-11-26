@@ -418,6 +418,36 @@ test('no em or en dash in the app', () => {
     });
 });
 
+/* ---------- every engine (owner rule 2026-11-26 19:03) ---------- */
+const E = require(path.join(__dirname, '..', 'lib', 'engine'));
+const DM = require(path.join(APP, 'demo'));
+const DY = require(path.join(APP, 'dyno'));
+const MD = require(path.join(APP, 'model'));
+test('each demo car: what it reports (EV no boost or Dyno, diesel no wastegate, V8 bank 2)', () => {
+    const has = (id, k) => MD.demoHas(E.demoCar(id), k);
+    assert(has('b48', 'boost') && has('b48', 'wastegate') && !has('b48', 'boost2'));
+    assert(has('s63', 'boost2') && has('s63', 'wastegate2'));
+    assert(has('b57', 'boost') && !has('b57', 'wastegate'));
+    assert(!has('ev', 'boost') && !has('ev', 'torque') && !has('ev', 'oil') && has('ev', 'speed') && has('ev', 'tyres'));
+});
+test('demo runs per car: the boost each reaches, bank 2 on a V8, none on an EV', () => {
+    const peak = (id) => {
+        const d = new DM.Demo(7, 0, null, E.demoCar(id));
+        let b = -9, b2 = null, wg = false, v = null;
+        for (let t = 0; t < 40000; t += 50) { v = d.sample(t); if (v.boost > b) b = v.boost; if (typeof v.boost2 === 'number') b2 = v.boost2; if ('wastegate' in v) wg = true; }
+        return { b: b, b2: b2, wg: wg, v: v };
+    };
+    const s63 = peak('s63'), b57 = peak('b57'), ev = peak('ev');
+    assert(s63.b > 1.7 && s63.b2 !== null && s63.wg);
+    assert(b57.b > 1.8 && !b57.wg);
+    assert(ev.v.boost === undefined && ev.v.rpm === undefined && ev.v.speed >= 0);
+});
+test('a dyno pull that never ends is cut, its arrays never grow without end', () => {
+    const p = new DY.PullLog({});
+    for (let i = 0; i < 5000; i++) p.feed(i * 50, { rpm: 3000 + i * 0.01, torque: 400, gear: 3, pedal: 100 });
+    assert(!p.cur || p.cur.rpm.length < 3000);
+});
+
 (async () => {
     for (const [name, fn] of tests) {
         try { await fn(); console.log('ok   ' + name); } catch (e) { failed++; console.log('FAIL ' + name + '\n     ' + String(e.message).split('\n')[0]); }
