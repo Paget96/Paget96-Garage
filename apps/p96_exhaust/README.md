@@ -78,9 +78,21 @@ engine unit's model), the exhaust camshaft and the engine load; and the flap's s
 - Which engine unit drives the left flap on a car with two is not known yet: there is a setting for it.
 - Tested on the PC preview with demo data and a pretend engine unit only. ID7 head units only for now.
 
+**Works with.** Every BMW with an engine where the MGU Store runs on iDrive 7. The drawing shows the car's own
+cylinders, one or two turbos and one or two pipes. One flap (60 FD) or a V8's two flaps, each on its own engine unit
+(61 1E, as upstream does). Petrol cars: the OPF page. Diesels: the DPF page and words, the SCR catalyst in the drawing
+and the AdBlue tank when the engine unit reports it. A plug-in hybrid: the values while the engine runs. An electric
+car has no exhaust: the app says so on its one page and reads nothing. Settings, Demo car shows each layout.
+
+| Car | Screenshot |
+|---|---|
+| V8: two banks, two turbos, two pipes, two flaps | ![](../../docs/media/cars/exhaust-s63-v8.png) |
+| Diesel: DPF, SCR and the AdBlue tank | ![](../../docs/media/cars/exhaust-b57-diesel.png) |
+| Electric: no exhaust | ![](../../docs/media/cars/exhaust-electric.png) |
+
 ## Settings
 
 The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
-Follow ambient lighting, Demo data. Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).

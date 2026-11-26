@@ -55,6 +55,13 @@ A card, a row or a small value appears only once your car has sent its value.
 - Range is shown in km as the car sends it.
 - Drives are kept on the head unit for today, in the app's data folder.
 
+## Works with
+
+Every BMW with the MGU Store on an iDrive 7 head unit, petrol, diesel, hybrid or electric: Standby shows what the car
+broadcasts. On an electric car the range card has no fuel line. Settings, Demo car shows each.
+
+![Glance on an electric car](../../docs/media/cars/standby-electric.png)
+
 ## Settings
 
 - **Renderer, Frame rate, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app.

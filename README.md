@@ -99,7 +99,7 @@ temperatures from the mirror to the throttle, the tyres from cold to hot, the fl
 side by side.
 
 Datalog shows only what your car reports: a page, card, chart line or setting appears once your car has sent that
-value (remembered for this car). Demo data shows everything.
+value (remembered for this car). Demo data shows everything a car of the chosen Demo car has.
 
 ![Datalog working](docs/media/p96_datalog/demo.gif)
 
@@ -162,11 +162,26 @@ the bus; runs are still timed from the broadcasts.
 - The exhaust gas temperature is the engine unit's model, not a sensor, and not every engine has it.
 - The wastegate position is the engine unit's own reading of its electric actuator; engines with a vacuum wastegate
   do not report one, and the engine unit gives no wastegate target to compare with.
-- The identifiers are those of the B38, B48 and B58 engine units (G series); another engine may answer some of them
-  or none. Not tried on a car yet: tested with demo data in the PC preview and the emulator. ID7 head units only.
+- The identifiers are BMW's DME8FF_R ones (B38, B48, B58, the V8s' engine units in the same family); a diesel's
+  engine unit answers some of them. Not tried on a car yet: tested with demo data in the PC preview and the emulator.
+  ID7 head units only (iDrive 8 is not tried yet).
+
+**Works with.** Every BMW with the MGU Store on an iDrive 7 head unit, whatever its engine. Four and six cylinders
+with one turbo: boost, the electric wastegate, the dyno. Two turbos (S58): both drawn in the air path and the
+wastegate picture. A V8 with two engine units (N63, S63, S68): boost and wastegate of bank 1 and bank 2 side by side,
+bank 2 from its own engine unit. Diesels (B47, B57): boost and the dyno, no wastegate card (their turbo has variable
+vanes). A plug-in hybrid: the engine values while the engine runs. An electric car: the speed ring, runs, tyres and
+temperatures; no Boost or Dyno page. The engine is found from the car's own answers, never assumed; Settings,
+Demo car shows each layout.
+
+| Car | Screenshot |
+|---|---|
+| V8, two engine units: boost of both banks, both wastegates | ![](docs/media/cars/datalog-boost-s63-v8.png) |
+| S58, two turbos: the wastegate explained for both | ![](docs/media/cars/datalog-wastegate-s58.png) |
+| Electric: the speed ring in place of the boost | ![](docs/media/cars/datalog-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
-Follow ambient lighting, Demo data. Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
+Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
 
@@ -203,6 +218,7 @@ and only the service items the car itself can reset get a Reset. The screenshots
 | Service: reset one of the car's items | ![](docs/media/p96_health/service-reset.png) |
 | Tyres: pressures and the 4 week trend | ![](docs/media/p96_health/tyres.png) |
 | Fluids: levels and warm-up | ![](docs/media/p96_health/fluids.png) |
+| Engine: a bar per cylinder (misfires, rough running, ignition), knock, camshafts, lambda, rail | ![](docs/media/p96_health/engine.png) |
 | History: score over 12 weeks, what changed | ![](docs/media/p96_health/history.png) |
 | Share: the report as a QR code | ![](docs/media/p96_health/share.png) |
 | A reminder when something is due | ![](docs/media/p96_health/reminder.png) |
@@ -252,8 +268,21 @@ never by themselves:
   open the app.
 - Tested on the PC preview with demo data only. ID7 head units only for now.
 
+**Works with.** Every BMW with the MGU Store on an iDrive 7 head unit. The Engine page has one bar for each of the car's
+cylinders, as many as its engine unit lists (3, 4, 6 or 8); a V8's two banks side by side, bank 2's ignition from its
+second engine unit. Petrol: misfires, rough running, ignition angle, knock control, the camshafts, lambda and the rail
+pressure. Diesel: rough running and the rail pressure on its own scale (up to about 2 700 bar), glow plugs, fuel
+filter and AdBlue among the service parts, no spark plug interval, the diesel readiness monitors. Electric: no
+Engine page and no engine items in Service. Settings, Demo car shows each layout.
+
+| Car | Screenshot |
+|---|---|
+| V8: misfires per cylinder, bank 1 and bank 2 | ![](docs/media/cars/health-engine-s63-v8.png) |
+| Six cylinders: rough running | ![](docs/media/cars/health-engine-b58.png) |
+| Diesel: rough running and the rail pressure | ![](docs/media/cars/health-engine-b57-diesel.png) |
+
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
-Follow ambient lighting, Demo data. Then Health's own: Nightly battery check (on or off), Battery warning at (the
+Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
@@ -303,6 +332,13 @@ has sent its value. Details: [apps/p96_standby/README.md](apps/p96_standby/READM
   card shows the doors only.
 - A drive's distance comes from the speed signal, not the odometer. Fuel is the trip computer's
   average, in l/100 km only.
+
+#### Works with
+
+Every BMW with the MGU Store on an iDrive 7 head unit, petrol, diesel, hybrid or electric: Standby shows what the car
+broadcasts. On an electric car the range card has no fuel line. Settings, Demo car shows each.
+
+![Glance on an electric car](docs/media/cars/standby-electric.png)
 
 #### Settings
 
@@ -383,8 +419,20 @@ engine unit's model), the exhaust camshaft and the engine load; and the flap's s
 - Which engine unit drives the left flap on a car with two is not known yet: there is a setting for it.
 - Tested on the PC preview with demo data and a pretend engine unit only. ID7 head units only for now.
 
+**Works with.** Every BMW with an engine where the MGU Store runs on iDrive 7. The drawing shows the car's own
+cylinders, one or two turbos and one or two pipes. One flap (60 FD) or a V8's two flaps, each on its own engine unit
+(61 1E, as upstream does). Petrol cars: the OPF page. Diesels: the DPF page and words, the SCR catalyst in the drawing
+and the AdBlue tank when the engine unit reports it. A plug-in hybrid: the values while the engine runs. An electric
+car has no exhaust: the app says so on its one page and reads nothing. Settings, Demo car shows each layout.
+
+| Car | Screenshot |
+|---|---|
+| V8: two banks, two turbos, two pipes, two flaps | ![](docs/media/cars/exhaust-s63-v8.png) |
+| Diesel: DPF, SCR and the AdBlue tank | ![](docs/media/cars/exhaust-b57-diesel.png) |
+| Electric: no exhaust | ![](docs/media/cars/exhaust-electric.png) |
+
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
-Follow ambient lighting, Demo data. Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
 
@@ -402,6 +450,9 @@ Every Paget96 Garage app follows the same rules, so once you know one, you know 
   changed in Settings (60 fps is the default).
 - **Only what your car has.** A card, page or button appears only when your car reports that value or
   has that function.
+- **Every engine.** Three to eight cylinders, one or two turbos, a V8 with two engine units, diesels, plug-in
+  hybrids and electric cars: each app finds the engine from the car's own answers (cylinder count, engine units,
+  fuel) and lays its pages out for it, never for one car. Each app's "Works with" says what differs.
 - **Colours mean something.** Green is fine, amber look at it soon, red now. The accent follows your
   front ambient light, but data colours never change.
 - **Read first.** The apps read what the car already reports. The only things they ever change, and

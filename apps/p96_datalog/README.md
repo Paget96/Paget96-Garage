@@ -9,7 +9,7 @@ temperatures from the mirror to the throttle, the tyres from cold to hot, the fl
 side by side.
 
 Datalog shows only what your car reports: a page, card, chart line or setting appears once your car has sent that
-value (remembered for this car). Demo data shows everything.
+value (remembered for this car). Demo data shows everything a car of the chosen Demo car has.
 
 ![Datalog working](../../docs/media/p96_datalog/demo.gif)
 
@@ -72,11 +72,26 @@ the bus; runs are still timed from the broadcasts.
 - The exhaust gas temperature is the engine unit's model, not a sensor, and not every engine has it.
 - The wastegate position is the engine unit's own reading of its electric actuator; engines with a vacuum wastegate
   do not report one, and the engine unit gives no wastegate target to compare with.
-- The identifiers are those of the B38, B48 and B58 engine units (G series); another engine may answer some of them
-  or none. Not tried on a car yet: tested with demo data in the PC preview and the emulator. ID7 head units only.
+- The identifiers are BMW's DME8FF_R ones (B38, B48, B58, the V8s' engine units in the same family); a diesel's
+  engine unit answers some of them. Not tried on a car yet: tested with demo data in the PC preview and the emulator.
+  ID7 head units only (iDrive 8 is not tried yet).
+
+**Works with.** Every BMW with the MGU Store on an iDrive 7 head unit, whatever its engine. Four and six cylinders
+with one turbo: boost, the electric wastegate, the dyno. Two turbos (S58): both drawn in the air path and the
+wastegate picture. A V8 with two engine units (N63, S63, S68): boost and wastegate of bank 1 and bank 2 side by side,
+bank 2 from its own engine unit. Diesels (B47, B57): boost and the dyno, no wastegate card (their turbo has variable
+vanes). A plug-in hybrid: the engine values while the engine runs. An electric car: the speed ring, runs, tyres and
+temperatures; no Boost or Dyno page. The engine is found from the car's own answers, never assumed; Settings,
+Demo car shows each layout.
+
+| Car | Screenshot |
+|---|---|
+| V8, two engine units: boost of both banks, both wastegates | ![](../../docs/media/cars/datalog-boost-s63-v8.png) |
+| S58, two turbos: the wastegate explained for both | ![](../../docs/media/cars/datalog-wastegate-s58.png) |
+| Electric: the speed ring in place of the boost | ![](../../docs/media/cars/datalog-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
-Follow ambient lighting, Demo data. Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
+Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
 
