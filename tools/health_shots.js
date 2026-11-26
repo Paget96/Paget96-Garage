@@ -30,14 +30,18 @@ const DEMO = require(path.join(APP, 'demo'));
 const M = require(path.join(APP, 'model'));
 const T = require(path.join(APP, 'texts'));
 
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
+// --car <id>: the pages of one demo car of lib/engine.js (the compatibility gallery), nothing else
+const E = require('../lib/engine');
+let CAR = null;
+if (args[0] === '--car') { CAR = E.demoCar(args[1]); args = args.slice(2); }
 const gifDir = args[0] === '--gif' ? args[1] : null;
 const out = gifDir || args[0] || path.join(__dirname, '..', 'docs', 'media', 'p96_health');
 fs.mkdirSync(out, { recursive: true });
 
-const demo = DEMO.state(clock);
+const demo = DEMO.state(clock, CAR);
 function state() {
-    const S = M.derive(Object.assign({}, demo, { at: clock, demo: true, live: false }), Object.assign({}, UI.DISPLAY_DEFAULTS,
+    const S = M.derive(Object.assign({}, demo, { at: clock, demo: true, live: false, engine: CAR || E.demoCar('b48'), eng: DEMO.engineValues(clock, CAR || E.demoCar('b48')) }), Object.assign({}, UI.DISPLAY_DEFAULTS,
         { batteryWarn: 12.4, tyreWarn: 0.1, nightly: 'on', units: 'metric', intervals: 'strict' }), T.faultShort);
     S.checkedText = 'checked 2 min ago';
     S.downBecause = 'the rear left tyre and the stored charge air fault.';
@@ -86,7 +90,14 @@ const dlg = (d) => { V.dialog = { d: d, open: true, a: 1 }; };
 /** The Clear faults dialog as the app builds it, with these units ticked (default: as it opens, the engine unit not ticked). */
 const clearDlg = (ticked) => VIEW.clearDialog(clearUnits, ticked || M.clearDefaults(clearUnits), { tick: noop, all: noop, cancel: noop, run: noop });
 
-if (!gifDir) {
+if (CAR) {
+    const pages = M.pagesFor(state().caps, state());
+    pages.forEach((i) => shot(VIEW.TABS[i].toLowerCase(), () => { V.page = i; }));
+    if (pages.indexOf(8) >= 0) ['rough', 'ignition'].forEach((k) => shot('engine-' + k, () => { V.page = 8; V.cyl = k; }));
+    shot('help-engine', () => { V.mode = 'help'; V.helpSel = T.TOPICS.findIndex((tp) => /per cylinder/.test(tp.title)); });
+    if (pages.indexOf(8) >= 0) { Object.assign(V, { page: 8, mode: 'main', dialog: null }); UI.closeInfo(); settle(300); UI.openInfo(VIEW.info('misfire')); settle(2600); png(frame(), path.join(out, 'popup-misfire.png')); shots.push('popup-misfire'); UI.closeInfo(); }
+    console.log('%s: %d pictures in %s (%s)', CAR.id, shots.length, out, shots.join(', '));
+} else if (!gifDir) {
     // pages
     const infos = (rec) => { if (!rec.targets.some((q) => /^p96info/.test(q.key))) throw new Error('no (i) on the page'); };
     VIEW.TABS.forEach((tab, i) => shot(tab.toLowerCase(), () => { V.page = i; }, infos));

@@ -123,6 +123,15 @@ class HealthLink {
         if (pid !== 0x01 && pid !== 0x41) throw new Error('health: readiness is PID 01 or 41');
         return PRIVATE.get(this).ro.physical(ENGINE, 0x01, [pid], 1500, (u) => (u[0] === 0x41 && u[1] === pid) || (u[0] === 0x7F && u[1] === 0x01));
     }
+    /**
+     * The read-only link for the engine's facts and the Engine page (lib/engine.js Detector: 22 F1 50, 22 F6 A0, OBD
+     * 01 51; OBD 01 23 the rail pressure): ReadOnlyDiag, so reads only.
+     */
+    engineLink() {
+        this._gate();
+        const ro = PRIVATE.get(this).ro;
+        return { physical: (addr, sid, data, ms, ok) => ro.physical(addr, sid, data, ms, ok) };
+    }
     /** OBD permanent faults (0A) from the engine unit: the reply or null. */
     readPermanent() { return this._send('read', ENGINE, 0x0A, []); }
     /** What one unit kept about one fault: its snapshot ids, the first snapshot (freeze frame), the extended data. */

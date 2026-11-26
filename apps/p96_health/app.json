@@ -70,6 +70,7 @@
     {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60, "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
     {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
     {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto", "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "demoCar", "label": "Demo car", "type": "choice", "default": "b48", "options": [["b48", "B48"], ["b58", "B58"], ["s58", "S58"], ["s63", "S63 V8"], ["b57", "B57 diesel"], ["phev", "PHEV"], ["ev", "EV"]]},
     {"key": "nightly", "label": "Nightly battery check", "type": "choice", "default": "on", "options": [["on", "On"], ["off", "Off"]]},
     {"key": "batteryWarn", "label": "Battery warning at", "type": "number", "unit": "V", "default": 12.4, "steps": [11.8, 11.9, 12.0, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6]},
     {"key": "tyreWarn", "label": "Tyre warning at", "type": "number", "unit": "bar", "default": 0.1, "steps": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]},

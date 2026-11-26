@@ -19,11 +19,12 @@ function need(local, repo) {
 const UI = need('./garage_ui', '../../lib/ui');
 const M = require('./model');
 const T = require('./texts');
-const { artFor } = require('./art');
+const E = need('./garage_engine', '../../lib/engine');
+const { artFor, setEngine } = require('./art');
 const QR = need('./kit/qr', '../../upstream-kit/kit/runtime/qr');
 const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN;
 
-const TABS = ['Overview', 'Faults', 'Battery', 'Service', 'Tyres', 'Fluids', 'History', 'Share'];
+const TABS = ['Overview', 'Faults', 'Battery', 'Service', 'Tyres', 'Fluids', 'History', 'Share', 'Engine'];
 const COL = { ok: C.green, warm: C.amber, bad: C.red, info: C.blue, dim: C.dim, accent: C.orange };
 const col = (c) => COL[c] || c || C.text;
 
@@ -495,11 +496,11 @@ function serviceParts(cv, S, A, px, w3) {
 /** The body of the Add a part dialog: three columns of parts to pick. */
 function addPartBody(S, V, A) {
     return (cv, x, y, w, h) => {
-        const groups = Object.keys(M.PARTS), cw = Math.floor((w - 40) / 3);
+        const PARTS = M.partsFor(S.engine), groups = Object.keys(PARTS), cw = Math.floor((w - 40) / 3);
         groups.forEach((g, gi) => {
             const gx = x + gi * (cw + 20);
             cv.text(g.toUpperCase(), gx, y + 12, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
-            M.PARTS[g].forEach((p, i) => {
+            PARTS[g].forEach((p, i) => {
                 const yy = y + 24 + i * 36, on = (V.dialog.pick || []).indexOf(p) >= 0, had = (S.parts || []).indexOf(p) >= 0;
                 cv.roundRect(gx, yy, cw - 40, 30, 15, on ? [255, 128, 40, 70] : '#2a2d34');
                 if (on) cv.strokeRoundRect(gx, yy, cw - 40, 30, 15, 1.5, C.orange);
@@ -575,6 +576,52 @@ function fluids(cv, S, V, A, t) {
         M.has(cp, 'oilTemp') && { name: 'oil', color: 'ok', values: wu.oil && wu.oil.length > 1 ? wu.oil : new Array(n).fill(null) },
         M.has(cp, 'coolantTemp') && { name: 'coolant', color: 'info', values: wu.coolant && wu.coolant.length > 1 ? wu.coolant : new Array(n).fill(null) },
     ].filter(Boolean), { label: 'Warm-up, ' + (wu.when || 'today'), info: info('warmup'), min: 0, max: 120, yTicks: 6, yUnit: '°C', xLabels: xl, fill: false });
+}
+
+/* ---------- Engine (per cylinder) ---------- */
+
+/** The per-cylinder views this car has, in order: misfires, rough running, ignition angle (petrol only). */
+const CYL_VIEWS = [['misfire', 'Misfires'], ['rough', 'Rough running'], ['ignition', 'Ignition']];
+const CYL_FMT = {
+    misfire: { label: 'Misfires per cylinder', lo: 0, hi: 40, unit: 'counted', decimals: 0, info: 'misfire' },
+    rough: { label: 'Rough running per cylinder', lo: -6, hi: 6, mid: 0, unit: 'rad/s²', decimals: 1, info: 'rough' },
+    ignition: { label: 'Ignition angle per cylinder', lo: -10, hi: 40, mid: 0, unit: '°', decimals: 1, info: 'ignition' },
+};
+function engine(cv, S, V, A, t) {
+    const cp = S.caps, p = S.engine || E.profile({}), ev = S.eng || {}, cyl = ev.cyl || {};
+    const views = CYL_VIEWS.filter((k) => M.has(cp, k[0]) && (k[0] !== 'ignition' || p.ignition));
+    const right = [];
+    if (M.has(cp, 'knock') && p.knock) right.push({ label: 'Knock control', value: ev.knock, decimals: 1, unit: '°', sub: ev.knock == null ? 'not read yet' : Math.abs(ev.knock) < 0.5 ? 'no timing pulled back' : 'timing pulled back on average', color: ev.knock == null ? 'dim' : Math.abs(ev.knock) < 2 ? 'ok' : 'warm', info: 'knock' });
+    if (M.has(cp, 'vanos')) right.push({ label: 'Camshafts (VANOS)', value: ev.vanosIn, decimals: 1, unit: '°', sub: ev.vanosEx == null ? 'intake' : 'intake, exhaust ' + ev.vanosEx.toFixed(1) + ' °', color: 'ok', info: 'vanos' });
+    if (M.has(cp, 'lambda')) right.push({ label: 'Lambda', value: ev.lambda, decimals: 3, unit: '', sub: ev.lambda == null ? 'not read yet' : p.diesel ? 'lean, as a diesel runs' : Math.abs(ev.lambda - 1) < 0.03 ? 'right at 1: clean burn' : ev.lambda < 1 ? 'rich: more fuel (full load, cooling)' : 'lean', color: 'ok', info: 'lambda' });
+    const railOnly = M.has(cp, 'rail') && right.length === 0;
+    if (M.has(cp, 'rail') && !railOnly) right.push({ label: 'Fuel rail pressure', value: ev.rail, decimals: 0, unit: 'bar', sub: 'normal ' + p.rail[0] + ' to ' + p.rail[1] + ' bar', color: 'ok', info: 'rail' });
+    const hasRight = right.length || railOnly;
+    const lw = views.length ? (hasRight ? 1000 : X1 - X0) : 0, rx = X0 + (lw ? lw + 14 : 0), rw = X1 - rx;
+    if (views.length) {
+        const pick = views.some((k) => k[0] === V.cyl) ? V.cyl : views[0][0], f = CYL_FMT[pick];
+        UI.cylinders(cv, X0, TOP, lw, 392, { label: f.label, banks: E.cylinderBanks(p), values: cyl[pick] || {}, lo: f.lo, hi: f.hi, mid: f.mid,
+            unit: f.unit, decimals: f.decimals, status: (v) => M.cylStatus(pick, v, cyl[pick]), info: info(f.info),
+            sub: p.banks === 2 && pick === 'ignition' ? 'bank 2 from the second engine unit' : p.cylinders ? E.describe(p) : 'the cylinder count comes from the engine unit' });
+        if (views.length > 1) {
+            const opts = views.map((k) => [k[0], k[1]]);
+            UI.segmented(cv, X0 + lw - 60, TOP + 26, opts, pick, (k) => A.cyl(k), 'cylview');
+        }
+    }
+    if (railOnly) {
+        UI.card(cv, rx, TOP, rw, 392, 'Fuel rail pressure', { info: info('rail') });
+        UI.ring(cv, rx + rw / 2, TOP + 210, 110, { value: ev.rail, min: 0, max: p.rail[1], decimals: 0, unit: 'bar', color: 'ok',
+            scale: { step: p.diesel ? 500 : 50 } });
+        cv.text(p.diesel ? 'common rail: up to about ' + p.rail[1] + ' bar' : 'direct injection: up to about ' + p.rail[1] + ' bar', rx + rw / 2, TOP + 378, 15, C.dim, { align: 'center', literal: true });
+        return;
+    }
+    if (!right.length) return;
+    const rows = Math.ceil(right.length / (right.length > 2 ? 2 : 1)), cols = right.length > 2 ? 2 : 1, gap = 14;
+    const cw = (rw - gap * (cols - 1)) / cols, ch = (392 - gap * (rows - 1)) / rows;
+    right.forEach((c, i) => {
+        const x = rx + (i % cols) * (cw + gap), y = TOP + Math.floor(i / cols) * (ch + gap);
+        UI.stat(cv, x, y, cw, ch, { label: c.label, value: c.value, decimals: c.decimals, unit: c.unit, sub: c.sub, color: c.color, info: info(c.info) });
+    });
 }
 
 /* ---------- History ---------- */
@@ -661,10 +708,11 @@ function appRowsFor(S) {
 
 /* ---------- one frame ---------- */
 
-const PAGES = [overview, faults, battery, service, tyres, fluids, history, share];
+const PAGES = [overview, faults, battery, service, tyres, fluids, history, share, engine];
 
 /** Records one frame of Health on cv. t: seconds (for the animations). */
 function draw(cv, S, V, A, t) {
+    setEngine(S.engine);
     if (V.mode === 'help') {
         UI.howToUse(cv, helpTopics(), V.helpSel || 0, t, { title: 'HEALTH', onSelect: A.helpTopic, onBack: A.back, onSettings: A.settings });
     } else if (V.mode === 'settings') {

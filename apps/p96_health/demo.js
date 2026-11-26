@@ -7,6 +7,10 @@
  * Built for a given "now", so the dates on every page line up.
  */
 const M = require('./model');
+function need(local, repo) {
+    try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
+}
+const E = need('./garage_engine', '../../lib/engine');
 const DAY = M.DAY;
 
 const f = (code, status, mem) => ({ code: code, status: status, mem: mem || 'fault' });
@@ -69,8 +73,41 @@ function obdAfterClear() {
 /** A daily series ending now: fn(i of n) per day. */
 const days = (now, n, fn) => { const out = []; for (let i = 0; i < n; i++) out.push([now - (n - 1 - i) * DAY, fn(i, n)]); return out; };
 
-function state(now) {
+function state(now, car) {
     now = now || Date.now();
+    const s = base(now);
+    if (!car) return s;
+    // the demo car of Settings (lib/engine.js): what such a car reports, its own service parts
+    s.caps = M.capsForCar(car);
+    if (car.diesel) { s.parts = ['Oil filter', 'Engine oil', 'Glow plugs', 'Front pads']; s.used.plugs = null; }
+    if (car.engine === false) {
+        s.parts = ['Front pads', 'Cabin filter']; s.partsOff = []; s.used = { air: null, gearbox: null, coolant: 2 };
+        s.cbs = s.cbs.filter((c) => c.id !== 0x01 && c.id !== 0x0A);
+        s.fluids = { oilCl: null, oilTemp: null, coolantTemp: 31, coolantLow: false, washerLow: true };
+        s.warm = null;
+    }
+    return s;
+}
+/**
+ * The Engine page's demo values for a demo car: a bar per cylinder (as many as it has), one cylinder a little off so
+ * the colours show, values that move a little. Diesel: no ignition or knock, its rail pressure in its own range.
+ */
+function engineValues(now, car) {
+    const p = car || E.demoCar('b48'), n = p.cylinders, out = { cyl: { misfire: {}, rough: {}, ignition: {} } };
+    if (!n) return out;
+    const s = (now || 0) / 1000;
+    for (let c = 1; c <= n; c++) {
+        out.cyl.misfire[c] = c === 3 ? 7 : c === n ? 1 : 0;
+        out.cyl.rough[c] = Math.round((0.6 * Math.sin(c * 1.7 + s / 3) + (c === 3 ? 2.4 : 0)) * 10) / 10;
+        if (p.ignition) out.cyl.ignition[c] = Math.round((18 + 1.2 * Math.sin(c * 2.3) - (c === 2 ? 4.5 : 0)) * 10) / 10;
+    }
+    if (p.knock) out.knock = 0.8;
+    if (!p.diesel) { out.vanosIn = 24.5 + Math.sin(s / 4); out.vanosEx = -18.2; out.lambda = 0.998 + 0.004 * Math.sin(s); }
+    out.rail = p.diesel ? 1450 + 80 * Math.sin(s / 2) : 165 + 15 * Math.sin(s / 2);
+    return out;
+}
+
+function base(now) {
     const wob = (i, a, b) => Math.sin(i * a + b);
     return {
         at: now, km: 48150,
@@ -131,4 +168,4 @@ function dueIn(now, n) {
     return ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
 }
 
-module.exports = { state, units, faultLog, obd, obdAfterClear, SEEN, SNAPSHOT };
+module.exports = { state, engineValues, units, faultLog, obd, obdAfterClear, SEEN, SNAPSHOT };

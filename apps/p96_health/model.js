@@ -17,6 +17,10 @@
  * Node 8: no optional chaining, no ??, no object spread.
  */
 
+function need(local, repo) {
+    try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
+}
+const E = need('./garage_engine', '../../lib/engine');
 const DAY = 86400000, WEEK = 7 * DAY;
 
 /* ---------- control units ---------- */
@@ -324,10 +328,94 @@ function ourItems(values, used, caps) {
 
 /** The parts a user can plan for the next service (I10), grouped as the Add a part dialog shows them. */
 const PARTS = {
-    Engine: ['Oil filter', 'Engine oil', 'Spark plugs', 'Air filter', 'Ignition coils', 'Drive belt'],
+    Engine: E.engineParts(null),
     Brakes: ['Front pads', 'Rear pads', 'Front discs', 'Rear discs', 'Brake fluid'],
     Other: ['Cabin filter', 'Wipers', 'Coolant', 'Gearbox oil', '12 V battery'],
 };
+
+/** The parts for this engine (lib/engine.js): spark plugs on a petrol, glow plugs and AdBlue on a diesel, an electric
+ * car's Engine group gone (its motor needs none of these). */
+function partsFor(p) {
+    const out = {};
+    const eng = p ? E.engineParts(p) : PARTS.Engine;
+    if (eng.length) out.Engine = eng;
+    out.Brakes = PARTS.Brakes;
+    out.Other = p && p.engine === false ? PARTS.Other.filter((x) => x !== 'Gearbox oil') : PARTS.Other;
+    return out;
+}
+
+/* ---------- the engine, per cylinder (owner rule 2026-11-26 19:03: sized by the car, never a fixed 4) ---------- */
+
+/**
+ * The engine unit's per-cylinder values (BMW's DME8FF_R description, as upstream Live Data lists them; the S63 /
+ * S68 pairs share the identifiers, kit/twin_dme.js):
+ *   misfire  misfire counter, whole engine, on the master (0x12): cylinders 1..6, 7 and 8 on a V8
+ *   rough    rough running (crankshaft speed wobble) per cylinder, rad/s², whole engine on the master
+ *   ignition ignition angle per cylinder, °: each engine unit its own bank's cylinders 1..4 (or 1..6 with one unit)
+ * Diesels have no spark: no ignition angle, no knock (their engine units also use other identifiers, F51).
+ */
+const CYL_DIDS = {
+    misfire: ['4B23', '4B24', '4B25', '4B30', '4B31', '4B32', '4B33', '4B34'],
+    rough: ['4A30', '4A31', '4A32', '4A33', '4A34', '4A35', '4A43', '4A44'],
+    ignition: ['4A49', '4A4A', '4A4C', '4A4D', '4A4E', '4A4F'],
+};
+const CYL_FMT = { misfire: { t: 'u16', k: 1, min: 0, max: 65000 }, rough: { t: 's16', k: 0.0625, min: -500, max: 500 }, ignition: { t: 's16', k: 0.1, min: -60, max: 70 } };
+/** One-value engine reads: knock retard, the camshafts, lambda, rail pressure (MPa -> bar). */
+const ENGINE_DIDS = {
+    knock: { did: 0x554C, t: 's8', k: 0.375, min: -30, max: 30 },
+    vanosIn: { did: 0x452E, t: 's16', k: 0.1, min: -100, max: 150, cap: 'vanos' },
+    vanosEx: { did: 0x452C, t: 's16', k: 0.1, min: -100, max: 150, cap: 'vanos' },
+    lambda: { did: 0x5889, t: 'u16', k: 0.000244140625, min: 0.5, max: 2.5 },
+    rail: { did: 0x58EF, t: 'u16', k: 0.005, min: 1, max: 3000 },
+};
+const ENGINE_CAPS = ['misfire', 'rough', 'ignition', 'knock', 'vanos', 'lambda', 'rail'];
+/**
+ * The reads for the Engine page on this engine: [{ kind, cyl, addr, did }]. Never more cylinders than the car has; on
+ * a V8 the second engine unit (0x13) reads its own bank's ignition angles (its cylinders perBank + 1 ..). A car
+ * whose cylinder count is not known yet: the first four only, until the count comes (upstream lists all six).
+ */
+function cylinderReads(p) {
+    const n = p && p.cylinders ? p.cylinders : 0, out = [];
+    if (!p || p.engine === false) return out;
+    const upTo = n || 4;
+    ['misfire', 'rough'].forEach((kind) => CYL_DIDS[kind].slice(0, Math.min(8, upTo)).forEach((d, i) => out.push({ kind: kind, cyl: i + 1, addr: 0x12, did: parseInt(d, 16) })));
+    if (p.ignition) {
+        const per = p.units === 2 ? Math.min(4, p.perBank || 4) : Math.min(6, upTo);
+        CYL_DIDS.ignition.slice(0, per).forEach((d, i) => out.push({ kind: 'ignition', cyl: i + 1, addr: 0x12, did: parseInt(d, 16) }));
+        if (p.units === 2) CYL_DIDS.ignition.slice(0, per).forEach((d, i) => out.push({ kind: 'ignition', cyl: per + i + 1, addr: 0x13, did: parseInt(d, 16) }));
+    }
+    return out;
+}
+/** The value in a 22 reply (62 <did> <data>) with fmt, or null. */
+function decodeNum(fmt, did, r) {
+    if (!r || r[0] !== 0x62 || ((r[1] << 8) | r[2]) !== did || r.length < 4) return null;
+    let raw;
+    if (fmt.t === 'u8' || fmt.t === 's8') { raw = r[3]; if (fmt.t === 's8' && raw & 0x80) raw -= 0x100; }
+    else { if (r.length < 5) return null; raw = (r[3] << 8) | r[4]; if (fmt.t === 's16' && raw & 0x8000) raw -= 0x10000; }
+    const v = raw * fmt.k;
+    return v < fmt.min || v > fmt.max ? null : v;
+}
+/**
+ * A cylinder's state on the Engine page, in the fixed data colours: misfires since the last clear (0 ok, a few amber,
+ * many red), rough running (the crankshaft's wobble: small ok), an ignition angle well below the others' (amber: the
+ * knock control pulls it back on that cylinder). (unsure: the bands are ours, from the scale BMW's tables give.)
+ */
+function cylStatus(kind, v, all) {
+    if (v == null) return 'dim';
+    if (kind === 'misfire') return v === 0 ? 'ok' : v < 20 ? 'warm' : 'bad';
+    if (kind === 'rough') return Math.abs(v) < 2 ? 'ok' : Math.abs(v) < 5 ? 'warm' : 'bad';
+    const nums = Object.keys(all || {}).map((k) => all[k]).filter((x) => typeof x === 'number');
+    const mean = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : v;
+    return v < mean - 3 ? 'warm' : 'ok';
+}
+/** A demo car's caps (lib/engine.js): an electric car has no engine values, a diesel no plugs, ignition or knock. */
+function capsForCar(p) {
+    const o = Object.assign({}, ALL_CAPS);
+    if (!p) return o;
+    if (p.engine === false) ['oilLevel', 'oilTemp', 'oilKm', 'plugKm', 'readiness', 'readinessDrive', 'perm'].concat(ENGINE_CAPS).forEach((k) => { o[k] = false; });
+    if (p.diesel) ['plugKm', 'ignition', 'knock', 'vanos', 'misfire', 'lambda'].forEach((k) => { o[k] = false; });
+    return o;
+}
 
 /* ---------- tyres ---------- */
 
@@ -542,7 +630,8 @@ function clearWarning(ticked) {
  * once its capability is true. A capability is found at start or on first use and remembered per car: true (the car
  * reports it), false (asked, no answer), missing (not asked yet). Demo data has them all.
  */
-const CAPS = ['faults', 'info', 'perm', 'readiness', 'readinessDrive', 'volts', 'soc', 'oilLevel', 'oilTemp', 'coolantTemp', 'oilKm', 'plugKm', 'speed', 'tpms', 'cbs', 'cc'];
+const CAPS = ['faults', 'info', 'perm', 'readiness', 'readinessDrive', 'volts', 'soc', 'oilLevel', 'oilTemp', 'coolantTemp', 'oilKm', 'plugKm', 'speed', 'tpms', 'cbs', 'cc',
+    'misfire', 'rough', 'ignition', 'knock', 'vanos', 'lambda', 'rail'];
 const ALL_CAPS = (function () { const o = { cbsIds: null }; CAPS.forEach((k) => { o[k] = true; }); return o; })();
 const has = (caps, k) => !!(caps && caps[k] === true);
 /** Notes what a reply or a signal showed: sets caps[k] and says whether it changed. A true is never taken back by a miss. */
@@ -559,6 +648,7 @@ function pagesFor(caps, S) {
     if (has(caps, 'cbs') || (S && S.ours && S.ours.length)) out.push(3);
     if (has(caps, 'tpms')) out.push(4);
     if (has(caps, 'oilLevel') || has(caps, 'cc') || has(caps, 'oilTemp') || has(caps, 'coolantTemp')) out.push(5);
+    if (ENGINE_CAPS.some((k) => has(caps, k)) && !(S && S.engine && S.engine.engine === false)) out.push(8);
     out.push(6, 7);
     return out;
 }
@@ -638,6 +728,9 @@ function derive(S, values, textOf) {
     // an item can be reset only when the cluster lists it (22 10 02, read when the screen first shows)
     S.service.forEach((it) => { if (caps.cbsIds && caps.cbsIds.indexOf(it.id) < 0) it.resettable = false; if (!caps.cbsIds && caps !== ALL_CAPS) it.resettable = false; });
     S.ours = vals.intervals === 'car' ? [] : ourItems(vals, S.used, caps);
+    // the engine's own items only where the car has that engine: no plugs on a diesel, no oil or air filter on an EV
+    const eng = S.engine;
+    if (eng && eng.fuel) S.ours = S.ours.filter((o) => !(o.key === 'plugs' && !eng.petrol) && !((o.key === 'oil' || o.key === 'air') && eng.engine === false));
     S.tyres = has(caps, 'tpms') ? tyreCheck(S.pressures, S.cold, vals.tyreWarn || 0.1) : null;
     const fl = S.units && has(caps, 'faults') ? listOf(S.units, 'fault').concat(has(caps, 'perm') ? listOf(S.units, 'perm') : []) : null;
     const oil = !has(caps, 'oilLevel') || !S.fluids || S.fluids.oilCl == null ? null : S.fluids.oilCl < 20 ? 'low' : 'ok';
@@ -658,7 +751,8 @@ module.exports = {
     DAY, WEEK, UNITS, unitName, parseDtcReply, parsePermanent, faultState, statusWords, byUnit, listOf,
     fkey, addScan, markCleared, historyRows, EVENT_WORDS,
     batteryVerdict, restCharge, startVerdict,
-    CBS, RESETTABLE, parseWay, parseDue, cbsItems, fmtThousands, resettableNow, resetRequest, OURS, ourItems, PARTS,
+    CBS, RESETTABLE, parseWay, parseDue, cbsItems, fmtThousands, resettableNow, resetRequest, OURS, ourItems, PARTS, partsFor,
+    CYL_DIDS, ENGINE_DIDS, ENGINE_CAPS, cylinderReads, decodeNum, cylStatus, capsForCar, CYL_FMT,
     slopePerWeek, WHEELS, WHEEL_NAMES, tyreCheck, score, weekly, ago, dateText, dayMonth, report,
     parseReadiness, readiness, readinessChanges, ENGINE_UNITS, isEngine, clearDefaults, clearWarning, CLEAR_ENGINE_WARNING,
 };

@@ -36,6 +36,7 @@ const M = require('./model');
 const T = require('./texts');
 const VIEW = require('./view');
 const DEMO = require('./demo');
+const E = require('./garage_engine');
 const { HealthLink, ENGINE } = require('./diaglink');
 
 const CDS = 'de.bmw.infotainment.vehicle.CDS', VEH = 'de.bmw.infotainment.vehicle.Vehicle2', TPMS = 'de.bmw.infotainment.vehicle.TPMS';
@@ -355,6 +356,60 @@ mgu.run({
             } catch (e) { log.warn('readiness: ' + e); } finally { readingReady = false; changed(); }
         }
         let readingReady = false, readyTimer = null;
+
+        /* ---------- the engine (lib/engine.js) and the Engine page's per-cylinder values ---------- */
+        const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));
+        let detector = null;
+        const eng = { cyl: { misfire: {}, rough: {}, ignition: {} } };
+        const demoCar = () => E.demoCar(settings.get('demoCar'));
+        const engineNow = () => (useDemo() ? demoCar() : E.profile(detector ? detector.facts : engineStore.get() || {}));
+        let readingEngine = false, engineValTimer = null;
+        /** Reads the Engine page's values (cylinders sized by this engine, model.js cylinderReads) while it is shown. */
+        async function readEngineValues() {
+            if (useDemo() || !shown || V.page !== 8 || readingEngine) return;
+            readingEngine = true;
+            try {
+                await getLink();
+                const el = link.engineLink && link.engineLink();
+                if (el && !detector) detector = new E.Detector(el, engineStore, log);
+                if (detector && !detector.known()) await detector.run();
+                const p = engineNow(), c = caps();
+                for (const r of M.cylinderReads(p)) {
+                    if (!shown || V.page !== 8) break;
+                    if (c[r.kind] === false) continue;
+                    const v = M.decodeNum(M.CYL_FMT[r.kind], r.did, await link.read(r.addr, r.did).catch(() => null));
+                    if (v != null) { eng.cyl[r.kind][r.cyl] = v; if (!c[r.kind]) found(r.kind, true); }
+                    else if (r.cyl === 1 && r.addr === 0x12 && c[r.kind] !== true) found(r.kind, false);
+                }
+                for (const k of Object.keys(M.ENGINE_DIDS)) {
+                    if (!shown || V.page !== 8) break;
+                    const d = M.ENGINE_DIDS[k], cap = d.cap || k;
+                    if (c[cap] === false || (k === 'knock' && !p.knock)) continue;
+                    let v = M.decodeNum(d, d.did, await link.read(0x12, d.did).catch(() => null));
+                    if (v == null && k === 'rail' && el) {
+                        // the standard OBD form (01 23: rail pressure, kPa x 10), as diesels report it
+                        const r = await el.physical(0x12, 0x01, [0x23], 1500, (x) => (x[0] === 0x41 && x[1] === 0x23) || (x[0] === 0x7F && x[1] === 0x01)).catch(() => null);
+                        if (r && r[0] === 0x41 && r.length >= 4) v = ((r[2] << 8) | r[3]) * 10 / 100;
+                    }
+                    if (v != null) { eng[k] = v; if (!c[cap]) found(cap, true); } else if (c[cap] !== true && k !== 'vanosEx') found(cap, false);
+                }
+            } catch (e) { log.warn('engine page: ' + e); } finally { readingEngine = false; changed(); }
+        }
+        /** Once a start, after the first engine read: which Engine page values this car answers (the page shows only then). */
+        let engineProbed = false;
+        async function probeEngine() {
+            if (engineProbed || useDemo() || !shown) return;
+            engineProbed = true;
+            const page = V.page;
+            V.page = 8;          // readEngineValues reads only "while the Engine page is shown": once, for the caps
+            try { await readEngineValues(); } finally { if (V.page === 8) V.page = page; }
+        }
+        /** Every 2 s while the Engine page is shown; stops when it is left. Also once at start, for the page to appear. */
+        function watchEngine() {
+            const on = shown && V.page === 8;
+            if (on && !engineValTimer) { readEngineValues(); engineValTimer = setInterval(readEngineValues, 2000); }
+            if (!on && engineValTimer) { clearInterval(engineValTimer); engineValTimer = null; }
+        }
         /** Reads the readiness now and every 15 s while the Faults page is shown; stops when it is left. */
         function watchReadiness() {
             const on = shown && V.page === 1;
@@ -401,7 +456,7 @@ mgu.run({
         let demo = null, demoAt = 0;
         const values = () => {
             const o = {};
-            VIEW.APP_ROWS.concat(UI.DISPLAY_SETTINGS).forEach((r) => { o[r.key] = settings.get(r.key); });
+            VIEW.APP_ROWS.concat(UI.DISPLAY_SETTINGS, [E.DEMO_ROW]).forEach((r) => { o[r.key] = settings.get(r.key); });
             M.OURS.forEach((r) => { o[r.setting] = settings.get(r.setting); });
             return o;
         };
@@ -409,8 +464,8 @@ mgu.run({
             const now = Date.now(), vals = values(), d = useDemo();
             let S;
             if (d) {
-                if (!demo || now - demoAt > 60000) { demo = DEMO.state(now); demoAt = now; }
-                S = Object.assign({}, demo, { demo: true, live: false });
+                if (!demo || now - demoAt > 60000 || demo.carId !== settings.get('demoCar')) { demo = DEMO.state(now, demoCar()); demo.carId = settings.get('demoCar'); demoAt = now; }
+                S = Object.assign({}, demo, { demo: true, live: false, eng: DEMO.engineValues(now, demoCar()) });
                 S.used = demo.used;
             } else {
                 const coolantLow = live.cc == null ? null : Array.from(live.ccOn.keys()).some((k) => /coolant|kuehlm|kühlm/i.test(live.ccNames.get(k) || ''));
@@ -429,9 +484,10 @@ mgu.run({
                     pressures: live.pressures, cold: P.cold, coldNow: P.lastDriveEnd && now - P.lastDriveEnd > REST_AFTER,
                     fluids: { oilCl: live.oilCl, oilTemp: live.oil, coolantTemp: live.coolant, coolantLow: coolantLow, washerLow: washerLow },
                     warm: P.warm ? { oil: P.warm.oil, coolant: P.warm.coolant, minutes: Math.max(1, P.warm.oil.length / 2), when: M.ago(P.warm.at, now) } : null,
-                    scores: P.scores, changes: P.changes, obd: P.obd,
+                    scores: P.scores, changes: P.changes, obd: P.obd, eng: eng,
                 };
             }
+            S.engine = engineNow();
             M.derive(S, vals, T.faultShort);
             S.reading = reading;
             if (d) S.checkedText = 'checked 2 min ago';
@@ -476,7 +532,8 @@ mgu.run({
         }
 
         const A = {
-            tab: (i) => { V.page = i; V.detail = null; watchReadiness(); changed(); },
+            tab: (i) => { V.page = i; V.detail = null; watchReadiness(); watchEngine(); changed(); },
+            cyl: (k) => { V.cyl = k; changed(); },
             mem: (m) => { V.mem = m; V.first = 0; V.detail = null; changed(); },
             unit: (a) => { V.unit = V.unit === a ? null : a; V.first = 0; V.detail = null; if (V.mem === 'history') V.mem = 'fault'; changed(); },
             scroll: (d) => { V.first = Math.max(0, V.first + d); changed(); },
@@ -731,11 +788,12 @@ mgu.run({
             watchShown(on);
             probeStart(on);
             watchReadiness();
+            watchEngine();
             clearInterval(engineTimer); engineTimer = null;
             if (on) {
                 getLink().then(() => {
                     if (!shown) return;
-                    scan().then(() => { lastScanAt = live.units ? Date.now() : lastScanAt; changed(); return readEngine(); }).then(() => { if (shown) remindOnOpen(); });
+                    scan().then(() => { lastScanAt = live.units ? Date.now() : lastScanAt; changed(); return readEngine(); }).then(() => probeEngine()).then(() => { if (shown) remindOnOpen(); });
                     engineTimer = setInterval(() => { if (shown && !reading) readEngine(); }, 60000);
                 });
             } else { V.dialog = null; save(); }

@@ -228,12 +228,67 @@ function ready(cv, x, y, w, h, t) {
 
 const ART = { ready: ready, rest: rest, start: start, score: score, faults: faults, tyre: tyre, warm: warm, cbs: cbs, qr: qr, oil: oil, cc: cc };
 /** The art a card's info uses when it names none. */
+/* ---------- the engine, per cylinder ---------- */
+const E = need('./garage_engine', '../../lib/engine');
+/** The engine the animations show (view.js sets it each frame from the car or the demo car). */
+let ENGINE = null;
+function setEngine(p) { ENGINE = p || null; }
+/** The firing order of common BMW engines (the 3 and 12 cylinders: plain order), for the animation only. */
+const ORDER = { 3: [1, 3, 2], 4: [1, 3, 4, 2], 6: [1, 5, 3, 6, 2, 4], 8: [1, 5, 4, 8, 6, 3, 7, 2] };
+/**
+ * The cylinders of this car seen from the side, firing in turn: each piston goes up and down, the one firing glows.
+ * kind: 'misfire' (one cylinder misses: no glow, amber), 'rough' (the crankshaft's wobble drawn under it),
+ * 'ignition' (the spark's timing: the glow comes a little later on the one the knock control pulls back).
+ */
+function cylAnim(kind) {
+    return function (cv, x, y, w, h, t) {
+        const p = ENGINE && ENGINE.cylinders ? ENGINE : E.demoCar('b48');
+        const banks = E.cylinderBanks(p), n = p.cylinders, order = ORDER[n] || banks[0].cylinders;
+        const cycle = 2.2, phase = (t % cycle) / cycle, firing = order[Math.floor(phase * n) % n];
+        const bad = kind === 'misfire' ? order[Math.min(n - 1, 2)] : null;
+        const rowsY = banks.length === 2 ? [y + 70, y + h / 2 + 20] : [y + h / 2 - 50];
+        const slotW = Math.min(110, (w - 120) / Math.max(1, banks[0].cylinders.length));
+        banks.forEach((b, bi) => {
+            const by = rowsY[bi], x0 = x + w / 2 - slotW * b.cylinders.length / 2;
+            if (banks.length === 2) cv.text('BANK ' + b.bank, x0 - 16, by + 40, 13, DIM, { font: 'bold', align: 'right', literal: true });
+            b.cylinders.forEach((c, i) => {
+                const cx = x0 + slotW * (i + 0.5), k = order.indexOf(c);
+                const up = 0.5 + 0.5 * Math.cos(2 * Math.PI * (phase * 2 - k * 2 / n));
+                const cyh = banks.length === 2 ? 90 : 130, pw = slotW * 0.62;
+                cv.strokeRoundRect(cx - pw / 2 - 4, by, pw + 8, cyh, 10, 3, GREY);
+                const py = by + 14 + (1 - up) * (cyh - 50);
+                cv.roundRect(cx - pw / 2, py, pw, 22, 8, '#6e7480');
+                cv.line(cx, py + 22, cx, by + cyh + 14, 4, LINE);
+                if (c === firing && c !== bad) cv.circle(cx, by + 12, 10, kind === 'ignition' && c === order[1] ? C.amber : C.orange);
+                if (c === firing && c === bad) cv.arc(cx, by + 12, 8, 11, 0, 360, C.amber);
+                cv.text(String(c), cx, by + cyh + 34, 15, c === bad ? C.amber : DIM, { align: 'center', literal: true });
+            });
+        });
+        if (kind === 'rough') {
+            const px = x + 80, pw = w - 160, py = y + h - 46, pts = [];
+            for (let i = 0; i <= 60; i++) { const f = i / 60; pts.push([px + f * pw, py - Math.sin(f * Math.PI * 2 * n / 2 - t * 6) * (8 + (Math.floor(f * n) === 2 ? 10 : 0))]); }
+            UI.curve(cv, pts, 3, C.green);
+            cv.text('crankshaft speed: an even wave is a smooth engine', x + w / 2, y + h - 10, 14, DIM, { align: 'center', literal: true });
+        } else cv.text(kind === 'misfire' ? 'cylinder ' + bad + ' misses a stroke now and then: the engine unit counts it' : kind === 'ignition' ? 'each cylinder\'s spark timing; one pulled back: knock control at work' : p.cylinders + ' cylinders, firing in turn',
+            x + w / 2, y + h - 14, 15, kind === 'misfire' ? C.amber : DIM, { align: 'center', literal: true });
+    };
+}
+ART.misfire = cylAnim('misfire');
+ART.rough = cylAnim('rough');
+ART.ignition = cylAnim('ignition');
+ART.cylinders = cylAnim('cylinders');
+/** Fuel rail pressure: a needle rising to the engine's own range (petrol direct injection or diesel common rail). */
+ART.rail = function (cv, x, y, w, h, t) {
+    const p = ENGINE && ENGINE.fuel ? ENGINE : E.demoCar('b48'), hi = p.rail[1], v = p.rail[0] + (hi - p.rail[0]) * (0.5 + 0.4 * Math.sin(t * 1.4));
+    UI.ring(cv, x + w / 2, y + h / 2 + 10, Math.min(110, h / 2 - 50), { value: v, min: 0, max: hi, decimals: 0, unit: 'bar', color: 'ok', scale: { step: p.diesel ? 500 : 50 }, smooth: false });
+};
 const BY_INFO = {
     score: 'score', hist: 'score', changes: 'score', faults: 'faults', byUnit: 'faults', memories: 'faults', timeline: 'faults',
     battery12: 'rest', rest: 'rest', nights: 'rest', verdict: 'rest', charge: 'rest', start: 'start', oil: 'oil', levels: 'oil',
     service: 'cbs', cbs: 'cbs', ours: 'cbs', parts: 'cbs', tyres: 'tyre', pressure: 'tyre', trend: 'tyre', warmup: 'warm',
-    cc: 'cc', qr: 'qr', readiness: 'ready',
+    cc: 'cc', qr: 'qr', readiness: 'ready', misfire: 'misfire', rough: 'rough', ignition: 'ignition', knock: 'ignition', vanos: 'cylinders',
+    lambda: 'cylinders', rail: 'rail', engineCars: 'cylinders',
 };
 function artFor(key, info) { return ART[(info && info.art) || BY_INFO[key]] || score; }
 
-module.exports = { ART, artFor };
+module.exports = { ART, artFor, setEngine };

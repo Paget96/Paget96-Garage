@@ -253,7 +253,7 @@ test('capabilities: found once, a miss never takes a yes back, pages follow them
     assert.strictEqual(c.tpms, true);
     assert.deepStrictEqual(M.pagesFor({}, {}), [0, 6, 7]);
     assert.deepStrictEqual(M.pagesFor({ faults: true, soc: true }, {}), [0, 1, 2, 6, 7]);
-    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS, {}), [0, 1, 2, 3, 4, 5, 6, 7]);
+    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS, {}), [0, 1, 2, 3, 4, 5, 8, 6, 7]);
 });
 test('capabilities: what the car does not report is left out of items, score and report', () => {
     const s = DEMO.state(Date.now());
@@ -394,6 +394,42 @@ test('clear goes to each ticked unit, never to all units at once; readiness read
     assert.ok(sent.some((q) => q[1] === 0x14));
     assert.ok(res === 'timeout' || res.failed.length === 1);
     assert.throws(() => link.readReadiness(0x02), /PID 01 or 41/);
+});
+
+/* ---------- every engine (owner rule 2026-11-26 19:03) ---------- */
+const E = require(path.join(__dirname, '..', 'lib', 'engine'));
+test('Engine page: shown for cars with an engine, gone on an electric car', () => {
+    const pages = (id) => M.pagesFor(M.capsForCar(E.demoCar(id)), { engine: E.demoCar(id) });
+    ['b48', 'b58', 's58', 's63', 'b57', 'phev'].forEach((id) => assert.ok(pages(id).indexOf(8) >= 0, id));
+    assert.strictEqual(pages('ev').indexOf(8), -1);
+    assert.ok(pages('ev').indexOf(5) >= 0, 'an EV still has Fluids (coolant, washer)');
+});
+test('per-cylinder reads follow the cylinder count, never a fixed 4', () => {
+    const count = (id, kind) => M.cylinderReads(E.demoCar(id)).filter((r) => r.kind === kind).length;
+    assert.strictEqual(count('b48', 'misfire'), 4);
+    assert.strictEqual(count('b58', 'misfire'), 6);
+    assert.strictEqual(count('s63', 'misfire'), 8);
+    assert.strictEqual(count('b57', 'ignition'), 0, 'a diesel has no ignition angle');
+    assert.strictEqual(M.cylinderReads(E.demoCar('ev')).length, 0);
+    // a V8: bank 2's ignition angles from the second engine unit, as cylinders 5..8
+    const v8 = M.cylinderReads(E.demoCar('s63')).filter((r) => r.kind === 'ignition');
+    assert.deepStrictEqual(v8.map((r) => r.cyl + '@' + r.addr.toString(16)), ['1@12', '2@12', '3@12', '4@12', '5@13', '6@13', '7@13', '8@13']);
+    // a three cylinder
+    assert.strictEqual(M.cylinderReads(E.profile({ fuel: 'petrol', cylinders: 3 })).filter((r) => r.kind === 'rough').length, 3);
+});
+test('engine values decode with BMW\'s scalings and the demo has a bar per cylinder', () => {
+    assert.strictEqual(M.decodeNum(M.CYL_FMT.rough, 0x4A30, [0x62, 0x4A, 0x30, 0x00, 0x20]), 2);
+    assert.strictEqual(M.decodeNum(M.ENGINE_DIDS.rail, 0x58EF, [0x62, 0x58, 0xEF, 0x7D, 0x00]), 160);
+    assert.strictEqual(M.decodeNum(M.ENGINE_DIDS.knock, 0x554C, [0x62, 0x55, 0x4C, 0xFE]), -0.75);
+    const v = DEMO.engineValues(0, E.demoCar('s63'));
+    assert.strictEqual(Object.keys(v.cyl.misfire).length, 8);
+    assert.strictEqual(Object.keys(DEMO.engineValues(0, E.demoCar('b57')).cyl.ignition).length, 0);
+    assert.ok(DEMO.engineValues(0, E.demoCar('b57')).rail > 1000);
+});
+test('service parts per engine: glow plugs on a diesel, no engine parts on an EV', () => {
+    assert.ok(M.partsFor(E.demoCar('b57')).Engine.indexOf('Glow plugs') >= 0);
+    assert.strictEqual(M.partsFor(E.demoCar('ev')).Engine, undefined);
+    assert.ok(M.partsFor(E.demoCar('b48')).Engine.indexOf('Spark plugs') >= 0);
 });
 
 (async () => {
