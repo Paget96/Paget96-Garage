@@ -57,6 +57,7 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | `toggle(cv, right, cy, on, onChange)` | a switch; the knob slides |
 | `stepper(cv, right, cy, value, { decimals, unit, onMinus, onPlus })` | minus, the value, plus |
 | `infoPopup(cv, info, t)`, `openInfo(info)`, `closeInfo()`, `overlay(cv, t)` | the info popup (below) |
+| `dialog(cv, d, t, { a })`, `dialogButton(cv, right, y, label, kind)` | a dialog over the page (confirm, pick, a result): a coloured label, heading, text, note, chips and buttons (`kind` `bad` red for what cannot be undone, `primary` accent); while it is open only its own buttons can be pressed. It fades and scales like the info popup |
 | `howToUse(cv, topics, sel, t, opts)` | the whole How to use page (below) |
 | `settingsPage(cv, appRows, values, onChange, opts)` | the whole Settings page (below); `DISPLAY_SETTINGS`, `DISPLAY_DEFAULTS` |
 | `niceRange(lo, hi, n)`, `fmtTick(v, step)`, `wrap(cv, text, size, width)`, `anim(key, target, ms)`, `glide(key, v)` | helpers for new widgets |

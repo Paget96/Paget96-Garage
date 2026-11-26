@@ -1,0 +1,84 @@
+{
+  "id": "p96_health",
+  "title": "Health",
+  "name": "Health",
+  "description": "Paget96 Garage: one look at the whole car. Faults by unit with their history and a clear, the 12 V battery, the car's service items with reset, tyres, fluids, a score from 0 to 100 and a report to share as a QR code",
+  "version": "1.0.0",
+  "vendor": "Paget96",
+  "author": "Danijel Markov (Paget96)",
+  "loggingId": "OB48",
+  "iconGlyph": "wrench",
+  "autostart": true,
+  "mguHmi": ["ID7"],
+  "requires": { "idrive7-renderd": "2.1.18" },
+  "signals": {
+    "de.bmw.infotainment.vehicle.CDS": {
+      "statusEngineSpeed2": "rs",
+      "statusEngineTemperature": "rs",
+      "statusBattery2": "rs"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "statusCarSpeed2": "rs"
+    },
+    "de.bmw.infotainment.vehicle.TPMS": {
+      "_optional": "tyre pressures (cars with tyre pressure sensors)",
+      "statusTyrePressure": "rs"
+    },
+    "de.bmw.infotainment.KombiInterface_2": {
+      "ccList": "rs",
+      "newCCMessage": "rs",
+      "cbsDataServiceList": "rs"
+    },
+    "de.bmw.infotainment.checkcontrol.CheckControlMaster": {
+      "basicList": "rs"
+    },
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": {
+      "_instances": "SystemFunctionsInternalTasuInst1",
+      "_methods": ["sendTasuRequest"],
+      "_broadcasts": ["sendTasuResponse"]
+    }
+  },
+  "startWidget": {
+    "comment": "Home-screen widget for the reminders (I11), as Warm-Up's: BMW's Drive Recorder widget layout; the picture goes into BackgroundImage1 (384 x 256), the small widget gets text lines and the progress bar.",
+    "name": "Health",
+    "layout": "LT_Table_OnlineApps_DriveRecorderWidget",
+    "image": "BackgroundImage1",
+    "scale": 2,
+    "size": [384, 256],
+    "safe": [0.09, 0.17],
+    "cells": {
+      "ErrorInfo": [false, "Bool"],
+      "background": [true, "Bool"],
+      "ProgressbarVisible": [false, "Bool"],
+      "TextRecordings": ["", "Text"]
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "title": "Health",
+      "buttons": [
+        ["BTN_PAGE", "Next page"],
+        ["BTN_SCAN", "Scan again"],
+        ["BTN_SETTINGS", "Settings"]
+      ]
+    }
+  ],
+  "settings": [
+    {"key": "renderer", "label": "Renderer", "type": "choice", "default": "auto", "options": [["auto", "GPU"], ["software", "Software"]]},
+    {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60, "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
+    {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
+    {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto", "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "nightly", "label": "Nightly battery check", "type": "choice", "default": "on", "options": [["on", "On"], ["off", "Off"]]},
+    {"key": "batteryWarn", "label": "Battery warning at", "type": "number", "unit": "V", "default": 12.4, "steps": [11.8, 11.9, 12.0, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6]},
+    {"key": "tyreWarn", "label": "Tyre warning at", "type": "number", "unit": "bar", "default": 0.1, "steps": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]},
+    {"key": "units", "label": "Units", "type": "choice", "default": "metric", "options": [["metric", "Metric"], ["imperial", "Imperial"]]},
+    {"key": "intervals", "label": "Our intervals", "type": "choice", "default": "strict", "options": [["strict", "Strict"], ["car", "As the car"]]},
+    {"key": "ivOil", "label": "Our interval: engine oil", "type": "number", "unit": "km", "default": 10000, "steps": [5000, 7500, 10000, 12500, 15000, 20000, 30000]},
+    {"key": "ivPlugs", "label": "Our interval: spark plugs", "type": "number", "unit": "km", "default": 40000, "steps": [20000, 30000, 40000, 50000, 60000]},
+    {"key": "ivAir", "label": "Our interval: air filter", "type": "number", "unit": "km", "default": 30000, "steps": [15000, 20000, 30000, 40000, 60000]},
+    {"key": "ivGearbox", "label": "Our interval: gearbox oil", "type": "number", "unit": "km", "default": 60000, "steps": [40000, 50000, 60000, 80000, 100000]},
+    {"key": "ivCoolant", "label": "Our interval: coolant", "type": "number", "unit": "years", "default": 4, "steps": [2, 3, 4, 5, 6]}
+  ]
+}

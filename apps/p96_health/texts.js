@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
+'use strict';
+/**
+ * Health's words: fault texts we wrote ourselves, the info popups of every card and the How to use topics.
+ * The car keeps no text for its fault codes and BMW's fault text tables are not ours to ship, so a fault we have
+ * no text for shows its code and unit: look it up by both.
+ */
+
+/** "<code>" -> [short name, the plain words]. */
+const FAULTS = {
+    '120408': ['Charge air pressure', 'Charge air pressure: plausibility, too low'],
+    '801C20': ['RL window motor', 'Rear left door: window motor, short to ground'],
+    '2A8200': ['Oil level sensor', 'Oil level sensor: signal implausible'],
+    'CD0487': ['Bus message missing', 'Bus message missing: body to engine'],
+    'CD8E40': ['Brake pressure sensor', 'Brake pressure sensor: info entry'],
+    'CD8E41': ['Wake-up by a unit', 'Load management: wake-up by a unit'],
+    '482FE1': ['Load management', 'Load management: wake-up by a unit'],
+    '480A12': ['Start-stop', 'Start-stop: stop not allowed, battery'],
+    'CF1402': ['Gear selector', 'Gear selector: message late'],
+};
+/** The plain words of a fault, or its code and unit. */
+function faultText(code, unit) {
+    const t = FAULTS[String(code).toUpperCase()];
+    return t ? t[1] : 'Fault ' + code + (unit ? ' in ' + unit : '') + ': look it up by code';
+}
+function faultShort(code) {
+    const t = FAULTS[String(code).toUpperCase()];
+    return t ? t[0] : 'Fault ' + code;
+}
+
+/** Info popup texts, by key (the art is in art.js, under the same key). */
+const INFO = {
+    score: { label: 'Health score', title: 'One number for the whole car',
+        text: 'The score starts at 100 and every check takes off what it found: an active fault a lot, a stored one a little, a weak battery, low oil, a service that is over, a tyre losing air, a Check Control message.\n\nA check the car does not report yet costs nothing and shows grey.',
+        note: '80 or more is good, 60 to 79 look at it soon, under 60 now.' },
+    faults: { label: 'Faults', title: 'What the control units stored',
+        text: 'Every control unit keeps a fault memory. Health asks all of them at once, like a workshop tester, when the app opens.\n\nStored means it happened and was kept; active means it is failing right now. A stored fault alone is often old news.',
+        note: 'Normal: none active. A few stored ones are common.' },
+    battery12: { label: '12 V battery', title: 'How full the 12 V battery really is',
+        text: 'Right after driving the alternator has pushed the battery above 14 V, so a reading then says little.\n\nLeft alone for a few hours it settles to its resting voltage, the honest measure of its charge: 12.7 V full, 12.4 V half, below 12.0 V flat.\n\nHealth reads it the first time you open the app after the car has slept.',
+        note: 'Normal: 12.5 V or more at rest.' },
+    oil: { label: 'Engine oil', title: 'The electronic dipstick',
+        text: 'The engine measures its oil level itself with a sensor in the sump, while it runs and is warm. Health reads that level from the engine unit.\n\nThe level is shown above the minimum mark: one litre lies between minimum and maximum.',
+        note: 'Normal: half way or more. Top up with the oil your car needs.' },
+    service: { label: 'Service', title: 'What is due next',
+        text: 'The car counts down to each service itself (BMW calls it Condition Based Service) from how you drive.\n\nThe card shows the item that comes first. The Service page has all of them, our stricter intervals and your own list of parts.',
+        note: 'A service item over its date or distance costs 10 points.' },
+    tyres: { label: 'Tyres', title: 'Four pressures, compared',
+        text: 'The tyre pressure sensors send each wheel\'s pressure. Health compares the four with each other and, over the weeks, each with itself.\n\nA wheel lower than the others, or one that keeps dropping while the rest hold, shows here first.',
+        note: 'Normal: all four within 0.1 bar of each other.' },
+    cc: { label: 'Check Control', title: 'The car\'s own warnings',
+        text: 'Check Control messages are the warnings the car shows in the cluster: low washer fluid, a door, a bulb, the engine.\n\nHealth counts the ones that are on now.',
+        note: 'Normal: 0 messages.' },
+    byUnit: { label: 'By unit', title: 'Which unit holds what',
+        text: 'Every unit that answered the scan is listed with what it keeps: faults, permanent emission faults and info entries.\n\nTap a unit to see only its faults. Units with nothing show clear.',
+        note: 'A unit that did not answer is not listed: ignition on, engine off.' },
+    memories: { label: 'Fault memories', title: 'Four kinds of entries',
+        sections: [{ head: 'Fault memory', text: 'Real faults. These are what a workshop reads and clears.' },
+            { head: 'Info memory', text: 'Notes the units keep for their makers, not faults. They need no action.' },
+            { head: 'Permanent', text: 'Emission faults only the car can clear, after it checked the part again over a few drives. A clear does not remove them.' },
+            { head: 'History', text: 'Every scan Health kept: when each fault came and went.' }],
+        note: 'Clearing only empties the fault memory.' },
+    timeline: { label: 'Timeline', title: 'When a fault came and went',
+        text: 'Every scan is kept, so a fault that comes and goes still shows when and how often.\n\nRed: first seen. Amber: seen again. Green: gone by itself. Blue: cleared.',
+        note: 'A fault that comes back after a clear has a cause that is still there.' },
+    rest: { label: 'Resting voltage', title: 'How full the 12 V battery really is', art: 'rest',
+        text: 'Right after driving the alternator has pushed the battery above 14 V, so a reading then says little.\n\nLeft alone for a few hours it settles to its resting voltage, the honest measure of its charge: 12.7 V full, 12.4 V half, below 12.0 V flat.\n\nHealth reads it after the car has slept, and warns when it starts to drop over the weeks.',
+        note: '' },
+    start: { label: 'Lowest at start', title: 'The dip when the engine cranks', art: 'start',
+        text: 'The starter motor takes a few hundred amps for a moment, and the voltage dips. A strong battery stays above 10 V; a tired one dips deeper and recovers slower.\n\nHealth measures it when you start the engine with the app open.',
+        note: 'Normal: above 9.6 V.' },
+    charge: { label: 'Charge (car)', title: 'What the car thinks of its battery',
+        text: 'The battery sensor on the minus pole counts what goes in and out and reports a charge in percent. It is the car\'s own estimate, sent all the time.\n\nThe car keeps it between about 70 and 90 % on purpose, to have room for braking energy.',
+        note: 'Normal: 70 to 90 %.' },
+    verdict: { label: 'Verdict', title: 'Healthy, charge it, or weak',
+        text: 'The verdict comes from the resting voltage and how it moves over the nights.\n\nHealthy: above the warning level. Charge it: below it, a long drive or a charger helps. Weak: below 12.0 V, or dropping night after night.',
+        note: 'Change the warning level in Settings.' },
+    nights: { label: 'Last 14 nights', title: 'One reading a night', art: 'rest',
+        text: 'Each point is the resting voltage of one night. A line that steps down over the weeks means the battery holds less: an old battery, or something that keeps the car awake.\n\nThe amber line is your warning level.',
+        note: 'Normal: a flat line above the amber one.' },
+    cbs: { label: 'The car recommends', title: 'The car\'s own service list', art: 'cbs',
+        text: 'The car counts each item down by distance or date from how it is driven. This is what the car itself shows under Service requirements.\n\nAfter a service the workshop resets the item. Health can reset oil, brakes, brake fluid and the vehicle check too, with the engine off.',
+        note: 'Reset only after the work was done.' },
+    ours: { label: 'Our intervals', title: 'Stricter, for harder driving',
+        text: 'The car\'s intervals assume gentle driving. Short trips, track days and hot summers wear oil and filters faster, so we suggest shorter ones.\n\nOil and spark plugs count from what the engine unit reports. The others count the km Health saw since you marked them done: tap a row when the work is done.',
+        note: 'Change every interval in Settings.' },
+    parts: { label: 'Next service', title: 'Your list for the workshop',
+        text: 'Pick what you want changed at the next service. The list shows here and in the report you share, so nothing is forgotten.\n\nTap a part to tick it off or on; Add a part opens the lists.',
+        note: '' },
+    pressure: { label: 'Pressure now', title: 'Cold pressures tell the truth', art: 'tyre',
+        text: 'Air expands as a tyre warms up: after a drive every tyre reads 0.2 to 0.3 bar more. Compare cold pressures, before driving.\n\nThe colours compare each wheel with the other three, not with a target, so they work for any car and tyre size.',
+        note: 'Fill to the value on the driver\'s door pillar.' },
+    trend: { label: 'Last 4 weeks', title: 'A slow leak shows in weeks', art: 'tyre',
+        text: 'Every tyre loses a little air, about 0.1 bar a month, all four alike. One that drops faster than the others has a slow leak: a nail, a valve, a bent rim.\n\nHealth keeps one cold reading a day and draws the lowest tyre against the others.',
+        note: '' },
+    levels: { label: 'Levels', title: 'What the car measures, and what it only warns about',
+        text: 'The engine oil level is measured by a sensor. Coolant and washer fluid have only a switch: the car warns when they are low and is quiet otherwise.\n\nBrake fluid is changed by time; its due date comes from the service list.',
+        note: '' },
+    warmup: { label: 'Warm-up', title: 'Oil warms slower than coolant', art: 'warm',
+        text: 'The coolant warms first: the thermostat keeps it in the engine. The oil takes two or three times as long, and it is the oil that protects the engine.\n\nDrive gently until the oil is above 80 °C.',
+        note: 'Normal: oil 90 to 110 °C once warm.' },
+    hist: { label: 'Health score', title: 'The score over the weeks',
+        text: 'Health keeps the score once a day and draws the weekly mean. A slow fall shows wear building up; a jump up shows a service or a fix.',
+        note: '' },
+    changes: { label: 'What changed', title: 'The events behind the line',
+        text: 'Every change Health noticed: a fault stored or gone, a tyre starting to lose air, a service done, the battery dropping.',
+        note: '' },
+    qr: { label: 'Share', title: 'A report any phone reads', art: 'qr',
+        text: 'The QR code holds the report as plain text. Any phone camera shows it, no app needed: show it to your mechanic or send it to yourself.\n\nNothing leaves the car by itself.',
+        note: '' },
+};
+
+/** How to use: topics in order (the art key draws the middle). */
+const TOPICS = [
+    { title: 'Read the score', art: 'score',
+        text: 'The score sums up six checks, 100 is a car with nothing to look at. Green is fine, amber means look at it soon, red now.\n\nTap any card for what it checks and why. A stored fault lowers the score a little, an active one a lot.\n\nHealth reads the car only while this app is open.',
+        note: '' },
+    { title: 'Faults: stored or active', art: 'faults',
+        text: 'Health reads every unit\'s fault memory when you open it. Stored faults happened; active ones are failing now.\n\nSave report first, then Clear faults empties the fault memory, with the engine off. What comes back at once is still there.',
+        note: 'Clear only with the engine off and the ignition on.' },
+    { title: 'The 12 V battery', art: 'rest',
+        text: 'Open Health before you start the engine after the car has slept: that reading is the resting voltage, the honest measure of the battery.\n\nOne a night makes the 14 night chart.',
+        note: '' },
+    { title: 'Own service items', art: 'cbs',
+        text: 'Service shows the car\'s list, our stricter intervals and your own parts for the next service.\n\nTap a car item to reset it after the work was done, with the engine off.',
+        note: 'Reset only after the work was done.' },
+    { title: 'Share with your mechanic', art: 'qr',
+        text: 'Share shows a QR code with the whole report as plain text. Any phone camera reads it.',
+        note: '' },
+    { title: 'What the car must report', art: 'faults',
+        text: 'Health reads the fault memories, the battery and the oil level over the head unit\'s diagnostic link, only while its screen is shown. Tyres, charge, temperatures, Check Control and the service list come from the car\'s own broadcasts.\n\nA car that does not send something shows it as --.',
+        note: '' },
+];
+
+module.exports = { FAULTS, faultText, faultShort, INFO, TOPICS };

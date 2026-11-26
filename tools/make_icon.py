@@ -109,8 +109,31 @@ def _garage(d, c, s, w, col, acc):
     d.ellipse([c - w * 0.7, gy - w * 0.7, c + w * 0.7, gy + w * 0.7], fill=col)
 
 
+def _health(d, c, s, w, col, acc):
+    # Health: a shield, and a heart-beat line across it
+    top, bot, hw = c - s * 1.0, c + s * 1.02, s * 0.86
+    pts = [(c, top), (c + hw, top + s * 0.28), (c + hw, c + s * 0.05)]
+    # the lower sides curve in to the point
+    for i in range(1, 9):
+        t = i / 8
+        pts.append((c + hw * (1 - t) ** 1.4, c + s * 0.05 + (bot - c - s * 0.05) * t ** 0.9))
+    pts += [(c - hw * (1 - t) ** 1.4, c + s * 0.05 + (bot - c - s * 0.05) * t ** 0.9) for t in [i / 8 for i in range(7, 0, -1)]]
+    pts += [(c - hw, c + s * 0.05), (c - hw, top + s * 0.28), (c, top)]
+    d.line(pts, fill=col, width=w, joint='curve')
+    for x, y in ((c, top), (c, bot)):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
+    # the beat, in amber, round ends
+    y0 = c + s * 0.02
+    beat = [(c - s * 1.18, y0), (c - s * 0.42, y0), (c - s * 0.22, y0 - s * 0.42), (c + s * 0.02, y0 + s * 0.5),
+            (c + s * 0.24, y0 - s * 0.22), (c + s * 0.4, y0), (c + s * 1.18, y0)]
+    aw = int(w * 0.85)
+    d.line(beat, fill=acc, width=aw, joint='curve')
+    for x, y in (beat[0], beat[-1]):
+        d.ellipse([x - aw / 2, y - aw / 2, x + aw / 2, y + aw / 2], fill=acc)
+
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health}
 
 
 def glyph_layer(name):
