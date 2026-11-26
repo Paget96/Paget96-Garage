@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
+process.env.GARAGE_MENU = 'off';   // the pill is checked in the page's own header (the header menu is off)
 /**
  * Demo data in every Paget96 Garage app: two values (Off, the default, and On), an old saved "auto" reads as Off,
  * nothing turns the demo on by itself, the amber DEMO pill sits where LIVE does, every card says DEMO, and a tap on
