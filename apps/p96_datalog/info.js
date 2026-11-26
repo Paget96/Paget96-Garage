@@ -56,10 +56,9 @@ const INFO = {
     },
     heatSoak: {
         label: 'Heat soak', title: 'Heat soak: the intercooler is full of heat', draw: A.heatSoakArt,
-        text: 'The turbo heats the air it squeezes; the intercooler cools it again before the engine. Run after run, or after ' +
-            'standing in traffic with a hot engine, the intercooler and the pipes around it soak up heat and cannot take it out any ' +
-            'more. The air reaching the engine stays hot, hot air is thinner, and the engine makes less power: the run is slower.\n\n' +
-            'Datalog marks a run heat soak when the charge air was 15 °C or more over the intake air at the start.',
+        text: 'The turbo heats the air it squeezes and the intercooler cools it again. Run after run, or after standing with a hot ' +
+            'engine, the intercooler soaks up heat and cannot take it out. The air stays hot, hot air is thinner, the engine makes ' +
+            'less power: the run is slower.\n\nMarked when the charge air is 15 °C or more over the intake air at the start.',
         note: 'What helps: a few minutes of gentle driving between runs, or the bonnet open with the engine off. Not a fault.',
     },
     airChart: {

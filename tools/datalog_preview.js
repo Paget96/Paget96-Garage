@@ -113,6 +113,10 @@ const ses = require(path.join(APP, 'maths')).sessions(m.log().runs);
 m.ui.logSession = 0; m.ui.logRun = ses[0].runs[1].at;
 shot('log-run');
 m.ui.logRun = null;
+// A and B picked in the Log, then compared right there
+m.ui.cmpA = ses[0].runs[0].at; m.ui.cmpB = ses[0].runs[ses[0].runs.length - 1].at;
+shot('log-ab');
+m.ui.logCompare = true; shot('compare'); m.ui.logCompare = false;
 // the info popups
 [['boost', 'boost', 'popup-boost', 3200], ['charge', 'correction', 'popup-charge', 900], ['correction', 'correction', 'popup-correction', 2200],
     ['tyresNow', 'tyres', 'popup-tyres', 2600], ['run', 'now', 'popup-run', 2500], ['dyno', 'dyno', 'popup-dyno', 4800], ['wastegate', 'boost', 'popup-wastegate', 4700]].forEach((p) => {
@@ -149,7 +153,7 @@ m.ui.page = 'Runs';
 const go = (name) => () => { m.ui.page = page(name); };
 const plan = [[0, go('now')], [3500, go('runs')], [17500, go('dyno')], [20000, go('correction')], [22500, go('boost')],
     [25000, () => { UI.openInfo(INFO.boost); }], [30000, () => { UI.closeInfo(); }], [30600, go('tyres')], [33000, go('temps')],
-    [35500, go('log')], [38000, go('compare')]];
+    [35500, go('log')], [38000, () => { m.ui.logCompare = true; }]];
 let next = 0;
 const nDemo = frames('demo', 10, 41000, (ms) => { while (next < plan.length && plan[next][0] <= ms) { plan[next][1](); next++; } });
 m.ui.page = page('boost');

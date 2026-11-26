@@ -108,7 +108,7 @@ const CONTENT = [
     { label: 'Gearbox', value: 78, unit: '°C', sub: 'warming', color: 'warm', history: [60, 65, 70, 74, 77, 78] },
 ];
 CONTENT.forEach((g) => { if (!g.info) g.info = { label: g.label, title: g.label, text: 'What this value shows.' }; });
-const TABS = ['Now', 'Runs', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log', 'Compare'];
+const TABS = ['Now', 'Runs', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log'];
 
 function head(cv, sel) {
     UI.background(cv);

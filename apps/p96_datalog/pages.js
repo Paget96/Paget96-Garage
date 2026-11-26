@@ -27,11 +27,12 @@ function need(local, repo) {
 const E = need('./garage_engine', '../../lib/engine');
 
 const NAME = 'DATALOG';
-const TABS = ['Now', 'Runs', 'Dyno', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log', 'Compare'];
+// Compare lives inside Log (owner, 2026-11-26 23:56): pick A and B in the list, compare right there
+const TABS = ['Now', 'Runs', 'Dyno', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log'];
 /**
  * The tabs this car gets (owner rule, 2026-11-26 18:21: show only what the car supports): Dyno needs torque,
  * Correction an air value, Tyres the tyre sensors, Boost the manifold and outside pressure, Temps a temperature.
- * Now, Runs, Log and Compare need only the speed. The demo shows all of them.
+ * Now, Runs and Log need only the speed. The demo shows all of them.
  */
 function tabsFor(m) {
     const need = {
@@ -254,7 +255,7 @@ function runTable(cv, m, x, y, w, runs, opts) {
     opts = opts || {};
     const U = units(m), len = runs.length ? runs[runs.length - 1].length : m.setting('runLength');
     const best = M.bestRun(runs, len, true);
-    const cols = [x + 20, x + 78, x + 228, x + 388, x + 548, x + w - 120];
+    const ab = !!opts.pickAB, cols = [x + 20, x + 78, x + 228, x + 388, x + 548, x + w - (ab ? 250 : 120)];
     // columns only for what this car reports: corrected needs the intake air and the outside pressure
     const hasCorr = m.has('intake') && m.has('kPa'), hasAir = m.has('intake') || m.has('charge');
     [['#', 0, true], [U.dist(len), 1, true], ['std. air', 2, hasCorr], ['trap', 3, true], ['air', 4, hasAir]].forEach((c) => { if (c[2]) ltext(cv, c[0], cols[c[1]], y, 15, C.dim, 'bold'); });
@@ -271,12 +272,23 @@ function runTable(cv, m, x, y, w, runs, opts) {
         if (hasAir) ltext(cv, [m.has('intake') ? r.intake : undefined, m.has('charge') ? r.charge : undefined].filter((x) => x !== undefined)
             .map((x) => fix(U.temp(x), 0) + ' ' + U.tempU).join(' / '), cols[4], ry, 20, C.text);
         if (isBest) UI.pill(cv, cols[5], ry - 24, 'best', 'ok');
-        if (opts.onPick && cv.target) cv.target(x + 10, ry - 32, w - 20, 46, () => opts.onPick(r), 'dlrow|' + r.at, 18);
+        // the small targets before the row's: the first target that holds the tap wins
         if (!isBest && M.heatSoaked(r)) {
             // a tap on the pill says what heat soak is, drawn (the row's own tap opens the run)
             UI.pill(cv, cols[5] - 20, ry - 24, 'heat soak  i', 'warm');
             if (cv.target) cv.target(cols[5] - 30, ry - 32, 140, 46, () => UI.openInfo(INFO.heatSoak), 'dlsoak|' + r.at, 18);
         }
+        if (ab) {
+            const ui = m.ui;
+            [['A', 'cmpA', 'cmpB', C.blue], ['B', 'cmpB', 'cmpA', C.orange]].forEach((q, k) => {
+                const bx = x + w - 92 + k * 46, on = ui[q[1]] === r.at;
+                cv.circle(bx, ry - 9, 18, on ? q[3] : '#2a2d34');
+                if (!on) cv.arc(bx, ry - 9, 16.5, 18, 0, 360, q[3]);
+                cv.text(q[0], bx, ry - 3, 16, on ? C.dark : q[3], { font: 'bold', align: 'center', literal: true });
+                if (cv.target) cv.target(bx - 22, ry - 31, 44, 44, () => { ui[q[1]] = on ? null : r.at; if (!on && ui[q[2]] === r.at) ui[q[2]] = null; }, 'dlab|' + q[0] + '|' + r.at, 22);
+            });
+        }
+        if (opts.onPick && cv.target) cv.target(x + 10, ry - 32, w - (ab ? 130 : 20), 46, () => opts.onPick(r), 'dlrow|' + r.at, 18);
     });
     return shown.length;
 }
@@ -572,6 +584,7 @@ function pageTemps(cv, m) {
 
 function pageLog(cv, m) {
     const U = units(m), log = m.log(), ses = M.sessions(log.runs), ui = m.ui, now = m.lastT || Date.now();
+    if (ui.logCompare) { pageCompare(cv, m); return; }      // the whole page, with Back to the log
     const lw = 560;
     UI.card(cv, L, T, lw, UI.hh(), 'Sessions', { info: INFO.logSessions, infoIcon: true });
     if (!ses.length) ltext(cv, 'No runs saved yet.', L + 20, T + 110, 20, C.dim);
@@ -597,8 +610,12 @@ function pageLog(cv, m) {
     if (open) { runDetail(cv, m, x, T, w, UI.hh(), open, s); return; }
     UI.card(cv, x, T, w, UI.hh(), s ? 'Runs, ' + dayName(s.start, now) + ' ' + clock(s.start) : 'Runs', { info: INFO.logRuns, infoIcon: true });
     if (s) {
-        runTable(cv, m, x, T + 60, w, s.runs, { max: 5, onPick: (r) => { ui.logRun = r.at; } });
-        ltext(cv, s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + ' runs. Tap a run to open it.' : 'Tap a run to open it.', x + 20, UI.bottom() - 22, 16, C.dim);
+        runTable(cv, m, x, T + 60, w, s.runs, { max: 5, pickAB: true, onPick: (r) => { ui.logRun = r.at; } });
+        const pair = m.comparePair(), can = pair[0] && pair[1] && pair[0] !== pair[1];
+        const bw = UI.button(cv, x + w - 20 - 230, UI.bottom() - 58, 'Compare A and B', can ? () => { ui.logCompare = true; } : null, { key: 'dlcmp', filled: can, w: 230 });
+        ltext(cv, (s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + '. ' : '') + 'Tap a run to open it, A and B to compare two' + (ui.cmpA == null && ui.cmpB == null ? ' (else the best and the last)' : '') + '.',
+            x + 20, UI.bottom() - 30, 15, C.dim);
+        void bw;
     }
 }
 function runDetail(cv, m, x, y, w, h, run, s) {
@@ -628,7 +645,8 @@ function pageCompare(cv, m) {
     const lw = 560;
     UI.card(cv, L, T, lw, UI.hh(), 'Run A vs run B', { info: INFO.compare });
     if (!a || !b || a === b) {
-        ltext(cv, 'Two runs are needed. Make a run or pick two on the Log page.', L + 20, T + 110, 18, C.dim);
+        ltext(cv, 'Two runs are needed: pick A and B in the list.', L + 20, T + 110, 18, C.dim);
+        UI.button(cv, L + 20, UI.bottom() - 58, 'Back to the log', () => { m.ui.logCompare = false; }, { key: 'dlcmpback' });
         return;
     }
     const cA = L + 250, cB = L + 380, cD = L + lw - 20;
@@ -645,7 +663,8 @@ function pageCompare(cv, m) {
     M.splitsFor(Math.min(a.length, b.length)).forEach((sp) => { if (sp.key !== fa && sp.key !== fb) rows.push([sp.label, a.result[sp.key], b.result[sp.key], 1]); });
     rows.push(['trap ' + U.speedU, U.speed(a.trap && a.trap[fa]), U.speed(b.trap && b.trap[fb]), -1]);
     rows.push(['reaction', a.reaction, b.reaction, 1]);
-    const pitch = Math.min(40, (UI.hh() - 110) / rows.length);
+    UI.button(cv, L + 20, UI.bottom() - 58, 'Back to the log', () => { m.ui.logCompare = false; }, { key: 'dlcmpback' });
+    const pitch = Math.min(40, (UI.hh() - 180) / rows.length);
     rows.forEach((r, i) => {
         const ry = T + 118 + i * pitch, d = isNum(r[1]) && isNum(r[2]) ? r[2] - r[1] : null;
         ltext(cv, r[0], L + 20, ry, 17, C.dim);
