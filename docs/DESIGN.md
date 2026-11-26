@@ -67,11 +67,24 @@ numbers, sparklines and the ring's arc. `tools/ui_demo.js` reports the recording
 
 A widget an app needs goes into `lib/ui.js` and this table, never into one app.
 
-## Proposed (claude), not decided: follow the ambient light
+## Follow the ambient light (owner, D11)
 
-The UI accent (the orange of tabs, ring, buttons, title) could follow the colour of the car's FRONT
-ambient light, so the screen matches the cabin. Open questions before it is built: which signal
-carries the front ambient colour on iDrive 7 and whether it is readable without a write; what to do
-with colours that are too dark or too close to the status colours (green ok, amber warming); whether
-it is a setting (default off). It would change only `C.orange` / `C.amber` at run time. **The icons
-always stay orange.** Not built; waiting for the owner (docs/OPEN_QUESTIONS.md Q2).
+The UI accent (the orange of tabs, ring, buttons, title) follows the colour of the car's FRONT
+ambient light (the area around the dashboard), so the screen matches the cabin. Only `C.orange` /
+`C.amber` change at run time. **The icons always stay orange.**
+
+Where the colour comes from, in order:
+
+1. The front colour the Ambient config app saved (its `look` setting), if our apps can read it. (unsure:
+   not checked yet whether one app can read another app's settings on the head unit)
+2. The car's own colour: `ComfortFunctionIuK.statusAmbientLightInteriorColour` gives the slot (1 to 12)
+   of BMW's menu; a table maps the slot to a colour. Which colour a slot is depends on the car, so the
+   table is checked on a real car before it ships.
+3. Orange.
+
+Never read the light modules over LIN for this: the read holds the gateway for seconds, fights the
+Ambient config app's writes, and hangs some body modules (upstream #197).
+
+A colour too dark, too pale or too close to the status colours (green ok, amber warming) is adjusted
+in lightness so text and charts stay readable. Default on, with a setting to turn it off (proposed,
+claude).
