@@ -28,8 +28,8 @@ function frame(cv) {
     UI.tabs(cv, ['Now', 'Runs', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log', 'Compare'], 4, { w: 900 });
     UI.title(cv, 'RACE DAY');
     UI.header(cv, { status: 'LIVE', statusColor: 'ok' });
-    UI.ring(cv, 200, 300, 150, { value: 0.72, min: 0, max: 1, text: '1.42', unit: 'bar, target 1.45', label: 'Boost', smooth: false });
-    CONTENT.forEach((g, i) => UI.stat(cv, 390 + (i % 3) * 400, 90 + Math.floor(i / 3) * 212, 382, 198, g));
+    UI.ring(cv, 200, UI.CONTENT_TOP + (504 - UI.CONTENT_TOP) / 2 + 4, 140, { value: 0.72, min: 0, max: 1, text: '1.42', unit: 'bar, target 1.45', label: 'Boost', smooth: false });
+    CONTENT.forEach((g, i) => UI.stat(cv, 390 + (i % 3) * 400, UI.CONTENT_TOP + Math.floor(i / 3) * 203, 382, 189, g));
 }
 
 const rec = new Recorder(UI.W, UI.H);

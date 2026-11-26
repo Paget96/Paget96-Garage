@@ -85,6 +85,13 @@ Where the colour comes from, in order:
 Never read the light modules over LIN for this: the read holds the gateway for seconds, fights the
 Ambient config app's writes, and hangs some body modules (upstream #197).
 
+**Live, with the driving modes (owner, 17:18, D13).** The accent changes when the front colour
+changes, also when the Ambient config app changes it for a driving mode: the car's own colour slot
+signal changes with it, and for its own per-mode looks the app's saved `mode_<mode>` look is read for
+the mode the car reports (`FES statusFESVehicleDynamicSwitchHMI`), if readable. The accent glides
+to the new colour (about 0.5 s). Short overlays (turn glow, open door red, strobe, welcome) are
+ignored so the UI does not blink (proposed, claude).
+
 A colour too dark, too pale or too close to the status colours (green ok, amber warming) is adjusted
 in lightness so text and charts stay readable. On by default, with a setting "Follow ambient lighting" to turn it off
 (owner, 17:13). Every app has it on its Settings page.
