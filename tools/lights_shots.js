@@ -29,7 +29,7 @@ function shot(name, set, t) {
     play(rec.words(), cv);
     fs.writeFileSync(path.join(out, name + '.png'), cv.png(9));
 }
-v.ambient.lights = require('../apps/p96_lights/lin').sample();
+v.ambient.lights = require('../apps/p96_lights/lin').sample().concat(Object.keys(require('../apps/p96_lights/lin').PLACES).map((k) => ({ name: require('../apps/p96_lights/lin').PLACES[k][0] })).filter((l) => /Sunroof|seat back|Console|B-pillar|blade/.test(l.name)));
 v.carAmbient = 4; v.ambient.n = v.ambient.lights.length;
 shot('ambient', { tab: 0 });
 v.view = { pitch: 35, roll: -25 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.view = null; v.regionColours = {}; shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);

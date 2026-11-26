@@ -155,25 +155,27 @@ function pageAmbient(cv, v, st, t, act) {
     UI.card(cv, x, T, w, UI.hh(), 'Colour', { info: INFO.ambient });
     // the regions this car has, as chips: a colour goes to the one picked (All: the whole cabin)
     const regs = regionsOf(v.ambient && v.ambient.lights), reg = v.region || 'all';
-    let cx0 = x + 20; const cy0 = T + 46;
+    // as many rows as the chips need (a car with every region takes two)
+    let cx0 = x + 20, cy0 = T + 46;
     regs.forEach((r) => {
         const ww = Math.ceil(cv.textWidth(r[1], 14, { font: 'bold' })) + 26, on = r[0] === reg;
-        if (cx0 + ww > x + w - 20) return;
+        if (cx0 + ww > x + w - 20) { cx0 = x + 20; cy0 += 38; }
         cv.roundRect(cx0, cy0, ww, 30, 15, on ? C.accent : '#2a2d34');
         cv.text(r[1], cx0 + ww / 2, cy0 + 20, 14, on ? C.dark : C.dim, { font: 'bold', align: 'center', literal: true });
         if (cv.target) cv.target(cx0, cy0 - 6, ww, 42, () => act.region(r[0]), 'lreg|' + r[0], 15);
         cx0 += ww + 8;
     });
+    const gy = cy0 + 46;
     if (regs.length === 1) cv.text(v.armed ? 'Regions appear once the body controller has listed its lights' : 'Regions: listed from the car once armed', x + w - 20, cy0 + 20, 13, C.dim, { align: 'right', literal: true });
     const cols = 4, gap = 14, sw = Math.floor((w - 40 - gap * (cols - 1)) / cols), sh = 56;
     COLOURS.forEach((c, i) => {
-        const cx = x + 20 + (i % cols) * (sw + gap), cy = T + 92 + Math.floor(i / cols) * (sh + gap), sel = !s.own && same(((v.regionColours || {})[reg] || up).rgb || up.rgb, c[1]);
+        const cx = x + 20 + (i % cols) * (sw + gap), cy = gy + Math.floor(i / cols) * (sh + gap), sel = !s.own && same(((v.regionColours || {})[reg] || up).rgb || up.rgb, c[1]);
         cv.roundRect(cx, cy, sw, sh, 18, [c[1][0], c[1][1], c[1][2], 230]);
         if (sel) cv.strokeRoundRect(cx - 3, cy - 3, sw + 6, sh + 6, 20, 3, C.text);
         cv.text(c[0], cx + sw / 2, cy + sh / 2 + 6, 16, [20, 20, 24], { font: 'bold', align: 'center', literal: true });
         if (cv.target) cv.target(cx, cy, sw, sh, () => act.colour(c[1]), 'lcol|' + i, 18);
     });
-    const ry = T + 92 + 2 * (sh + gap) + 14;
+    const ry = gy + 2 * (sh + gap) + 14;
     cv.text('Effect', x + 20, ry + 6, 16, C.dim, lit);
     UI.segmented(cv, x + w - 20, ry, EFFECTS, s.kind || 'solid', act.effect, 'leffect');
     cv.text('Brightness', x + 20, ry + 62, 16, C.dim, lit);
