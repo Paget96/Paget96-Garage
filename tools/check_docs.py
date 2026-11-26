@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 """Fail when an app is not documented the Paget96 Garage way (owner rule, 2026-11-26).
 
 For every apps/<id>/ with an app.json:

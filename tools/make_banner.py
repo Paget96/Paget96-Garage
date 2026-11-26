@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 """Draw the Paget96 Garage banner for the README (docs/brand/banner.png).
 
 The brand (owner, 2026-11-26 17:25: "promeni repo name u Paget96 Garage ... i brendiraj sve"):

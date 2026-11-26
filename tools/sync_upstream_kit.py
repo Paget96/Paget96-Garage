@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 """Refresh upstream-kit/ from cauliflowermossgrape/idrive7-apps at a given commit.
 
     python tools/sync_upstream_kit.py <path to an idrive7-apps checkout> [<commit>]

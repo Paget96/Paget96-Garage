@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
 /**
  * Draws the Paget96 Garage UI reference page (docs/design/ui-B-final.png) with lib/ui.js, through the

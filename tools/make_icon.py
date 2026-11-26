@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 """Draw a Paget96 Garage app icon on the one shared template.
 
 Every Paget96 Garage icon uses this template and no other style (owner, 2026-11-26):

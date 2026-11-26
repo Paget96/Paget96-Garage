@@ -121,4 +121,13 @@ trademarks of BMW AG.
 
 ## License
 
-[MIT](LICENSE). The vendored kit keeps its own MIT notice ([NOTICE](NOTICE)).
+Copyright (c) 2026 Danijel Markov (Paget96).
+
+The code is free software under the [GNU GPL v3](LICENSE) (GPL-3.0-only) with additional terms in
+[NOTICE](NOTICE): every copy or changed version must keep our credit and show it in the app,
+
+> Based on Paget96 Garage by Danijel Markov (Paget96) - github.com/Paget96/Paget96-Garage
+
+a changed version must be marked as changed and use its own name and icons, and the names and brand
+are not licensed ([TRADEMARKS.md](TRADEMARKS.md)). The vendored kit in `upstream-kit/` keeps its own
+MIT license ([upstream-kit/LICENSE](upstream-kit/LICENSE)).
