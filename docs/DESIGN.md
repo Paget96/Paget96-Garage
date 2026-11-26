@@ -86,5 +86,5 @@ Never read the light modules over LIN for this: the read holds the gateway for s
 Ambient config app's writes, and hangs some body modules (upstream #197).
 
 A colour too dark, too pale or too close to the status colours (green ok, amber warming) is adjusted
-in lightness so text and charts stay readable. Default on, with a setting to turn it off (proposed,
-claude).
+in lightness so text and charts stay readable. On by default, with a setting "Follow ambient lighting" to turn it off
+(owner, 17:13). Every app has it on its Settings page.
