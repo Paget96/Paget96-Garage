@@ -22,7 +22,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 STAGE = os.path.join(ROOT, '.stage')
-LIB = {'ui.js': 'garage_ui.js'}
+LIB = {'ui.js': 'garage_ui.js', 'engine.js': 'garage_engine.js'}
 
 
 def link(src, dst):
