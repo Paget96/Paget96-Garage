@@ -12,7 +12,7 @@ process.env.GARAGE_MENU = 'off';   // these tests check the page's own tab bar a
 const assert = require('assert');
 const path = require('path');
 const UI = require(path.join(__dirname, '..', 'lib', 'ui'));
-const { Recorder } = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'record'));
+const { Recorder } = require(path.join(__dirname, '..', 'kit', 'runtime', 'record'));
 
 let clock = 1e12;
 Date.now = () => clock;

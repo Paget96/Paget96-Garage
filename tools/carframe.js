@@ -11,7 +11,7 @@
  */
 const path = require('path');
 if (process.env.GARAGE_FRAME !== 'off') {
-    const RT = path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime');
+    const RT = path.join(__dirname, '..', 'kit', 'runtime');
     const REC = require(path.join(RT, 'record')), CAN = require(path.join(RT, 'canvas'));
     const UI = require('../lib/ui');
     const SW = 84 + 180 + 1600, SH = 720, LEFT = 84, STRIP = 76, GAP = 6, RAIL = 180, TOP = 100;

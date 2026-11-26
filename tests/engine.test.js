@@ -12,7 +12,7 @@ const assert = require('assert');
 const path = require('path');
 const E = require(path.join(__dirname, '..', 'lib', 'engine'));
 const UI = require(path.join(__dirname, '..', 'lib', 'ui'));
-const { Recorder } = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'record'));
+const { Recorder } = require(path.join(__dirname, '..', 'kit', 'runtime', 'record'));
 
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }

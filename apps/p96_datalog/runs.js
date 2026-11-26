@@ -22,7 +22,7 @@ const fs = require('fs');
 const M = require('./maths');
 function kit(name) {
     try { return require('./kit/' + name); }                                       // inside a built app
-    catch (e) { return require('../../upstream-kit/kit/runtime/' + name); }        // in the repo (tests, previews)
+    catch (e) { return require('../../kit/runtime/' + name); }        // in the repo (tests, previews)
 }
 const { RunTimer } = kit('run_timer');
 

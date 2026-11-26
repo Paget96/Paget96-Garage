@@ -17,7 +17,7 @@ const ROOT = path.join(__dirname, '..');
 const R = require(path.join(ROOT, 'lib', 'report'));
 const QR = require(path.join(ROOT, 'lib', 'qr'));
 const UI = require(path.join(ROOT, 'lib', 'ui'));
-const { Recorder } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'record'));
+const { Recorder } = require(path.join(ROOT, 'kit', 'runtime', 'record'));
 
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }

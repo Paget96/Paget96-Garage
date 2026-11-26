@@ -12,8 +12,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const file = process.argv[2], mode = process.argv[3] || 'p9';
 const R = require(path.join(ROOT, 'lib', 'render'));
 const UI = require(path.join(ROOT, 'lib', 'ui'));
-const { RenderClient } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'renderd'));
-const { Recorder } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'record'));
+const { RenderClient } = require(path.join(ROOT, 'kit', 'runtime', 'renderd'));
+const { Recorder } = require(path.join(ROOT, 'kit', 'runtime', 'record'));
 
 const gpu = new RenderClient('p96_session', { info() {}, warn() {}, error() {} }, { native: true, file });
 gpu.on('ready', () => {

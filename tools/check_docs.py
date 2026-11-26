@@ -64,7 +64,7 @@ def main():
     except Exception:
         tracked = []
     for f in tracked:
-        if f.endswith(TEXT) and not f.startswith('upstream-kit/'):
+        if f.endswith(TEXT) and not f.startswith('kit/'):
             try:
                 s = open(os.path.join(ROOT, f), encoding='utf-8').read()
             except (OSError, UnicodeDecodeError):

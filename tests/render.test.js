@@ -17,7 +17,7 @@ const OURS = path.join(dir, 'p96.sock'), STORE = path.join(dir, 'store.sock'), C
 process.env.P96_RENDERD_SOCKET = OURS;
 delete process.env.MGU_RENDERD_SOCKET;
 
-const renderd = require('../upstream-kit/kit/runtime/renderd');
+const renderd = require('../kit/runtime/renderd');
 const kitList = renderd.SOCKETS.slice();
 const R = require('../lib/render');
 let failed = 0;
@@ -122,7 +122,7 @@ function whoGets(servers, ms) {
         assert.strictEqual(legacy._hello().toString(), 'x', 'a legacy HELLO stays the app id alone');
     });
     await check('P9 frames draw one polyline op; every other recorder the kit\'s line ops', () => {
-        const { Recorder } = require('../upstream-kit/kit/runtime/record');
+        const { Recorder } = require('../kit/runtime/record');
         const pts = [[0, 0], [10, 5], [20, 0]];
         const a = new Recorder(100, 100); a.p96 = R.CAP.POLY;
         a.stroke(pts, 4, '#ff8028');
@@ -141,7 +141,7 @@ function whoGets(servers, ms) {
         assert.strictEqual(R.rclip(b, 0, 0, 10, 10, 4), false);
     });
     await check('Display.canvas marks a frame P9 only for an active P9 connection', () => {
-        const { Display } = require('../upstream-kit/kit/runtime/display');
+        const { Display } = require('../kit/runtime/display');
         const d = Object.create(Display.prototype);
         d.recorders = new Map(); d.place = { scale: 1, full: false }; d.screen = {};
         d.own = () => false;

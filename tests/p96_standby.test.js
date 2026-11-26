@@ -14,7 +14,7 @@ const path = require('path');
 const APP = path.join(__dirname, '..', 'apps', 'p96_standby');
 const M = require(path.join(APP, 'model'));
 const P = require(path.join(APP, 'pages'));
-const RT = path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime');
+const RT = path.join(__dirname, '..', 'kit', 'runtime');
 const { Recorder } = require(path.join(RT, 'record'));
 
 const tests = [];

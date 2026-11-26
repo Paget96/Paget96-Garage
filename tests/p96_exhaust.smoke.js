@@ -19,7 +19,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const RT = path.join(ROOT, 'upstream-kit', 'kit', 'runtime');
+const RT = path.join(ROOT, 'kit', 'runtime');
 const { Recorder } = require(path.join(RT, 'record'));
 
 /* ---------- the app in a folder as the build lays it out, with a stand-in for kit/mgu.js ---------- */

@@ -5,7 +5,7 @@
 const assert = require('assert');
 const path = require('path');
 const UI = require(path.join(__dirname, '..', 'lib', 'ui'));
-const { Recorder } = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'record'));
+const { Recorder } = require(path.join(__dirname, '..', 'kit', 'runtime', 'record'));
 let failed = 0;
 function test(name, fn) { try { fn(); console.log('ok   ' + name); } catch (e) { failed++; console.log('FAIL ' + name + '\n     ' + (e && e.stack || e)); } }
 UI.useRail(true);

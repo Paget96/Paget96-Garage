@@ -21,7 +21,7 @@ function ui() {
 }
 function kit(name) {
     try { return require('./kit/' + name); }
-    catch (e) { return require('../../upstream-kit/kit/runtime/' + name); }
+    catch (e) { return require('../../kit/runtime/' + name); }
 }
 const UI = ui();
 const G = kit('gauges');

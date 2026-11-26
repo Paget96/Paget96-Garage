@@ -4,7 +4,7 @@
 """Screenshots and a video of Datalog running in the upstream emulator (the car's own draw engine, kit/renderd's
 gfx.c as WebAssembly, drawn by Chrome), for docs/media/p96_datalog/.
 
-Set up once: an idrive7-apps checkout at the vendored commit (upstream-kit/UPSTREAM.json) gives kit/tools/emu.js and
+Set up once: an idrive7-apps checkout at the vendored commit (kit/ORIGIN.json) gives kit/tools/emu.js and
 kit/emu/web. Then:
 
     python3 tools/datalog_emu_capture.py setup <idrive7-apps checkout> <emu dir>    # copies kit, app, lib/*.js
@@ -25,7 +25,7 @@ PORT = int(os.environ.get('EMU_PORT', '8099'))   # another port when 8099 is tak
 TABMAP_JS = r"""
 let VT = Date.now(); Date.now = () => VT;
 const R = process.argv[1];
-const { Recorder } = require(R + '/upstream-kit/kit/runtime/record');
+const { Recorder } = require(R + '/kit/runtime/record');
 const { Model } = require(R + '/apps/p96_datalog/model'); const P = require(R + '/apps/p96_datalog/pages');
 const vals = { demo: 'on' }; const m = new Model({ settings: { get: (k) => vals[k], set: (k, v) => { vals[k] = v; } }, demo: () => true });
 for (let i = 0; i < 40; i++) { VT += 50; m.tick(VT); }

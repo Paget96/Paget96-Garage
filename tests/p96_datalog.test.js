@@ -17,7 +17,7 @@ const M = require(path.join(APP, 'maths'));
 const { RunLog, column } = require(path.join(APP, 'runs'));
 const { DmeReader, DIDS } = require(path.join(APP, 'dme'));
 const { PullLog, sheet, power } = require(path.join(APP, 'dyno'));
-const { check } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'readonly-diag'));
+const { check } = require(path.join(ROOT, 'kit', 'runtime', 'readonly-diag'));
 
 let failed = 0;
 const tests = [];
@@ -273,7 +273,7 @@ test('wastegate: when it opens and closes, in words', () => {
 test('wastegate: in the run trace, on the Boost page only when the car reports it', () => {
     const { Model } = require(path.join(APP, 'model'));
     const P = require(path.join(APP, 'pages'));
-    const { Recorder } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'record'));
+    const { Recorder } = require(path.join(ROOT, 'kit', 'runtime', 'record'));
     let air = { boost: 1, manifold: 2, ambient: 1, wastegate: 37.25 };
     const log = new RunLog({ file: null, air: () => air });
     launch(log, { acc: 6 });
@@ -397,7 +397,7 @@ test('only what the car reports: tabs, and remembered per car', () => {
 test('Log: a tap on a run row opens the run, not the card\'s info', () => {
     const { Model } = require(path.join(APP, 'model'));
     const P = require(path.join(APP, 'pages'));
-    const { Recorder } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'record'));
+    const { Recorder } = require(path.join(ROOT, 'kit', 'runtime', 'record'));
     const vals = { demo: 'on' }, m = new Model({ settings: { get: (k) => vals[k], set: (k, v) => { vals[k] = v; } }, demo: () => true });
     m.tick(Date.now());
     m.ui.page = 'Log';

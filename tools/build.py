@@ -8,7 +8,7 @@
 Upstream's kit/tools/build.py finds kit/, apps/, dist/ and oap-sdk/ next to itself, so this
 stages a tree it understands in .stage/ and runs it there:
 
-    .stage/kit       -> upstream-kit/kit            (symlink, or a copy where links are refused)
+    .stage/kit       -> kit                     (symlink, or a copy where links are refused)
     .stage/apps/<id>    copy of apps/<id> plus lib/*.js as garage_*.js (LIB)
     .stage/oap-sdk   -> oap-sdk                     (the MGU Store places the SDK there)
     .stage/dist      -> dist                        (the .tgz lands in dist/<id>@<version>.tgz)
@@ -44,7 +44,7 @@ def stage(ids):
     os.makedirs(os.path.join(STAGE, 'apps'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'oap-sdk'), exist_ok=True)
-    link(os.path.join(ROOT, 'upstream-kit', 'kit'), os.path.join(STAGE, 'kit'))
+    link(os.path.join(ROOT, 'kit'), os.path.join(STAGE, 'kit'))
     link(os.path.join(ROOT, 'oap-sdk'), os.path.join(STAGE, 'oap-sdk'))
     link(os.path.join(ROOT, 'dist'), os.path.join(STAGE, 'dist'))
     for i in ids:

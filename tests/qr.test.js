@@ -14,8 +14,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const QR = require(path.join(__dirname, '..', 'lib', 'qr'));
-const { Recorder, play } = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'record'));
-const { Canvas } = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'canvas'));
+const { Recorder, play } = require(path.join(__dirname, '..', 'kit', 'runtime', 'record'));
+const { Canvas } = require(path.join(__dirname, '..', 'kit', 'runtime', 'canvas'));
 
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }

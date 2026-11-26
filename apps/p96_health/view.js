@@ -21,7 +21,7 @@ const M = require('./model');
 const T = require('./texts');
 const E = need('./garage_engine', '../../lib/engine');
 const { artFor, setEngine } = require('./art');
-const QR = need('./kit/qr', '../../upstream-kit/kit/runtime/qr');
+const QR = need('./kit/qr', '../../kit/runtime/qr');
 const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN;
 
 const TABS = ['Overview', 'Faults', 'Battery', 'Service', 'Tyres', 'Fluids', 'History', 'Share', 'Engine'];

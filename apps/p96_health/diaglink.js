@@ -25,7 +25,7 @@
 function kit(n) {
     try { return require('./kit/' + n); } catch (e) {
         if (e.code !== 'MODULE_NOT_FOUND') throw e;
-        return require('../../upstream-kit/kit/runtime/' + n);
+        return require('../../kit/runtime/' + n);
     }
 }
 

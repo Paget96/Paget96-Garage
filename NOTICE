@@ -34,11 +34,11 @@ diaglink.js, auto.js) and the gear decoding of its kit (kit/runtime/car.js): the
 probe of the engine units, the hold and the safety model. Those parts are used under the MIT license
 below (Copyright (c) 2026 cauliflowermossgrape); the files say which parts they are.
 
-This repository contains a vendored copy of the kit from idrive7-apps, in upstream-kit/:
+The kit in kit/ (runtime, platform, localization, build tools) started as a copy of the kit from
+idrive7-apps and is maintained here as part of Paget96 Garage:
   https://github.com/cauliflowermossgrape/idrive7-apps
-Pinned upstream commit: 54f9f74890d6653d0cf9bd5d505fa58901f25073 (2026-11-26T15:10:23+01:00)
-It is refreshed with tools/sync_upstream_kit.py. Its license, as shipped upstream
-(also in upstream-kit/LICENSE):
+Copied from commit 54f9f74890d6653d0cf9bd5d505fa58901f25073 (2026-11-26T15:10:23+01:00), since changed.
+The original parts stay under their MIT license (also in kit/LICENSE):
 
 MIT License
 

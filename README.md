@@ -598,21 +598,18 @@ node tools/datalog_preview.js       # Datalog drawn on demo data, software path,
 
 How the pieces fit:
 
-- `upstream-kit/` is a pinned copy of the kit from
-  [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) (the commit is in
-  [NOTICE](NOTICE)). It is vendored, not a submodule, because the MGU Store does not fetch
-  submodules. Refresh it with `python tools/sync_upstream_kit.py <idrive7-apps checkout> [<commit>]`.
-- `tools/build.py` stages a tree upstream's build understands and runs it.
+- `kit/` is our app kit: runtime, GPU renderer client, build tools. It started from
+  [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) ([NOTICE](NOTICE)) and is
+  developed here, with the rest of Paget96 Garage.
+- `tools/build.py` stages the apps with the kit and runs the kit's build.
 - `lib/ui.js` is the Paget96 Garage look on top of the kit ([docs/DESIGN.md](docs/DESIGN.md)).
 - `mgu-repo.json` tells the MGU Store how to build each app.
 - Icons follow one template ([docs/ICONS.md](docs/ICONS.md)).
 
 ## Contributing
 
-Issues and pull requests are welcome. Anything that is useful beyond Paget96 Garage (a fix in the kit, a
-new signal) goes to [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) as a pull
-request first, and comes here with the next kit sync. App ids start with `p96_`. Text never uses
-an em dash or an en dash.
+Issues and pull requests are welcome here, for the apps and for the kit alike. App ids start with
+`p96_`. Text never uses an em dash or an en dash.
 
 ## Follow
 
@@ -632,9 +629,9 @@ The same names are at the bottom of every app's Settings page.
 
 ## Credits
 
-- The app kit (runtime, GPU renderer, build tools) is
+- The app kit in `kit/` started from
   [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) by cauliflowermossgrape and
-  contributors, MIT licensed. See [NOTICE](NOTICE).
+  contributors (MIT licensed, see [NOTICE](NOTICE)) and is developed further here.
 - Installation and updates: [MGU Store](https://github.com/robertnisipeanu/mgu-store) by
   robertnisipeanu.
 
@@ -656,5 +653,5 @@ The code is free software under the [GNU GPL v3](LICENSE) (GPL-3.0-only) with ad
 > Based on Paget96 Garage by Danijel Markov (Paget96) - github.com/Paget96/Paget96-Garage
 
 a changed version must be marked as changed and use its own name and icons, and the names and brand
-are not licensed ([TRADEMARKS.md](TRADEMARKS.md)). The vendored kit in `upstream-kit/` keeps its own
-MIT license ([upstream-kit/LICENSE](upstream-kit/LICENSE)).
+are not licensed ([TRADEMARKS.md](TRADEMARKS.md)). The parts of `kit/` taken from idrive7-apps keep
+their MIT license ([kit/LICENSE](kit/LICENSE)).

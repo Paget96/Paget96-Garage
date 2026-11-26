@@ -15,7 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const RT = path.join(ROOT, 'upstream-kit', 'kit', 'runtime');
+const RT = path.join(ROOT, 'kit', 'runtime');
 const { Recorder, play } = require(path.join(RT, 'record'));
 const { Canvas } = require(path.join(RT, 'canvas'));
 

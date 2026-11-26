@@ -13,7 +13,7 @@ const APP = path.join(__dirname, '..', 'apps', 'p96_health');
 const M = require(path.join(APP, 'model'));
 const { check, HealthLink } = require(path.join(APP, 'diaglink'));
 const DEMO = require(path.join(APP, 'demo'));
-const QR = require(path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime', 'qr'));
+const QR = require(path.join(__dirname, '..', 'kit', 'runtime', 'qr'));
 
 let n = 0, failed = 0;
 const tests = [];
