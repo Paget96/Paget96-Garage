@@ -218,7 +218,8 @@ const SETUP = [
     { key: 'downpipe', name: 'Downpipe', choices: [['stock', 'Stock'], ['catted', 'Catted'], ['decat', 'Decat']] },
     { key: 'cat', name: 'Catalyst', choices: [['stock', 'Stock'], ['highflow', 'High flow'], ['none', 'None']] },
     { key: 'opf', name: 'OPF', choices: [['stock', 'Stock'], ['none', 'None']] },
-    { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['resdelete', 'Resonator delete'], ['straight', 'Straight pipe']] },
+    // none: many cars have no middle silencer at all (the owner's G20 B48: the OPF sits in the middle of the car)
+    { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['none', 'None'], ['resdelete', 'Resonator delete'], ['straight', 'Straight pipe']] },
     { key: 'rear', name: 'Rear silencer', choices: [['stock', 'Stock'], ['aftermarket', 'Aftermarket'], ['valved', 'Valved aftermarket']] },
     { key: 'flaps', name: 'Flaps', choices: [['0', 'None'], ['1', 'One'], ['2', 'Two']] },
 ];
@@ -240,7 +241,7 @@ function sound(setup, flap, fresh, eng) {
     if (s.cat !== 'none') add('cat', 'Catalyst', s.cat === 'highflow' ? 0.95 : 0.886);
     if (s.opf !== 'none' && !(eng && eng.fuel && !eng.filter)) add('opf', E.filterName(eng && eng.fuel ? eng : { filter: 'opf' }), fresh ? 0.86 : 0.806);
     if (eng && eng.scr) add('scr', 'SCR (AdBlue)', 0.95);
-    add('mid', 'Middle silencer', s.mid === 'straight' ? 1 : s.mid === 'resdelete' ? 0.85 : 0.6);
+    if (s.mid !== 'none') add('mid', 'Middle silencer', s.mid === 'straight' ? 1 : s.mid === 'resdelete' ? 0.85 : 0.6);
     if (s.flaps !== '0') add('flap', 'Flap', flap === 'OPEN' ? 1 : flap === 'CLOSED' ? 0.62 : 0.85);
     add('rear', 'Rear silencer', s.rear === 'aftermarket' ? 0.75 : s.rear === 'valved' ? (flap === 'OPEN' ? 0.8 : 0.6) : 0.6);
     return parts;

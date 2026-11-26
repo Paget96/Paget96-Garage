@@ -50,7 +50,7 @@ function pipeRows(p, setup) {
     return p && (p.turbos === 2 || p.banks === 2 || p.flaps === 2) || s.flaps === '2' ? 2 : 1;
 }
 /**
- * The parts of this setup along the pipe from x0 to x1: [{ key, name, x, w }]. Parts the setup does not have are left
+ * The parts of this setup along the pipe from x0 to x1: [{ key, name, x, w }]. Parts the setup does not have (a car with no middle silencer, no OPF) are left
  * out; a straight pipe in place of the middle silencer is drawn as pipe only. The filter is named for the engine
  * (OPF on a petrol, DPF on a diesel), a diesel with AdBlue gets its SCR catalyst after it.
  */
@@ -63,7 +63,7 @@ function layout(setup, x0, x1, sc, p) {
     if (s.cat !== 'none') parts.push(['cat', two ? 'Catalysts' : 'Catalyst']);
     if (s.opf !== 'none' && !(p && p.filter === null && p.fuel)) parts.push(['opf', E.filterName(p && p.fuel ? p : { filter: 'opf' })]);
     if (p && p.scr) parts.push(['scr', 'SCR (AdBlue)']);
-    parts.push(['mid', s.mid === 'straight' ? 'Straight pipe' : 'Middle silencer']);
+    if (s.mid !== 'none') parts.push(['mid', s.mid === 'straight' ? 'Straight pipe' : 'Middle silencer']);
     if (s.flaps !== '0' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
     parts.push(['rear', two ? 'Rear silencers' : 'Rear silencer']);
     const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = 120 * sc;

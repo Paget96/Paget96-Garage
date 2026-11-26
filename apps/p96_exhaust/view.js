@@ -533,15 +533,17 @@ function setupPage(cv, S, V, A, t) {
         const auto = p.key === 'opf' ? fd.opf : p.key === 'cat' ? fd.cat : p.key === 'flaps' ? fd.flaps != null : false;
         const tag = auto ? (p.key === 'flaps' ? 'auto: ' + fd.flaps + ' answer' + (fd.flaps === 1 ? 's' : '') : p.key === 'opf' ? 'auto: found (soot read)' : 'auto: found') : 'you set';
         cv.text(tag, x + cw - 20, y + 34, 14, auto ? C.green : C.blue, { align: 'right', literal: true });
-        let cx = x + 20;
+        let cx = x + 20, cy = y + 60, wrapped = false;
         p.choices.forEach((c) => {
             // what the car found is fixed; what contradicts it can not be picked
             const lock = auto && (p.key === 'flaps' ? c[0] !== String(fd.flaps) : p.key === 'opf' ? c[0] === 'none' : c[0] === 'none');
             const ww = Math.ceil(cv.textWidth(c[1], 16, { font: 'bold' })) + 34;
-            choice(cv, cx, y + 60, ww, 38, c[1], s[p.key] === c[0], C.accent, lock ? null : () => A.setup(p.key, c[0]), 'setup|' + p.key + '|' + c[0], 16);
+            // a part with many choices takes a second row rather than running out of its card
+            if (cx + ww > x + cw - 20) { cx = x + 20; cy += 46; wrapped = true; }
+            choice(cv, cx, cy, ww, 38, c[1], s[p.key] === c[0], C.accent, lock ? null : () => A.setup(p.key, c[0]), 'setup|' + p.key + '|' + c[0], 16);
             cx += ww + 10;
         });
-        const hint = { mid: s.mid !== 'stock' ? 'Sound page and tips count the louder middle part' : '', flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
+        const hint = wrapped ? '' : { mid: s.mid === 'resdelete' || s.mid === 'straight' ? 'Sound page and tips count the louder middle part' : '', flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
         if (hint) cv.text(hint, x + 20, y + ch - 18, 14, C.dim, { literal: true });
     });
     cv.text('The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', X0 + 20, TOP + UI.hh() - 12, 14, C.dim, { literal: true });
