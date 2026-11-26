@@ -594,9 +594,7 @@ node tools/datalog_preview.js       # Datalog drawn on demo data, software path,
 
 How the pieces fit:
 
-- `kit/` is our app kit: runtime, GPU renderer client, build tools. It started from
-  [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) ([NOTICE](NOTICE)) and is
-  developed here, with the rest of Paget96 Garage.
+- `kit/` is our app kit: runtime, GPU renderer client, build tools ([Credits](#credits)).
 - `tools/build.py` stages the apps with the kit and runs the kit's build.
 - `lib/ui.js` is the Paget96 Garage look on top of the kit ([docs/DESIGN.md](docs/DESIGN.md)).
 - `mgu-repo.json` tells the MGU Store how to build each app.
