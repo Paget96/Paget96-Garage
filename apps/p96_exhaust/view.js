@@ -159,19 +159,34 @@ function flapPage(cv, S, V, A, t) {
     // the pipe and an open one is a thin edge
     const cy = TOP + 182, two = f.sides.length > 1;
     const ang = (s) => { const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested; return UI.glide('ex|flap|' + s, sh === 'OPEN' ? 0 : sh === 'CLOSED' ? 90 : 45, null, 10); };
-    // the car's rear: bumper, tail lights, plate, the diffuser with the two tips in it
-    cv.roundRect(cx - 240, cy - 70, 480, 124, 44, '#23262c');
-    cv.strokeRoundRect(cx - 240, cy - 70, 480, 124, 44, 3, '#7d858f');
-    cv.roundRect(cx - 200, cy - 68, 400, 10, 5, '#30343b');
-    [-1, 1].forEach((k) => cv.fill([[cx + k * 236, cy - 58], [cx + k * 150, cy - 58], [cx + k * 150, cy - 48], [cx + k * 222, cy - 48], [cx + k * 226, cy - 30], [cx + k * 236, cy - 34]].map((q) => q), '#d0302c'));
-    cv.roundRect(cx - 62, cy - 40, 124, 32, 5, '#3a3f49');
-    cv.roundRect(cx - 58, cy - 36, 116, 24, 3, '#c9d0d8');
-    cv.fill([[cx - 210, cy + 14], [cx + 210, cy + 14], [cx + 186, cy + 52], [cx - 186, cy + 52]], '#121418');
+    // the car's rear, a G20 seen from behind (owner, 2026-11-26 23:45: "malko lepsa"): ground shadow, tyres under the
+    // arches, the body with a lighter top, the trunk lid and its lip, thin L-shaped lights with a glow, the plate in its
+    // recess, the diffuser with fins and the two tips in it
+    cv.roundRect(cx - 250, cy + 48, 500, 16, 8, [0, 0, 0, 110]);
+    [-1, 1].forEach((k) => cv.roundRect(cx + k * 196 - 26, cy + 20, 52, 40, 10, '#0c0d10'));
+    cv.roundRect(cx - 240, cy - 64, 480, 118, 40, '#2a2e35');
+    cv.roundRect(cx - 236, cy - 60, 472, 40, 30, '#343942');
+    cv.strokeRoundRect(cx - 240, cy - 64, 480, 118, 40, 2.5, '#8a929c');
+    cv.fill([[cx - 168, cy - 86], [cx + 168, cy - 86], [cx + 196, cy - 62], [cx - 196, cy - 62]], '#30353d');
+    cv.line(cx - 166, cy - 86, cx + 166, cy - 86, 3, '#9aa2ac');
+    [-1, 1].forEach((k) => {
+        const o = cx + k * 232, i = cx + k * 140;
+        cv.line(o, cy - 50, i, cy - 50, 12, [255, 40, 30, 50]);
+        cv.line(o, cy - 50, i, cy - 50, 5, '#ff3b2f');
+        cv.line(o, cy - 50, o - k * 6, cy - 24, 5, '#ff3b2f');
+        cv.line(i, cy - 50, i - k * 22, cy - 50, 3, '#ffb3a8');
+    });
+    cv.roundRect(cx - 70, cy - 42, 140, 38, 8, '#1f2228');
+    cv.roundRect(cx - 60, cy - 36, 120, 26, 4, '#d7dde4');
+    cv.roundRect(cx - 60, cy - 36, 14, 26, 3, '#2a5bd7');
+    cv.fill([[cx - 214, cy + 12], [cx + 214, cy + 12], [cx + 192, cy + 52], [cx - 192, cy + 52]], '#111318');
+    for (let q = -2; q <= 2; q++) cv.line(cx + q * 26, cy + 16, cx + q * 30, cy + 50, 3, '#1d2026');
     [-1, 1].forEach((k) => {
         const tx = cx + k * 150, ty = cy + 32, s = two ? (k < 0 ? 'left' : 'right') : 'both', hasFlap = two || k > 0;
-        cv.arc(tx, ty, 22, 29, 0, 360, '#c9d0d8');
-        cv.arc(tx, ty, 27, 29, 0, 360, '#8e969f');
-        cv.circle(tx, ty, 22, '#0b0c0e');
+        cv.circle(tx, ty, 32, '#0a0b0d');
+        cv.arc(tx, ty, 22, 30, 0, 360, '#9aa2ac');
+        cv.arc(tx, ty, 25, 29, 200, 340, '#eef2f6', { round: true });
+        cv.circle(tx, ty, 22, '#050607');
         if (!hasFlap) return;
         const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested, a = ang(s) * Math.PI / 180;
         const col = sh === 'OPEN' ? C.green : sh === 'CLOSED' ? C.amber : '#9aa1ad', ry = Math.max(2, 20 * Math.sin(a));
