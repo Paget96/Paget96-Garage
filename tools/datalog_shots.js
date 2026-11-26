@@ -20,7 +20,7 @@ const { Model, Demo } = require('../apps/p96_datalog/model');
 const P = require('../apps/p96_datalog/pages');
 
 const out = process.argv[2] || path.join(__dirname, '..', 'docs', 'media', 'p96_datalog');
-fs.mkdirSync(out, { recursive: true });
+if (!fs.existsSync(out)) fs.mkdirSync(out, { recursive: true });   // Node 8 throws EEXIST despite recursive
 
 // the demo drive on a simulated clock, 20 samples a second
 const T0 = Date.UTC(2026, 10, 26, 16, 0, 0);
