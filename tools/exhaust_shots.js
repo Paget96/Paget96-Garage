@@ -31,7 +31,11 @@ const R = require(path.join(APP, 'rules'));
 const F = require(path.join(APP, 'flap'));
 const T = require(path.join(APP, 'texts'));
 
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
+// --car <id>: the main pages of one demo car of lib/engine.js (the compatibility gallery), nothing else
+const E = require('../lib/engine');
+let CAR = null;
+if (args[0] === '--car') { CAR = E.demoCar(args[1]); args = args.slice(2); }
 const gifDir = args[0] === '--gif' ? args[1] : null;
 const out = gifDir || args[0] || path.join(__dirname, '..', 'docs', 'media', 'p96_exhaust');
 if (!fs.existsSync(out)) fs.mkdirSync(out);
@@ -39,13 +43,14 @@ if (!fs.existsSync(out)) fs.mkdirSync(out);
 // the app's demo wiring (main.js build() in demo): a simulated flap, the default rules, AUTO
 const quiet = { info() {}, warn() {} };
 let control = new F.FlapControl({ link: null, armed: () => false, log: quiet });
-control.setUnits([{ addr: 0x12, el: true }]);
+control.setUnits(CAR && CAR.flaps === 2 ? [{ addr: 0x12, el: true }, { addr: 0x13, el: true }] : [{ addr: 0x12, el: true }]);
 const rules = new R.Rules(R.defaults());
 const modes = {};
-let regenNow = false, caps = M.ALL_CAPS;
+let regenNow = false, caps = CAR ? M.capsForCar(CAR) : M.ALL_CAPS;
 function state() {
-    const S = DEMO.state(clock);
-    S.v = DEMO.values(clock);
+    const S = DEMO.state(clock, CAR);
+    S.v = DEMO.values(clock, CAR);
+    if (CAR) { S.engine = CAR; S.setup = DEMO.setupFor(CAR); }
     const vals = Object.assign({ minutes: 18 * 60 + 42 }, S.v);
     rules.tick(vals);
     S.rules = rules.list; S.held = rules.held; S.active = {}; S.caps = caps;
@@ -84,7 +89,7 @@ function settle(ms) { for (let i = 0; i < (ms || 2000) / 16; i++) { clock += 16;
 const shots = [];
 function reset() {
     Object.assign(V, { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when' });
-    regenNow = false; caps = M.ALL_CAPS;
+    regenNow = false; caps = CAR ? M.capsForCar(CAR) : M.ALL_CAPS;
     UI.closeInfo();
 }
 function shot(name, setup, check) {
@@ -107,7 +112,14 @@ const infos = (rec) => { if (!rec.targets.some((q) => /^p96info/.test(q.key))) t
 const dlg = (d) => { V.dialog = { d: d, open: true, a: 1 }; };
 const ruleDlg = (r, part, index) => { V.edit = R.draft(r); V.editPart = part || 'when'; dlg(VIEW.ruleDialog(state(), V, A, index == null ? -1 : index)); };
 
-if (!gifDir) {
+if (CAR) {
+    const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup'];
+    const pages = M.pagesFor(caps, CAR);
+    pages.forEach((i) => shot(names[i], () => { V.page = i; }, infos));
+    shot('help-cars', () => { V.mode = 'help'; V.helpSel = VIEW.helpTopics().length - 1; });
+    if (CAR.diesel) { reset(); settle(300); UI.openInfo(VIEW.info('adblue')); settle(2600); png(frame(), path.join(out, 'popup-adblue.png')); shots.push('popup-adblue'); }
+    console.log('%s: %d pictures in %s (%s)', CAR.id, shots.length, out, shots.join(', '));
+} else if (!gifDir) {
     const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup'];
     names.forEach((n, i) => shot(n, () => { V.page = i; }, infos));
     shot('opf-regen', () => { V.page = 3; regenNow = true; });

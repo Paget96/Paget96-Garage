@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const mgu = require('./kit/mgu');
 const UI = require('./garage_ui');
+const E = require('./garage_engine');
 const M = require('./model');
 const R = require('./rules');
 const F = require('./flap');
@@ -63,6 +64,10 @@ mgu.run({
         let version = 0, loop = null;
         const changed = () => { version++; if (loop && loop.kick) loop.kick(); };
         const found = (k, yes) => { if (M.found(caps(), k, yes)) { save(); changed(); } };
+        /* the engine (lib/engine.js): fuel, cylinders, one or two engine units, asked once and kept (engine.json) */
+        const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));
+        let detector = null;
+        const engineFacts = () => (detector ? detector.facts : engineStore.get() || {});
 
         /* ---------- live values ---------- */
         const v = {}, at = {};
@@ -186,6 +191,7 @@ mgu.run({
                         const x = await readValue(keys[i]);
                         if (x !== null) put(keys[i], x);
                     }
+                    if (keys.length > FAST.length) await readEngine();
                     afterRead();
                     await sleep(700);
                 }
@@ -193,6 +199,18 @@ mgu.run({
             reading = false;
         }
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        /** The engine's facts once a start, and on a diesel the AdBlue tank (OBD 01 85), every 30 s with the slow values. */
+        async function readEngine() {
+            const el = link.engineLink && link.engineLink();
+            if (!el) return;
+            if (!detector) detector = new E.Detector(el, engineStore, log);
+            if (!detector.known()) { await detector.run(); changed(); }
+            if (detector.facts.fuel === 'diesel' && caps().adblue !== false) {
+                const r = await el.physical(0x12, 0x01, [0x85], 1500, (x) => (x[0] === 0x41 && x[1] === 0x85) || (x[0] === 0x7F && x[1] === 0x01)).catch(() => null);
+                const lv = E.parseAdBlue(r);
+                if (lv != null) { put('adblue', lv); found('adblue', true); } else if (r && r[0] === 0x7F) found('adblue', false);
+            }
+        }
         let lastLoadAt = 0, lastLoadKm = -1e9, lastAshKm = -1e9;
         function afterRead() {
             const now = Date.now();
@@ -232,7 +250,16 @@ mgu.run({
         const armed = () => settings.get('arm') === 'on';
         const control = new F.FlapControl({ link: link, armed: armed, hold: () => settings.get('hold') !== false && settings.get('hold') !== 'off', log: log, onChange: changed });
         const demoControl = new F.FlapControl({ link: null, armed: () => false, log: { info() {}, warn() {} }, onChange: changed });
+        let demoFlaps = 1;
         demoControl.setUnits([{ addr: 0x12, el: true }]);
+        /** The demo car of Settings (lib/engine.js DEMO_CARS): its flaps on the demo flap control. */
+        const demoCar = () => E.demoCar(settings.get('demoCar'));
+        function demoUnits() {
+            const n = demoCar().flaps;
+            if (n === demoFlaps) return;
+            demoFlaps = n;
+            demoControl.setUnits(n === 2 ? [{ addr: 0x12, el: true }, { addr: 0x13, el: true }] : n ? [{ addr: 0x12, el: true }] : [], 1);
+        }
         const rules = new R.Rules(P.rules);
         const demoRules = new R.Rules(R.defaults());
         let probed = false;
@@ -306,7 +333,7 @@ mgu.run({
         }, 1000);
         const values = () => {
             const o = {};
-            VIEW.APP_ROWS.concat(UI.DISPLAY_SETTINGS).forEach((r) => { const x = settings.get(r.key); if (x !== undefined) o[r.key] = r.key === 'closeLimit' || r.key === 'leftIs' ? String(x) : x; });
+            VIEW.APP_ROWS.concat(UI.DISPLAY_SETTINGS, [E.DEMO_ROW]).forEach((r) => { const x = settings.get(r.key); if (x !== undefined) o[r.key] = r.key === 'closeLimit' || r.key === 'leftIs' ? String(x) : x; });
             return o;
         };
         let demoS = null, demoAt = 0, demoSetup = null;
@@ -317,19 +344,23 @@ mgu.run({
             let S;
             const ctl = d ? demoControl : control, rs = d ? demoRules : rules;
             if (d) {
-                if (!demoS || now - demoAt > 1000) { demoS = DEMO.state(now); demoAt = now; }
-                S = Object.assign({}, demoS, { v: DEMO.values(now), setup: demoSetup || demoS.setup });
+                if (!demoS || now - demoAt > 1000 || demoS.carId !== settings.get('demoCar')) { demoS = DEMO.state(now, demoCar()); demoS.carId = settings.get('demoCar'); demoAt = now; }
+                demoUnits();
+                const car = demoCar();
+                S = Object.assign({}, demoS, { v: DEMO.values(now, car), setup: demoSetup || DEMO.setupFor(car), caps: M.capsForCar(car), engine: car });
             } else {
                 S = { demo: false, at: now, live: carSeen || link.available, caps: caps(), v: {
                     rpm: fresh('rpm'), speed: fresh('speed'), gear: fresh('gear', 10000), mode: fresh('mode', 3600000), coolant: fresh('coolant', 60000),
                     outside: fresh('outside', 600000), soot: fresh('soot', 10000), ash: fresh('ash', 120000), load: fresh('load', 10000), pfTemp: fresh('pfTemp', 10000),
-                    egt: fresh('egt', 10000), exVanos: fresh('exVanos', 120000), engLoad: fresh('engLoad', 10000) },
+                    egt: fresh('egt', 10000), exVanos: fresh('exVanos', 120000), engLoad: fresh('engLoad', 10000), adblue: fresh('adblue', 120000) },
                     hist: hist, regens: P.regens, regen: regen.now(now), loads: P.loads, loadsKm: P.loadsKm, drives: P.drives, ash: P.ash, kmNow: Math.round(P.km),
                     warm: P.warm, warmWhen: P.warmWhen, warmOutside: P.warmOutside, lightOffs: P.lightOffs, starts: P.starts,
                     flapLog: P.flapLog, flapWeekLog: P.flapLog, setup: P.setup, setupFound: P.setupFound || {} };
             }
-            S.until = M.untilNext(S.v.load, S.loadsKm, 80);
-            S.mark = 80;
+            if (!S.engine) S.engine = M.engineFor(engineFacts(), S.caps, S.setup);
+            S.fig = E.filterFigures(S.engine);
+            S.until = M.untilNext(S.v.load, S.loadsKm, S.fig.mark);
+            S.mark = S.fig.mark;
             S.rules = rs.list; S.held = rs.held;
             S.active = {};
             const views = {};
@@ -446,8 +477,8 @@ mgu.run({
             S = build();
             V.values = values();
             const cv = ctx.canvas(UI.W, UI.H);
-            const pages = M.pagesFor(S.caps);
-            if (cv.chrome) cv.chrome.tabs = { tabs: V.mode === 'main' ? pages.map((i) => M.TABS[i]) : [], sel: pages.indexOf(V.page), badges: [] };
+            const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
+            if (cv.chrome) cv.chrome.tabs = { tabs: V.mode === 'main' ? pages.map((i) => names[i]) : [], sel: pages.indexOf(V.page), badges: [] };
             if (V.dialog) {
                 V.dialog.a = UI.anim('p96exhaust|dialog', V.dialog.open ? 1 : 0, 200);
                 if (!V.dialog.open && V.dialog.a <= 0) V.dialog = null;
@@ -455,7 +486,7 @@ mgu.run({
             VIEW.draw(cv, S, V, A, (now - t0) / 1000);
             await ui.image('MAIN_GFX', cv);
         }
-        const pagesNow = () => M.pagesFor(S ? S.caps : caps());
+        const pagesNow = () => M.pagesFor(S ? S.caps : caps(), S ? S.engine : null);
         const step = (dir) => { const p = pagesNow(), i = p.indexOf(V.page); V.page = p[UI.nextTab(Math.max(0, i), p.length, dir)]; V.mode = 'main'; changed(); };
         if (ctx.onTab) ctx.onTab((i) => { const p = pagesNow(); if (p[i] != null) A.tab(p[i]); });
         ui.onClick('BTN_PAGE', () => step(1));

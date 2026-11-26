@@ -87,6 +87,15 @@ class ExLink {
         if (!this.shown) return Promise.resolve(null);
         return PRIVATE.get(this).ro.read(addr || DME, did);
     }
+    /**
+     * The read-only link for the engine's facts (lib/engine.js Detector: 22 F1 50, 22 F6 A0, OBD 01 51 and 01 85), only
+     * while the screen is shown; null otherwise. Reads only: the kit's ReadOnlyDiag refuses anything else.
+     */
+    engineLink() {
+        if (!this.shown) return null;
+        const ro = PRIVATE.get(this).ro;
+        return { physical: (addr, sid, data, ms, ok) => (this.shown ? ro.physical(addr, sid, data, ms, ok) : Promise.resolve(null)) };
+    }
     /** A flap read (the probe or the read-back): reads only, allowed when shown or armed. */
     _flapRead(addr, did) { return PRIVATE.get(this).ro.read(addr, did, 2000); }
 

@@ -55,6 +55,7 @@
     {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60, "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
     {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
     {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto", "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "demoCar", "label": "Demo car", "type": "choice", "default": "b48", "options": [["b48", "B48"], ["b58", "B58"], ["s58", "S58"], ["s63", "S63 V8"], ["b57", "B57 diesel"], ["phev", "PHEV"], ["ev", "EV"]]},
     {"key": "arm", "label": "Flap control", "type": "choice", "default": "off", "options": [["off", "Simulated (safe, sends nothing)"], ["on", "Armed (commands the real flap)"]]},
     {"key": "hold", "label": "Hold OPEN and CLOSE", "type": "bool", "default": true},
     {"key": "closeLimit", "label": "Close: hand back above", "type": "choice", "default": "4000", "options": [["3000", "3 000 rpm"], ["4000", "4 000 rpm"], ["5000", "5 000 rpm"], ["0", "Never"]]},

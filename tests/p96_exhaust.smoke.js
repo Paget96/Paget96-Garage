@@ -26,6 +26,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p96ex-'));
 const APP = path.join(ROOT, 'apps', 'p96_exhaust');
 fs.readdirSync(APP).filter((f) => /\.js(on)?$/.test(f)).forEach((f) => fs.writeFileSync(path.join(dir, f), fs.readFileSync(path.join(APP, f))));
 fs.writeFileSync(path.join(dir, 'garage_ui.js'), fs.readFileSync(path.join(ROOT, 'lib', 'ui.js')));
+fs.writeFileSync(path.join(dir, 'garage_engine.js'), fs.readFileSync(path.join(ROOT, 'lib', 'engine.js')));
 fs.mkdirSync(path.join(dir, 'kit'));
 fs.readdirSync(RT).forEach((f) => { if (f !== 'mgu.js') fs.symlinkSync(path.join(RT, f), path.join(dir, 'kit', f)); });
 let app = null;
@@ -131,7 +132,8 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     assert.strictEqual(flapSent()[flapSent().length - 1], '12 2F 60 FD 00', 'not handed back below 2 500 rpm');
     flapSent().forEach((s) => assert.ok(/^12 2F 60 FD (03 03 E8|03 23 28|00)$/.test(s), 'unexpected request ' + s));
     // nothing but reads and the flap ever went out
-    sent.forEach((s) => assert.ok(/^12 (22|2F) /.test(s), 'unexpected request ' + s));
+    // (and the engine's facts: OBD 01 51 the fuel type, 01 85 the AdBlue tank, lib/engine.js; reads)
+    sent.forEach((s) => assert.ok(/^12 (22|2F) /.test(s) || /^12 01 (51|85)$/.test(s), 'unexpected request ' + s));
     // the screen left: no more exhaust value reads
     visible('MAIN', false);
     await sleep(1200);

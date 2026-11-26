@@ -318,6 +318,43 @@ test('demo data covers every page', () => {
     assert.ok(S.flapLog.length >= 5);
 });
 
+/* ---------- every engine (owner rule 2026-11-26 19:03) ---------- */
+const E = require(path.join(__dirname, '..', 'lib', 'engine'));
+const ART = require(path.join(APP, 'art'));
+test('each demo car: the pages that show and the ones that hide', () => {
+    const pages = (id) => M.pagesFor(M.capsForCar(E.demoCar(id)), E.demoCar(id));
+    assert.deepStrictEqual(pages('b48'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('s63'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('b57'), [0, 3, 4, 5, 6, 7, 8, 9], 'a diesel without a flap: no Flap pages');
+    assert.deepStrictEqual(pages('phev'), [0, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('ev'), [0], 'an electric car: only the page that says there is no exhaust');
+    assert.strictEqual(M.tabsFor(E.demoCar('b57'))[3], 'DPF');
+    assert.strictEqual(M.tabsFor(E.demoCar('b48'))[3], 'OPF');
+});
+test('the drawing: two pipes for two turbos or banks, the SCR on a diesel, DPF named', () => {
+    assert.strictEqual(ART.pipeRows(E.demoCar('s63')), 2);
+    assert.strictEqual(ART.pipeRows(E.demoCar('s58')), 2);
+    assert.strictEqual(ART.pipeRows(E.demoCar('b58')), 1);
+    const keys = (id) => ART.layout(DEMO.setupFor(E.demoCar(id)), 0, 1400, 1, E.demoCar(id)).map((q) => q.key + ':' + q.name);
+    assert.deepStrictEqual(keys('b57').filter((k) => /opf|scr|flap/.test(k)), ['opf:DPF', 'scr:SCR (AdBlue)']);
+    assert.ok(keys('s63').indexOf('flap:Flaps') >= 0);
+    assert.ok(keys('phev').every((k) => !/flap/.test(k)));
+});
+test('a real car: the engine from its answers and what Exhaust found', () => {
+    const p = M.engineFor({ fuel: 'diesel', cylinders: 6 }, { soot: true, adblue: true }, {});
+    assert.strictEqual(E.filterName(p), 'DPF'); assert.ok(p.scr); assert.strictEqual(p.flaps, 0);
+    const v8 = M.engineFor({ fuel: 'petrol', cylinders: 8, units: 2 }, { flap: true, flap2: true, soot: true }, {});
+    assert.strictEqual(v8.flaps, 2); assert.strictEqual(v8.flapCmd, '611E');
+    // nothing known yet: the drawing follows the Setup page, no filter name guessed
+    assert.strictEqual(E.filterName(M.engineFor({}, {}, {})), 'filter');
+});
+test('demo values per car: a diesel cooler and with AdBlue, an EV without engine values', () => {
+    const t = Date.UTC(2026, 10, 26, 17, 40);
+    assert.ok(DEMO.values(t, E.demoCar('b57')).adblue > 0 && DEMO.values(t, E.demoCar('b57')).rpm < 2600);
+    assert.strictEqual(DEMO.values(t, E.demoCar('ev')).rpm, undefined);
+    assert.strictEqual(DEMO.setupFor(E.demoCar('ev')).opf, 'none');
+});
+
 (async function () {
     let failed = 0;
     for (let i = 0; i < tests.length; i++) {

@@ -11,11 +11,28 @@ const M = require('./model');
 
 const DAY = M.DAY, MIN = M.MIN;
 
-/** The car's values at time t (ms): a steady drive at about 3 400 rpm in Sport, the exhaust warm. */
-function values(t) {
+/**
+ * The car's values at time t (ms): a steady drive at about 3 400 rpm in Sport, the exhaust warm. car: a demo car of
+ * lib/engine.js (none: the B48): a diesel runs lower revs and cooler gas, carries more soot in its DPF and has an
+ * AdBlue tank; an electric car has no engine values at all.
+ */
+function values(t, car) {
     const s = t / 1000, w = Math.sin(s / 7), w2 = Math.sin(s / 3.1);
-    return { rpm: 3400 + 260 * w, speed: 92 + 6 * w, gear: 3, mode: 1, coolant: 91, outside: 4, soot: 9.1, ash: 14, load: 38,
-        pfTemp: 560 + 12 * w2, egt: 640 + 14 * w, exVanos: 12.5 + w, engLoad: 72 + 6 * w2 };
+    if (car && car.engine === false) return { speed: 92 + 6 * w, mode: 1, outside: 4 };
+    if (car && car.diesel) return { rpm: 2100 + 180 * w, speed: 92 + 6 * w, gear: 6, mode: 1, coolant: 88, outside: 4, soot: 22.4, ash: 31, load: 46,
+        pfTemp: 360 + 10 * w2, egt: 390 + 12 * w, engLoad: 58 + 6 * w2, adblue: 62 };
+    const v8 = car && car.banks === 2;
+    return { rpm: 3400 + 260 * w, speed: 92 + 6 * w, gear: 3, mode: 1, coolant: 91, outside: 4, soot: v8 ? 11.8 : 9.1, ash: v8 ? 19 : 14, load: 38,
+        pfTemp: 560 + 12 * w2, egt: (v8 ? 680 : 640) + 14 * w, exVanos: 12.5 + w, engLoad: 72 + 6 * w2 };
+}
+/** The demo car's exhaust on the Setup page: its flaps, no filter where it has none. */
+function setupFor(car) {
+    const s = { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'resdelete', rear: 'stock', flaps: '1' };
+    if (!car) return s;
+    s.flaps = String(car.flaps || 0);
+    if (!car.filter) s.opf = 'none';
+    if (car.diesel) s.mid = 'stock';
+    return s;
 }
 /** The last 60 s of a value, one sample a second, ending at t. */
 function last60(t, key, f) {
@@ -25,13 +42,15 @@ function last60(t, key, f) {
 }
 
 /** The whole demo state at `now`. */
-function state(now) {
-    const v = values(now);
+function state(now, car) {
+    const v = values(now, car);
     const rise = (from, to) => (q) => from + (to - from) * (1 - Math.exp(-3 * (q / 60000 + 0.2)));
+    // the last minute leads to the values now, for whichever demo car
+    const egtTo = v.egt || 640, rpmTo = v.rpm || 3400, loadTo = v.load || 38;
     const hist = {
-        egt: last60(now, 'egt', (q) => rise(520, 640)(q - now + 60000)),
-        load: last60(now, 'load', (q) => 30 + 8 * (q - now + 60000) / 60000),
-        rpm: last60(now, 'rpm', (q) => rise(1800, 3400)(q - now + 60000)),
+        egt: last60(now, 'egt', (q) => rise(egtTo - 120, egtTo)(q - now + 60000)),
+        load: last60(now, 'load', (q) => loadTo - 8 + 8 * (q - now + 60000) / 60000),
+        rpm: last60(now, 'rpm', (q) => rise(rpmTo * 0.53, rpmTo)(q - now + 60000)),
         seq: Math.floor(now / 1000),
     };
     // regenerations, newest first (km: the app's own count since it was installed)
@@ -94,4 +113,4 @@ function state(now) {
 /** The regeneration screen in demo: one under way for 6 minutes. */
 function regenNow() { return { mins: 6, burnt: 2.5, temp: 640, from: 9.1, to: 6.6 }; }
 
-module.exports = { state, values, regenNow, rules: R.defaults };
+module.exports = { state, values, setupFor, regenNow, rules: R.defaults };

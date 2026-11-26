@@ -23,6 +23,7 @@ const R = require('./rules');
 const F = require('./flap');
 const T = require('./texts');
 const ART = require('./art');
+const E = need('./garage_engine', '../../lib/engine');
 const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN, HH = 392;
 const TEXT2 = '#c8ced6';
 
@@ -34,12 +35,22 @@ const num = (v, d) => (v == null ? '--' : d ? v.toFixed(d) : R.thousands(v));
 
 /* ---------- info popups ---------- */
 const infos = {};
+/** The engine the texts are for (set each frame): the filter is the OPF on a petrol, the DPF on a diesel. */
+let ENG = null;
+const fname = () => { const n = E.filterName(ENG && ENG.fuel ? ENG : { filter: 'opf' }); return n === 'filter' ? 'OPF' : n; };
+/** A text for this engine: OPF named as this car's filter, the petrol words for a diesel's. */
+function forEngine(str) {
+    if (!str || fname() === 'OPF') return str;
+    return String(str).replace(/OPF/g, 'DPF').replace(/petrol particulate filter/g, 'diesel particulate filter');
+}
 function info(key) {
-    if (!infos[key]) {
+    const k = key + '|' + fname();
+    if (!infos[k]) {
         const i = T.INFO[key] || { label: key, title: key, text: '' };
-        infos[key] = Object.assign({}, i, { draw: ART.artFor(i.art || key) });
+        infos[k] = Object.assign({}, i, { label: forEngine(i.label), title: forEngine(i.title), text: forEngine(i.text), note: forEngine(i.note), draw: ART.artFor(i.art || key) });
+        if (key === 'opfLoad' && ENG && ENG.filter === 'dpf') infos[k].note = 'A diesel filter holds far more soot than a petrol one: the engine unit burns it off with extra fuel near the mark, on a longer drive at steady speed (an estimate, BMW gives no figures).';
     }
-    return infos[key];
+    return infos[k];
 }
 
 /* ---------- small parts ---------- */
@@ -79,34 +90,49 @@ const actionWord = (a) => R.ACTION_WORD[a] || a;
 /* ---------- the frame ---------- */
 function frame(cv, S, V, A) {
     UI.background(cv);
-    const pages = M.pagesFor(S.caps);
-    UI.tabs(cv, pages.map((i) => M.TABS[i]), pages.indexOf(V.page), { onSelect: (i) => A.tab(pages[i]) });
+    ENG = S.engine || null;
+    ART.setEngine(ENG);
+    const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
+    UI.tabs(cv, pages.map((i) => names[i]), pages.indexOf(V.page), { onSelect: (i) => A.tab(pages[i]) });
     UI.title(cv, 'EXHAUST');
     const st = S.demo ? ['DEMO', 'info'] : S.live ? ['LIVE', 'ok'] : ['WAIT', 'dim'];
     UI.header(cv, { status: st[0], statusColor: st[1], onHelp: A.help, onSettings: A.settings });
 }
 
 /* ---------- Now ---------- */
-function flapShown(S) {
-    const f = S.flap || {}, v = f.views && f.views[f.sides ? f.sides[0] : 'both'];
+function flapShown(S, i) {
+    const f = S.flap || {}, v = f.views && f.views[f.sides ? f.sides[i || 0] || f.sides[0] : 'both'];
     return v ? (v.confirmed !== 'UNKNOWN' ? v.confirmed : v.requested) : 'OEM';
+}
+/** An electric car: no exhaust, nothing to read (owner rule 2026-11-26 19:03: the app says so). */
+function noExhaust(cv, S, t) {
+    UI.card(cv, X0, TOP, X1 - X0, HH, 'This car', { info: info('noEngine') });
+    const cx = (X0 + X1) / 2;
+    ART.ART.noEngine(cv, X0 + 40, TOP + 40, X1 - X0 - 80, 230, t);
+    cv.text('No exhaust on an electric car', cx, TOP + 300, 30, C.text, { font: 'bold', align: 'center', literal: true });
+    cv.text('Exhaust shows the flap, the particulate filter and the sound of a car with an engine. This car has none, so there is nothing to show.', cx, TOP + 340, 17, C.dim, { align: 'center', literal: true });
 }
 function now(cv, S, V, A, t) {
     const v = S.v || {};
-    UI.card(cv, X0, TOP, X1 - X0, 196, 'Exhaust now: engine to tail pipe', { info: info('path') });
+    if (S.engine && S.engine.engine === false) return noExhaust(cv, S, t);
+    const two = ART.pipeRows(S.engine, S.setup) === 2;
+    UI.card(cv, X0, TOP, X1 - X0, 196, two ? 'Exhaust now: engine to the two tail pipes' : 'Exhaust now: engine to tail pipe', { info: info('path') });
     const fs = flapShown(S), ang = UI.glide('ex|flapangle', fs === 'OPEN' ? 0 : fs === 'CLOSED' ? 90 : 45, null, 10);
-    ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 114, { setup: S.setup, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
-        flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, t: t, flow: v.rpm ? Math.min(1.6, v.rpm / 2500) : 0.4 });
+    const fs2 = flapShown(S, 1), ang2 = UI.glide('ex|flapangle2', fs2 === 'OPEN' ? 0 : fs2 === 'CLOSED' ? 90 : 45, null, 10);
+    ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 114, { setup: S.setup, engine: S.engine, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
+        flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, flow: v.rpm ? Math.min(1.6, v.rpm / 2500) : 0.4 });
     const h = S.hist || {}, y = TOP + 210, ch = HH - 210 + 0;
     const cards = [];
     if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: 'model from the engine unit',
         color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, info: info('egt') }));
-    if (has(S, 'load')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'OPF load', value: v.load, decimals: 0, unit: '%',
+    if (has(S, 'load')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' load', value: v.load, decimals: 0, unit: '%',
         sub: (v.soot != null ? 'soot ' + v.soot.toFixed(1) + ' g' : '') + (has(S, 'ash') && v.ash != null ? ', ash ' + Math.round(v.ash) + ' g' : ''),
         color: v.load != null && v.load >= 80 ? 'warm' : 'ok', history: h.load, minSpan: 4, seq: h.seq, info: info('opfLoad') }));
-    else if (has(S, 'soot')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'OPF soot', value: v.soot, decimals: 1, unit: 'g', sub: 'in the particulate filter', color: 'ok', info: info('opfLoad') }));
+    else if (has(S, 'soot')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' soot', value: v.soot, decimals: 1, unit: 'g', sub: 'in the particulate filter', color: 'ok', info: info('opfLoad') }));
+    if (has(S, 'adblue')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'AdBlue tank', value: v.adblue, decimals: 0, unit: '%',
+        sub: v.adblue == null ? 'reading' : v.adblue < 15 ? 'low: top up soon' : 'for the SCR catalyst', color: v.adblue != null && v.adblue < 15 ? 'warm' : 'info', info: info('adblue') }));
     if (has(S, 'flap')) cards.push((x, w) => {
-        UI.card(cv, x, y, w, ch, 'Flap', { info: info('flapCard') });
+        UI.card(cv, x, y, w, ch, has(S, 'flap2') ? 'Flaps' : 'Flap', { info: info('flapCard') });
         const word = fs === 'OEM' ? 'CAR' : fs === 'CLOSED' ? 'CLOSED' : 'OPEN';
         cv.text(word, x + 20, y + 80, 48, fs === 'OPEN' ? C.green : fs === 'CLOSED' ? C.amber : C.text, { font: 'bold', literal: true });
         const d = S.flap.decided && S.flap.decided[S.flap.sides[0]];
@@ -285,7 +311,7 @@ function flapLog(cv, S, V, A, t) {
 /* ---------- OPF ---------- */
 function opf(cv, S, V, A, t) {
     const v = S.v || {}, w1 = 430, w2 = 520;
-    UI.card(cv, X0, TOP, w1, HH, 'Particulate filter', { info: info('opf') });
+    UI.card(cv, X0, TOP, w1, HH, ENG && ENG.filter === 'dpf' ? 'Diesel particulate filter' : 'Particulate filter', { info: info('opf') });
     const cx = X0 + w1 / 2;
     if (has(S, 'load')) {
         UI.ring(cv, cx, TOP + 178, 92, { value: v.load, min: 0, max: 100, decimals: 0, unit: '% full', color: v.load != null && v.load >= 80 ? 'warm' : 'ok', scale: [0, 25, 50, 75, 100], target: S.mark || 80 });
@@ -421,7 +447,7 @@ function cold(cv, S, V, A, t) {
 /* ---------- Sound ---------- */
 function soundPage(cv, S, V, A, t) {
     UI.card(cv, X0, TOP, X1 - X0, HH, 'How the sound is made, and what damps it', { info: info('sound') });
-    const fs = flapShown(S), lv = M.sound(S.setup, has(S, 'flap') ? fs : 'OEM', S.v && S.v.load != null && S.v.load < 25);
+    const fs = flapShown(S), lv = M.sound(S.setup, has(S, 'flap') ? fs : 'OEM', S.v && S.v.load != null && S.v.load < 25, S.engine);
     const parts = ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 214, { setup: S.setup, flap: has(S, 'flap') ? fs : 'OEM', t: t, labels: true, numbers: false,
         temps: { cat: S.v && S.v.egt, opf: S.v && S.v.pfTemp }, flow: S.v && S.v.rpm ? Math.min(1.6, S.v.rpm / 2500) : 0.4 });
     parts.forEach((p, i) => {
@@ -436,7 +462,7 @@ function soundPage(cv, S, V, A, t) {
 
 /* ---------- Better sound ---------- */
 function better(cv, S, V, A, t) {
-    const v = S.v || {}, tp = M.tips({ hasFlap: has(S, 'flap'), hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
+    const v = S.v || {}, tp = M.tips({ engine: S.engine, hasFlap: has(S, 'flap'), hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
         egt: has(S, 'egt') ? v.egt : null, load: has(S, 'load') ? v.load : null, rpm: has(S, 'rpm') ? v.rpm : null, mode: has(S, 'mode') ? v.mode : null });
     const lw = 960;
     UI.card(cv, X0, TOP, lw, HH, 'Better sound, no changes to the car', { info: info('tips') });
@@ -481,7 +507,7 @@ function setupPage(cv, S, V, A, t) {
     UI.card(cv, X0, TOP, X1 - X0, HH, 'Your exhaust', { info: info('setup') });
     const fd = S.setupFound || {}, s = Object.assign({}, M.SETUP_DEFAULT, S.setup || {});
     const foundTxt = [];
-    if (fd.opf) foundTxt.push('OPF yes');
+    if (fd.opf) foundTxt.push(fname() + ' yes');
     if (fd.cat) foundTxt.push('catalyst yes');
     if (fd.flaps != null) foundTxt.push('flaps ' + fd.flaps + (fd.flaps === 2 ? ' (left and right)' : ''));
     if (foundTxt.length) cv.text('found on this car: ' + foundTxt.join(', '), X1 - 56, TOP + 34, 15, C.green, { align: 'right', literal: true });
@@ -510,8 +536,13 @@ function setupPage(cv, S, V, A, t) {
 
 /* ---------- How to use, Settings ---------- */
 let topics = null;
+let topicsFor = null;
 function helpTopics() {
-    if (!topics) topics = T.TOPICS.map((tp) => Object.assign({}, tp, { draw: ART.artFor(tp.art) }));
+    if (!topics || topicsFor !== fname()) {
+        topicsFor = fname();
+        topics = T.TOPICS.map((tp) => Object.assign({}, tp, { title: forEngine(tp.title), text: forEngine(tp.text), draw: ART.artFor(tp.art) }));
+        topics.push({ title: 'Which cars', art: 'path', text: T.WORKS_WITH, draw: ART.artFor('path') });
+    }
     return topics;
 }
 /** Exhaust's own Settings rows (after the Display block). */
@@ -523,19 +554,21 @@ const APP_ROWS = [
     { key: 'leftIs', label: 'Left flap is', hint: 'Which engine unit drives the left flap (check by ear)', type: 'choice', default: '1', options: [['1', 'Bank 1'], ['2', 'Bank 2']] },
 ];
 function appRowsFor(S) {
-    return APP_ROWS.filter((r) => (r.key === 'leftIs' ? has(S, 'flap2') : r.key === 'arm' || r.key === 'hold' || r.key === 'closeLimit' ? has(S, 'flap') : true));
+    return (S.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'leftIs' ? has(S, 'flap2') : r.key === 'arm' || r.key === 'hold' || r.key === 'closeLimit' ? has(S, 'flap') : true)));
 }
 
 /* ---------- one frame ---------- */
 const PAGES = [now, flapPage, flapLog, opf, care, cold, soundPage, better, history, setupPage];
 
 function draw(cv, S, V, A, t) {
+    ENG = S.engine || null;
+    ART.setEngine(ENG);
     if (V.mode === 'help') {
         UI.howToUse(cv, helpTopics(), V.helpSel || 0, t, { title: 'EXHAUST', onSelect: A.helpTopic, onBack: A.back, onSettings: A.settings });
     } else if (V.mode === 'settings') {
         UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'EXHAUST', appLabel: 'Exhaust', onBack: A.back, onHelp: A.help });
     } else {
-        if (M.pagesFor(S.caps).indexOf(V.page) < 0) V.page = 0;
+        if (M.pagesFor(S.caps, S.engine).indexOf(V.page) < 0) V.page = 0;
         frame(cv, S, V, A);
         PAGES[V.page || 0](cv, S, V, A, t);
     }

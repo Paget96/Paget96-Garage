@@ -16,6 +16,10 @@
  * Node 8: no optional chaining, no object spread, no class fields.
  */
 const R = require('./rules');
+function need(local, repo) {
+    try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
+}
+const E = need('./garage_engine', '../../lib/engine');
 
 const DAY = 86400000, WEEK = 7 * DAY, MIN = 60000;
 
@@ -225,7 +229,7 @@ const SETUP_DEFAULT = { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'sto
  * of the loudness, a closed flap sends the gas the long way through the rear silencer. setup: the Setup page,
  * flap: 'OPEN', 'CLOSED' or 'OEM', fresh: the filter just regenerated (a little less damping).
  */
-function sound(setup, flap, fresh) {
+function sound(setup, flap, fresh, eng) {
     const s = Object.assign({}, SETUP_DEFAULT, setup || {});
     const parts = [];
     let level = 1;
@@ -233,7 +237,8 @@ function sound(setup, flap, fresh) {
     parts.push({ key: 'engine', name: 'Engine', level: 1 });
     add('turbo', 'Turbo', s.downpipe === 'decat' ? 0.74 : s.downpipe === 'catted' ? 0.72 : 0.7);
     if (s.cat !== 'none') add('cat', 'Catalyst', s.cat === 'highflow' ? 0.95 : 0.886);
-    if (s.opf !== 'none') add('opf', 'OPF', fresh ? 0.86 : 0.806);
+    if (s.opf !== 'none' && !(eng && eng.fuel && !eng.filter)) add('opf', E.filterName(eng && eng.fuel ? eng : { filter: 'opf' }), fresh ? 0.86 : 0.806);
+    if (eng && eng.scr) add('scr', 'SCR (AdBlue)', 0.95);
     add('mid', 'Middle silencer', s.mid === 'straight' ? 1 : s.mid === 'resdelete' ? 0.85 : 0.6);
     if (s.flaps !== '0') add('flap', 'Flap', flap === 'OPEN' ? 1 : flap === 'CLOSED' ? 0.62 : 0.85);
     add('rear', 'Rear silencer', s.rear === 'aftermarket' ? 0.75 : s.rear === 'valved' ? (flap === 'OPEN' ? 0.8 : 0.6) : 0.6);
@@ -252,7 +257,7 @@ function tips(v) {
     list.push({ key: 'warm', w: 20, title: 'Exhaust warm', ok: v.egt == null ? null : v.egt >= 400,
         text: v.egt == null ? 'A warm exhaust sounds deeper' : 'A warm exhaust sounds deeper; it is at ' + Math.round(v.egt) + ' °C' });
     if (v.hasOpf) list.push({ key: 'fresh', w: 15, title: 'Filter fresh', ok: v.load == null ? null : v.load < 25,
-        text: 'Right after a regeneration the OPF damps a little less' + (v.load == null ? '' : '; now ' + Math.round(v.load) + ' % full') });
+        text: 'Right after a regeneration the ' + E.filterName(v.engine && v.engine.fuel ? v.engine : { filter: 'opf' }) + ' damps a little less' + (v.load == null ? '' : '; now ' + Math.round(v.load) + ' % full') });
     list.push({ key: 'revs', w: 20, title: 'Revs 3 000 to 5 000', ok: v.rpm == null ? null : v.rpm >= 3000 && v.rpm <= 5000,
         text: 'Most engines sound fullest under load in this range' });
     list.push({ key: 'sport', w: 15, title: 'Sport mode', ok: v.mode == null ? null : R.modeClass(v.mode) === 'sport',
@@ -313,7 +318,7 @@ function loadDays(samples, now, days) {
 /* ---------- what this car has ---------- */
 
 /** What the car can report, found when it first answers and remembered per car. Demo shows everything. */
-const CAPS = ['rpm', 'speed', 'gear', 'mode', 'coolant', 'outside', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2'];
+const CAPS = ['rpm', 'speed', 'gear', 'mode', 'coolant', 'outside', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2', 'adblue'];
 const ALL_CAPS = (function () { const o = {}; CAPS.forEach((k) => { o[k] = true; }); return o; })();
 const has = (caps, k) => !!(caps && caps[k] === true);
 /** Notes a reply: sets caps[k], says whether it changed. A true is never taken back by a miss. */
@@ -323,8 +328,14 @@ function found(caps, k, yes) {
     return was !== caps[k];
 }
 const TABS = ['Now', 'Flap', 'Flap log', 'OPF', 'Filter care', 'Cold start', 'Sound', 'Better sound', 'History', 'Setup'];
-/** The pages this car has something for (indexes into TABS). */
-function pagesFor(caps) {
+/** The tab names for this engine: the filter page is OPF on a petrol and DPF on a diesel (lib/engine.js). */
+function tabsFor(p) { const n = E.filterName(p); return TABS.map((t) => (t === 'OPF' ? (n === 'filter' ? 'Filter' : n) : t)); }
+/**
+ * The pages this car has something for (indexes into TABS). An electric car (engine false) has no exhaust: only Now,
+ * which says so (owner rule 2026-11-26 19:03: pages that make no sense hide).
+ */
+function pagesFor(caps, p) {
+    if (p && p.engine === false) return [0];
     const out = [0];
     if (has(caps, 'flap')) out.push(1, 2);
     if (has(caps, 'soot') || has(caps, 'load')) out.push(3);
@@ -335,6 +346,34 @@ function pagesFor(caps) {
     out.push(9);
     return out;
 }
+/**
+ * A demo car's caps (lib/engine.js DEMO_CARS): what such a car reports. An electric car reports no engine values;
+ * a car without a flap has no Flap pages; only a diesel with SCR has the AdBlue tank.
+ */
+function capsForCar(p) {
+    const o = {};
+    CAPS.forEach((k) => { o[k] = true; });
+    if (!p || p.engine === false) { ['rpm', 'gear', 'coolant', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2'].forEach((k) => { o[k] = false; }); return o; }
+    if (!p.filter) ['soot', 'ash', 'load', 'pfTemp'].forEach((k) => { o[k] = false; });
+    if (p.diesel) ['exVanos', 'catO2'].forEach((k) => { o[k] = false; });
+    o.flap = p.flaps > 0; o.flap2 = p.flaps > 1;
+    o.adblue = !!p.scr;
+    return o;
+}
+/**
+ * The engine of a real car from what it answered (lib/engine.js facts) and what Exhaust found itself (caps): the
+ * flaps from the flap probe, the filter from the soot read (OPF or DPF by the fuel type), else the Setup page.
+ */
+function engineFor(facts, caps, setup) {
+    const f = Object.assign({}, facts || {});
+    const s = Object.assign({}, SETUP_DEFAULT, setup || {});
+    f.flaps = has(caps, 'flap2') ? 2 : has(caps, 'flap') ? 1 : 0;
+    const diesel = f.fuel === 'diesel';
+    if (has(caps, 'soot') || has(caps, 'load') || (s.opf !== 'none' && f.fuel)) f.filter = diesel ? 'dpf' : 'opf';
+    else if (f.fuel) f.filter = null;
+    if (has(caps, 'adblue')) f.scr = true;
+    return E.profile(f);
+}
 /** The rule conditions this car can check (the Add a rule dialog offers only these). */
 function kindsFor(caps) {
     const need = { rpm: 'rpm', speed: 'speed', load: 'engLoad', gear: 'gear', mode: 'mode', coolant: 'coolant', time: null, egt: 'egt' };
@@ -343,4 +382,4 @@ function kindsFor(caps) {
 
 module.exports = { CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
     LIGHT_OFF, COLD_COOLANT, coldWeek, SETUP, SETUP_DEFAULT, sound, tips, flapWeek, hm, ago, clock, fmtThousands, loadDays,
-    CAPS, ALL_CAPS, has, found, TABS, pagesFor, kindsFor, DAY, WEEK, MIN };
+    CAPS, ALL_CAPS, has, found, TABS, tabsFor, pagesFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };

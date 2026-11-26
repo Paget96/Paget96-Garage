@@ -7,6 +7,12 @@
  */
 
 const INFO = {
+    noEngine: { art: 'noEngine', label: 'This car', title: 'An electric car has no exhaust',
+        text: 'Exhaust shows what happens between the engine and the tail pipe: the flap, the particulate filter, the catalyst and the sound. An electric car has no engine and no exhaust, so the app has nothing to read or show on it.\n\nHealth, Datalog and Standby work on an electric car too.',
+        note: 'Nothing is read or sent on this car.' },
+    adblue: { art: 'scr', label: 'AdBlue tank', title: 'AdBlue for the SCR catalyst',
+        text: 'A diesel with SCR sprays AdBlue (a urea solution) into the exhaust before its SCR catalyst. It turns the nitrogen oxides into nitrogen and water.\n\nThe level is the engine unit\'s answer to the standard OBD request for it. When the tank runs dry the car warns long before, and later will not start until it is topped up.',
+        note: 'Normal: the car asks for a top up at about 2 000 km left (its own warning).' },
     path: { art: 'path', label: 'Exhaust now', title: 'From the engine to the tail pipe',
         text: 'Every cylinder pushes hot gas out in short pulses: through the turbo, the catalyst, the particulate filter (OPF), the middle silencer, past the flap and out of the rear silencer.\n\nThe numbers are the engine unit\'s: the exhaust after the catalyst (its own model) and the filter. Parts without a number have no sensor the app can read. The drawing follows your Setup page.',
         note: 'Normal when warm: 400 to 750 °C after the catalyst, more under load.' },
@@ -105,4 +111,7 @@ const TOPICS = [
         note: '' },
 ];
 
-module.exports = { INFO, TOPICS };
+/** The How to use topic on which cars Exhaust works with (owner rule 2026-11-26 19:03). */
+const WORKS_WITH = 'Every BMW with an engine where the MGU Store runs. Four, six and eight cylinders, one or two turbos: the drawing shows the car\'s own cylinders, turbos and pipes. A V8 with two engine units has two flaps, one per bank, each driven by its own unit.\n\nPetrol cars have an OPF (petrol particulate filter, from about 2018 in Europe). Diesels have a DPF and, with SCR, an AdBlue tank: the filter page is then the DPF page, and the AdBlue level shows when the car reports it. A plug-in hybrid shows the engine values while the engine runs.\n\nAn electric car has no exhaust: the app says so and reads nothing.';
+
+module.exports = { INFO, TOPICS, WORKS_WITH };

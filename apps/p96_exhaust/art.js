@@ -36,22 +36,38 @@ const levelColour = (l) => (l > 0.6 ? C.orange : l > 0.25 ? C.amber : C.green);
 
 /* ---------- the exhaust path ---------- */
 
-const WIDTHS = { engine: 120, turbo: 68, cat: 70, opf: 90, mid: 120, flap: 40, rear: 140 };
+const WIDTHS = { engine: 120, turbo: 68, cat: 70, opf: 90, scr: 80, mid: 120, flap: 40, rear: 140 };
+const E = need('./garage_engine', '../../lib/engine');
+/** The engine the drawings show (view.js sets it each frame from the car or the demo car); null: a generic one. */
+let ENGINE = null;
+function setEngine(p) { ENGINE = p || null; }
+/**
+ * How many pipes the drawing has: two where the car has two turbos, two banks or two flaps (twin pipes to the two
+ * tail pipes), else one.
+ */
+function pipeRows(p, setup) {
+    const s = Object.assign({}, M.SETUP_DEFAULT, setup || {});
+    return p && (p.turbos === 2 || p.banks === 2 || p.flaps === 2) || s.flaps === '2' ? 2 : 1;
+}
 /**
  * The parts of this setup along the pipe from x0 to x1: [{ key, name, x, w }]. Parts the setup does not have are left
- * out; a straight pipe in place of the middle silencer is drawn as pipe only.
+ * out; a straight pipe in place of the middle silencer is drawn as pipe only. The filter is named for the engine
+ * (OPF on a petrol, DPF on a diesel), a diesel with AdBlue gets its SCR catalyst after it.
  */
-function layout(setup, x0, x1, sc) {
+function layout(setup, x0, x1, sc, p) {
     const s = Object.assign({}, M.SETUP_DEFAULT, setup || {});
+    p = p === undefined ? ENGINE : p;
     sc = sc || 1;
-    const parts = [['engine', 'Engine'], ['turbo', 'Turbo']];
-    if (s.cat !== 'none') parts.push(['cat', 'Catalyst']);
-    if (s.opf !== 'none') parts.push(['opf', 'OPF']);
+    const two = pipeRows(p, s) === 2;
+    const parts = [['engine', 'Engine'], ['turbo', p && p.turbos === 2 ? 'Turbos' : 'Turbo']];
+    if (s.cat !== 'none') parts.push(['cat', two ? 'Catalysts' : 'Catalyst']);
+    if (s.opf !== 'none' && !(p && p.filter === null && p.fuel)) parts.push(['opf', E.filterName(p && p.fuel ? p : { filter: 'opf' })]);
+    if (p && p.scr) parts.push(['scr', 'SCR (AdBlue)']);
     parts.push(['mid', s.mid === 'straight' ? 'Straight pipe' : 'Middle silencer']);
-    if (s.flaps !== '0') parts.push(['flap', s.flaps === '2' ? 'Flaps' : 'Flap']);
-    parts.push(['rear', 'Rear silencer']);
+    if (s.flaps !== '0' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
+    parts.push(['rear', two ? 'Rear silencers' : 'Rear silencer']);
     const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = 120 * sc;
-    return parts.map((p, i) => ({ key: p[0], name: p[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[p[0]] * sc, pipeOnly: p[0] === 'mid' && s.mid === 'straight' }));
+    return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0]] * sc, pipeOnly: q[0] === 'mid' && s.mid === 'straight' }));
 }
 /** The temperature along the pipe (0 engine .. 1 tail pipe), from the two the engine unit reports (cat, opf), for
  * the gas colour only; no number is drawn where there is no sensor. */
@@ -72,48 +88,90 @@ function flapGlyph(cv, x, y, r, state, a) {
 }
 
 /**
- * The exhaust from the engine to the tail pipe, centred on cy, from x0 to x1. o = { setup, temps: { cat, opf },
- * flap ('OPEN', 'CLOSED', 'OEM'), flapAngle (0 open .. 90 closed, gliding), t (s), flow (0..1.5, gas speed), labels,
- * numbers }. The gas: dots coloured by temperature, moving; behind a closed flap fewer of them.
+ * The engine block seen from above: one dot per cylinder, as many as the engine has (inline: one row; a V8: two
+ * banks, one row each, with the V's two heads). A car whose count is not known yet gets a plain block.
+ */
+function engineBlock(cv, X, cy, S, p, rows, hot) {
+    const two = rows.length === 2, hh = two ? S(52) : S(50);
+    cv.roundRect(X - S(60), cy - hh, S(120), hh * 2, S(16), '#16181c');
+    cv.strokeRoundRect(X - S(60), cy - hh, S(120), hh * 2, S(16), 3, GREY);
+    const n = p && p.cylinders ? p.cylinders : 0;
+    if (!n) return;
+    const banks = p.banks === 2 ? 2 : 1, per = Math.ceil(n / banks);
+    for (let b = 0; b < banks; b++) {
+        const yy = banks === 2 ? rows[b] : two ? cy : cy - S(6), m = Math.min(per, n - b * per);
+        const pitch = Math.min(S(24), S(96) / Math.max(1, m)), r = Math.max(3, Math.min(S(8), pitch * 0.36));
+        for (let k = 0; k < m; k++) {
+            const xx = X - (m - 1) * pitch / 2 + k * pitch;
+            cv.arc(xx, yy, r * 0.7, r, 0, 360, hot ? '#8c94a0' : '#6e7480');
+        }
+    }
+    if (banks === 2) cv.line(X - S(44), cy, X + S(44), cy, 2, '#3a3e46');
+}
+
+/**
+ * The exhaust from the engine to the tail pipe, centred on cy, from x0 to x1. o = { setup, engine (lib/engine.js
+ * profile, else the one set with setEngine), temps: { cat, opf }, flap ('OPEN', 'CLOSED', 'OEM'), flapAngle (0 open ..
+ * 90 closed, gliding), t (s), flow (0..1.5, gas speed), labels, numbers }. Two turbos, two banks or two flaps: two
+ * pipes, one above the other, each with its own parts and flap. The gas: dots coloured by temperature, moving; behind
+ * a closed flap fewer of them.
  */
 function exhaustPath(cv, x0, x1, cy, o) {
     o = o || {};
+    const p = o.engine !== undefined ? o.engine : ENGINE;
     // the full drawing is made for about 1450 px; narrower (a popup, How to use) it shrinks, labels in two rows
     const sc = Math.min(1, (x1 - x0) / 1450), small = sc < 0.8;
-    const parts = layout(o.setup, x0, x1, sc), t = o.t || 0, flow = o.flow == null ? 1 : o.flow;
+    const parts = layout(o.setup, x0, x1, sc, p), t = o.t || 0, flow = o.flow == null ? 1 : o.flow;
     const px0 = parts[0].x - 30 * sc, px1 = x1 - 30 * sc, S = (v) => v * sc;
-    cv.line(px0, cy, px1, cy, Math.max(10, S(22)), PIPE);
-    parts.forEach((p, i) => {
-        const X = p.x, tc = p.key === 'cat' ? (o.temps || {}).cat : p.key === 'opf' ? (o.temps || {}).opf : null;
+    const two = pipeRows(p, o.setup) === 2, k = two ? 0.58 : 1, rows = two ? [cy - S(30), cy + S(30)] : [cy];
+    const nFlaps = !p || !p.fuel ? ((o.setup || {}).flaps === '2' ? 2 : 1) : Math.max(1, p.flaps || 1);
+    rows.forEach((ry) => cv.line(px0, ry, px1, ry, Math.max(8, S(22) * (two ? 0.7 : 1)), PIPE));
+    if (two) cv.line(parts[0].x, rows[0], parts[0].x, rows[1], Math.max(8, S(16)), PIPE);
+    parts.forEach((q, i) => {
+        const X = q.x, tc = q.key === 'cat' ? (o.temps || {}).cat : q.key === 'opf' ? (o.temps || {}).opf : null;
         const col = tc != null ? heat(tc) : GREY;
-        if (p.key === 'engine') {
-            cv.roundRect(X - S(60), cy - S(50), S(120), S(100), S(16), '#16181c');
-            cv.strokeRoundRect(X - S(60), cy - S(50), S(120), S(100), S(16), 3, GREY);
-            for (let k = 0; k < 4; k++) cv.arc(X - S(38) + k * S(24), cy - S(6), S(6), S(8), 0, 360, '#6e7480');
-        } else if (p.key === 'turbo') {
-            cv.circle(X, cy, S(34), '#16181c');
-            cv.arc(X, cy, S(31), S(35), 0, 360, col);
-            const a = t * 6.28 * 2.5 * Math.max(0.3, flow);
-            for (let k = 0; k < 5; k++) { const aa = a + k * 1.2566; cv.line(X, cy, X + S(24) * Math.cos(aa), cy + S(24) * Math.sin(aa), 3, col); }
-        } else if (p.key === 'flap') {
-            cv.circle(X, cy, S(20), '#16181c');
-            flapGlyph(cv, X, cy, Math.max(12, S(20)), o.flap, o.flapAngle);
-        } else if (!p.pipeOnly) {
-            const w = p.w;
-            cv.roundRect(X - w / 2, cy - S(34), w, S(68), S(18), '#16181c');
-            cv.strokeRoundRect(X - w / 2, cy - S(34), w, S(68), S(18), small ? 3 : 4, col);
-            if (p.key === 'cat' || p.key === 'opf') for (let k = 0; k < 6; k++) { const xx = X - w / 2 + S(12) + k * (w - S(24)) / 5; cv.line(xx, cy - S(22), xx, cy + S(22), 2, tc != null ? heat(tc - 120) : '#5a606a'); }
-        }
-        if (o.labels !== false) cv.text(p.name, X, cy + (small ? (i % 2 ? 72 : 50) * Math.max(0.75, sc) : 68), small ? 13 : 15, DIM, { align: 'center', literal: true });
-        if (o.numbers !== false && tc != null) cv.text(Math.round(tc) + ' °C', X, cy - (small ? (i % 2 ? 40 : 62) * Math.max(0.75, sc) : 52), small ? 16 : 19, C.text, { font: 'bold', align: 'center', literal: true });
+        if (q.key === 'engine') engineBlock(cv, X, cy, S, p, rows, flow > 0.5);
+        rows.forEach((ry, ri) => {
+            const K = (v) => S(v) * k;
+            if (q.key === 'engine') return;
+            if (q.key === 'turbo') {
+                if (two && p && p.turbos !== 2 && ri === 1) return;          // one turbo, two pipes after it: drawn once
+                const ty = two && p && p.turbos !== 2 ? cy : ry;
+                cv.circle(X, ty, K(34), '#16181c');
+                cv.arc(X, ty, K(31), K(35), 0, 360, col);
+                const a = t * 6.28 * 2.5 * Math.max(0.3, flow) + ri * 0.7;
+                for (let j = 0; j < 5; j++) { const aa = a + j * 1.2566; cv.line(X, ty, X + K(24) * Math.cos(aa), ty + K(24) * Math.sin(aa), 3, col); }
+            } else if (q.key === 'flap') {
+                if (ri >= nFlaps) return;
+                cv.circle(X, ry, Math.max(10, K(20)), '#16181c');
+                flapGlyph(cv, X, ry, Math.max(10, K(20)), ri === 1 && o.flap2 ? o.flap2 : o.flap, ri === 1 && o.flapAngle2 != null ? o.flapAngle2 : o.flapAngle);
+            } else if (!q.pipeOnly) {
+                const w = q.w * (two ? 0.86 : 1);
+                cv.roundRect(X - w / 2, ry - K(34), w, K(68), K(18), '#16181c');
+                cv.strokeRoundRect(X - w / 2, ry - K(34), w, K(68), K(18), small || two ? 3 : 4, q.key === 'scr' ? C.blue : col);
+                if (q.key === 'cat' || q.key === 'opf' || q.key === 'scr') for (let j = 0; j < 6; j++) { const xx = X - w / 2 + S(12) + j * (w - S(24)) / 5; cv.line(xx, ry - K(22), xx, ry + K(22), 2, q.key === 'scr' ? '#3c6c96' : tc != null ? heat(tc - 120) : '#5a606a'); }
+                if (q.key === 'scr' && ri === 0) {
+                    // the AdBlue dosing: a small blue drop just before it, dripping in time
+                    const dx = X - w / 2 - S(18), dy = ry - K(34) - S(8), f = (t * 1.2) % 1;
+                    cv.circle(dx, dy, Math.max(4, S(7)), C.blue);
+                    cv.circle(dx, dy + S(10) + f * S(18), Math.max(2, S(3.5)) * (1 - f * 0.5), C.blue);
+                }
+            }
+        });
+        const top = rows[0], bot = rows[rows.length - 1], off = two ? S(34) * k : 0;
+        if (o.labels !== false) cv.text(q.name, X, bot + off + (small ? (i % 2 ? 72 : 50) * Math.max(0.75, sc) : two ? 20 : 68), small ? 13 : 15, DIM, { align: 'center', literal: true });
+        if (o.numbers !== false && tc != null) cv.text(Math.round(tc) + ' °C', X, top - off - (small ? (i % 2 ? 40 : 62) * Math.max(0.75, sc) : two ? 12 : 52), small ? 16 : 19, C.text, { font: 'bold', align: 'center', literal: true });
     });
-    // the gas
-    const flapP = parts.filter((p) => p.key === 'flap')[0], n = 24, len = px1 - px0;
-    for (let i = 0; i < n; i++) {
-        const f = (t * 0.25 * Math.max(0.2, flow) + i / n) % 1, x = px0 + f * len;
-        if (flapP && x > flapP.x + S(20) && o.flap === 'CLOSED' && i % 2) continue;
-        cv.circle(x, cy, Math.max(3, S(5)), heat(tempAt(f, o.temps)));
-    }
+    // the gas, in each pipe
+    const flapP = parts.filter((q) => q.key === 'flap')[0], n = 24, gx0 = parts[0].x + S(64), len = px1 - gx0;
+    rows.forEach((ry, ri) => {
+        for (let i = 0; i < n; i++) {
+            const f = (t * 0.25 * Math.max(0.2, flow) + i / n + ri * 0.5 / n) % 1, x = gx0 + f * len;
+            const fl = ri === 1 && o.flap2 ? o.flap2 : o.flap;
+            if (flapP && ri < nFlaps && x > flapP.x + S(20) && fl === 'CLOSED' && i % 2) continue;
+            cv.circle(x, ry, Math.max(3, S(5) * (two ? 0.8 : 1)), heat(tempAt(f, o.temps)));
+        }
+    });
     return parts;
 }
 
@@ -246,9 +304,11 @@ const ART = {
         axes(cv, px, py, pw, ph, 0, 800, 200, '°C');
         const tf = (k) => (k < 0.25 ? 420 : k < 0.3 ? lerp(420, 620, (k - 0.25) / 0.05) : k < 0.8 ? 620 + 20 * Math.sin(k * 30) : lerp(620, 400, (k - 0.8) / 0.2));
         grow(cv, px, py, pw, ph, 0, 800, tf, p, C.red);
-        const sf = (k) => (k < 0.3 ? 9 : k < 0.8 ? 9 - (k - 0.3) / 0.5 * 6.5 : 2.5);
-        grow(cv, px, py, pw, ph, 0, 10, sf, p, C.green);
-        for (let g = 0; g <= 10; g += 2.5) cv.text(g + (g === 10 ? ' g' : ''), px + pw + 10, py + ph - g / 10 * ph + 5, 13, C.green, { literal: true });
+        // a diesel filter holds about four times the soot of a petrol one (lib/engine.js filterFigures, an estimate)
+        const q = ENGINE && ENGINE.filter === 'dpf' ? 4 : 1, top = 10 * q;
+        const sf = (k) => q * (k < 0.3 ? 9 : k < 0.8 ? 9 - (k - 0.3) / 0.5 * 6.5 : 2.5);
+        grow(cv, px, py, pw, ph, 0, top, sf, p, C.green);
+        for (let g = 0; g <= top + 1e-6; g += 2.5 * q) cv.text(g + (g >= top - 1e-6 ? ' g' : ''), px + pw + 10, py + ph - g / top * ph + 5, 13, C.green, { literal: true });
         cv.text(hot ? 'regenerating: filter hot, soot falling' : p < 0.25 ? 'filter warm, soot steady' : 'done: soot burnt off', x + w / 2, y + 40, 19, hot ? C.amber : C.text, { font: 'bold', align: 'center', literal: true });
         cv.roundRect(px, py + ph + 30, 20, 6, 3, C.red); cv.text('filter temperature', px + 28, py + ph + 37, 14, DIM, { literal: true });
         cv.roundRect(px + 220, py + ph + 30, 20, 6, 3, C.green); cv.text('soot ' + sf(p).toFixed(1) + ' g' + (burn > 0 && burn < 1 ? ', burning' : ''), px + 248, py + ph + 37, 14, DIM, { literal: true });
@@ -333,6 +393,44 @@ function R2(v) { return String(Math.round(v / 50) * 50).replace(/\B(?=(\d{3})+(?
 function withA(c, a) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), Math.round(255 * Math.max(0, Math.min(1, a)))]; }
 
 /** The animation for an info popup or topic key: draw(cv, x, y, w, h, t). */
+/** An electric car: a motor and a battery, current flowing between them, and no tail pipe. */
+ART.noEngine = function (cv, x, y, w, h, t) {
+    const cx = x + w / 2, cy = y + h / 2;
+    cv.roundRect(cx - 320, cy - 46, 220, 92, 22, '#16181c');
+    cv.strokeRoundRect(cx - 320, cy - 46, 220, 92, 22, 4, C.blue);
+    for (let k = 0; k < 6; k++) cv.roundRect(cx - 300 + k * 32, cy - 26, 22, 52, 8, k < 4 ? '#2c4c6c' : '#30343c');
+    cv.text('battery', cx - 210, cy + 74, 15, DIM, { align: 'center', literal: true });
+    cv.circle(cx + 210, cy, 54, '#16181c');
+    cv.arc(cx + 210, cy, 50, 55, 0, 360, C.blue);
+    const a = t * 3;
+    for (let k = 0; k < 3; k++) { const aa = a + k * 2.094; cv.line(cx + 210, cy, cx + 210 + 38 * Math.cos(aa), cy + 38 * Math.sin(aa), 5, C.blue); }
+    cv.text('motor', cx + 210, cy + 74, 15, DIM, { align: 'center', literal: true });
+    cv.line(cx - 96, cy, cx + 152, cy, 6, PIPE);
+    for (let i = 0; i < 8; i++) { const f = (t * 0.6 + i / 8) % 1; cv.circle(cx - 96 + f * 248, cy, 5, C.blue); }
+    // where a tail pipe would be: crossed out, in grey
+    const px = cx + 300;
+    cv.line(px, cy - 20, px + 60, cy - 20, 4, GREY);
+    cv.line(px + 4, cy - 38, px + 56, cy - 2, 4, DIM);
+    cv.text('no tail pipe', px + 30, cy + 74, 15, DIM, { align: 'center', literal: true });
+};
+/** The SCR catalyst: AdBlue drops sprayed into the gas, the nitrogen oxides (amber) leave as clean gas (green). */
+ART.scr = function (cv, x, y, w, h, t) {
+    const cx = x + w / 2, cy = y + h / 2 - 10;
+    cv.line(x + 40, cy, x + w - 40, cy, 18, PIPE);
+    cv.roundRect(cx - 40, cy - 60, 240, 120, 30, '#16181c');
+    cv.strokeRoundRect(cx - 40, cy - 60, 240, 120, 30, 4, C.blue);
+    for (let k = 0; k < 7; k++) cv.line(cx - 10 + k * 30, cy - 40, cx - 10 + k * 30, cy + 40, 2, '#3c6c96');
+    cv.circle(cx - 120, cy - 70, 14, C.blue);
+    cv.line(cx - 120, cy - 56, cx - 120, cy - 22, 4, C.blue);
+    for (let i = 0; i < 14; i++) {
+        const f = (t * 0.35 + i / 14) % 1, xx = x + 40 + f * (w - 80);
+        const clean = xx > cx + 120;
+        cv.circle(xx, cy + ((i * 7) % 5 - 2) * 3, 5, clean ? C.green : xx > cx - 120 ? C.blue : C.amber);
+    }
+    cv.text('nitrogen oxides in', x + 60, cy + 90, 15, C.amber, { literal: true });
+    cv.text('AdBlue sprayed in', cx - 120, cy - 96, 15, C.blue, { align: 'center', literal: true });
+    cv.text('nitrogen and water out', x + w - 60, cy + 90, 15, C.green, { align: 'right', literal: true });
+};
 function artFor(key) { return ART[key] || ART.path; }
 
-module.exports = { exhaustPath, layout, flapGlyph, wave, heat, levelColour, artFor, ART, tempAt };
+module.exports = { exhaustPath, layout, pipeRows, setEngine, engineBlock, flapGlyph, wave, heat, levelColour, artFor, ART, tempAt };
