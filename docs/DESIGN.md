@@ -23,7 +23,8 @@ The other standard pieces, drawn the same way:
 | Part | Where | Look |
 |---|---|---|
 | Background | whole page | vertical gradient (16,18,22) to (6,7,9) |
-| App name | top left, x 28, baseline 44 | bold 24, orange, soft orange glow |
+| App name | top left, x 28, caps centred at y 42 | bold 24, orange, soft orange glow |
+| Clock | under the name, x 28, centred at y 70 (owner, 18:26) | bold 17, dim, HH:MM 24 h; each digit in a fixed slot, so a new minute moves nothing (`title()` draws it, `clock()` alone) |
 | Tabs | glass bar x 270 to 1170, y 12, 56 high | pills; the selected one filled orange with a glow and dark text, the others dim. Many tabs scroll sideways: the ends fade out, round-ended arrows (left, right) show where there is more, position dots sit under the bar, the selected tab glides into view, and the iDrive knob goes through all tabs |
 | Status pill | glass pill 130 x 44, left of the two buttons (x 1250) | a dot and LIVE (green) or demo |
 | How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in the accent colour, no labels under them; on its own page a button is lit (filled, dark glyph). Both pages are mandatory in every app |
@@ -41,18 +42,20 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | Call | Draws |
 |---|---|
 | `background(cv)` | the gradient |
-| `title(cv, name)` | the app name with its glow |
+| `title(cv, name)` | the app name with its glow, the clock under it (`{ clock: false }` leaves it out) |
 | `tabs(cv, items, sel, { onSelect })` | the tab bar, scrolling when needed; returns the tab rects and adds a touch and knob target per tab. Draw it right after `background()` |
 | `nextTab(sel, n, step)` | the next or previous tab, round the end (for an app that turns the knob itself) |
 | `header(cv, { status, statusColor, onHelp, onSettings })` | status pill and the How to use and Settings buttons |
 | `status(cv, label, note, color)` | LIVE / demo as plain text (a page without the header) |
 | `bar(cv, x, y, w, h, frac, color, key)` | a progress bar with round ends; with a key the fill glides |
 | `curve(cv, pts, width, color)` | a smoothed line with round caps and joins |
-| `card(cv, x, y, w, h, label, { info })` | a glass card; with `info` a small (i) top right and the whole card opens the info popup |
+| `card(cv, x, y, w, h, label, { info, infoIcon })` | a glass card; with `info` a small (i) top right and the whole card opens the info popup (`infoIcon: true`: only the (i), for a card with rows or buttons of its own) |
 | `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, info, minSpan, seq })` | a stat card: the number glides, the small chart is a strip under it with its range and time span |
 | `ring(cv, cx, cy, r, { value, min, max, text, unit, label, color, scale, target, info })` | the hero ring: the arc and number glide; optional scale and target mark |
 | `pill(cv, x, y, text, color, filled)` | a status pill |
 | `chart(cv, x, y, w, h, series, { label, info, min, max, yTicks, yUnit, xLabels, legend, note, seq })` | a chart card with axes: round y numbers with the unit on the top one, x labels, a legend |
+| `dualChart(cv, x, y, w, h, xs, left, right, { label, info, xTicks, xUnit, marks })` | a chart card with two y axes (a dyno sheet: power left, torque right), each axis in its series' colour, peak marks with labels |
+| `button(cv, x, y, label, onPress, { filled })` | a pill button (glass, or filled for the main action); returns its width |
 | `segmented(cv, right, cy, options, value, onChange)` | a segmented choice; the selected pill slides |
 | `toggle(cv, right, cy, on, onChange)` | a switch; the knob slides |
 | `stepper(cv, right, cy, value, { decimals, unit, onMinus, onPlus })` | minus, the value, plus |
