@@ -3,10 +3,11 @@
 # Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 """Draw a Paget96 Garage app icon on the one shared template.
 
-Every Paget96 Garage icon uses this template and no other style (owner, 2026-11-26):
-a dark glass squircle with a vertical gradient, a faint orange edge, the glyph
-in orange with amber accents, a soft orange glow and a small drop shadow,
-drawn at 4x and scaled down to 140 x 140 px. The spec is in docs/ICONS.md.
+Every Paget96 Garage icon uses this template and no other style (owner, 2026-11-26 19:28 to 19:33, set "B2"):
+the iDrive 7 rounded square filled with an orange gradient, the glyph drawn in dark lines, its details in a
+light cream orange, a small soft shadow under the glyph. Every glyph is drawn at the size that gives it the
+same visual size as the others, with the same line weight (owner, 19:29: "sve ikonice moraju da budu
+srazmerne"). Drawn at 4x and scaled down to 140 x 140 px. The spec is in docs/ICONS.md.
 
 This is a development tool: icons are committed as apps/<id>/icon.png, so it
 needs Pillow on the developer's machine, never on the head unit.
@@ -17,9 +18,10 @@ needs Pillow on the developer's machine, never on the head unit.
 
 <glyph> is a name from GLYPHS below; a new app adds its glyph there.
 --mask takes a glyph drawn as a white-on-transparent PNG (any square size):
-its alpha becomes the orange glyph, without amber accents.
+its alpha becomes the dark glyph, without details.
 """
 import math
+import os
 import sys
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -29,17 +31,16 @@ SS = 4
 S = SIZE * SS
 MAX_BYTES = 128 * 1024
 
-BG_TOP = (30, 33, 40)
-BG_BOTTOM = (10, 11, 14)
-EDGE = (255, 140, 50)
-EDGE_ALPHA = 0.55
-ORANGE = (255, 128, 40)
-AMBER = (255, 186, 70)
-CORNER = 0.235      # squircle corner radius, share of the side
-GLOW_BLUR = 0.03    # share of the side
-GLOW_ALPHA = 0.7
+BG_TOP = (255, 158, 70)       # the orange gradient, top
+BG_BOTTOM = (232, 92, 20)     # and bottom
+INK = (28, 18, 10)            # the glyph's lines
+DETAIL = (255, 205, 160)      # its details: the needle, the beat, the flap, the star, the car
+CORNER = 0.235                # rounded square corner radius, share of the side (the iDrive 7 shape)
+STROKE = 0.06                 # line weight, share of the side, the same in every icon
+BOX = 0.58                    # every glyph's box has the area of a square this share of the side ...
+MAX_SIDE = 0.68               # ... and no side longer than this share
 SHADOW_BLUR = 0.012
-SHADOW_ALPHA = 0.45
+SHADOW_ALPHA = 0.35
 SHADOW_DY = 0.012
 
 
@@ -58,174 +59,112 @@ def _squircle(size, r, inset=0):
     return m
 
 
-def _clock(d, c, s, w, col, acc):
-    d.ellipse([c - s, c - s, c + s, c + s], outline=col, width=w)
-    d.line([c, c, c, c - s * 0.62], fill=col, width=w)
-    d.line([c, c, c + s * 0.46, c + s * 0.18], fill=acc, width=w)
-    d.ellipse([c - w, c - w, c + w, c + w], fill=col)
+def dot(d, x, y, w, col): d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
 
-
-def _flag(d, c, s, w, col, acc):
-    x0 = c - s * 0.8
-    d.line([x0, c - s * 1.05, x0, c + s * 1.05], fill=col, width=w)
-    q = s * 0.42
-    for i in range(3):
-        for j in range(4):
-            if (i + j) % 2 == 0:
-                d.rectangle([x0 + w / 2 + j * q, c - s + i * q, x0 + w / 2 + (j + 1) * q, c - s + (i + 1) * q],
-                            fill=col if (i + j) % 4 == 0 else acc)
-
-
-def _gauge(d, c, s, w, col, acc):
-    d.arc([c - s, c - s, c + s, c + s], 145, 395, fill=col, width=w)
-    d.arc([c - s, c - s, c + s, c + s], 330, 395, fill=acc, width=w)
-    a = math.radians(-35)
-    d.line([c, c, c + s * 0.82 * math.cos(a), c + s * 0.82 * math.sin(a)], fill=acc, width=w)
-    d.ellipse([c - w * 1.2, c - w * 1.2, c + w * 1.2, c + w * 1.2], fill=col)
-
-
-def _wrench(d, c, s, w, col, acc):
-    hx, hy, hr = c + s * 0.45, c - s * 0.45, s * 0.5
-    d.line([c - s * 0.8, c + s * 0.8, hx - hr * 0.55, hy + hr * 0.55], fill=col, width=int(w * 1.7))
-    d.arc([hx - hr, hy - hr, hx + hr, hy + hr], 10, 280, fill=col, width=int(w * 1.5))
-    d.ellipse([c - s * 0.98, c + s * 0.62, c - s * 0.62, c + s * 0.98], fill=acc)
-
-
-def _garage(d, c, s, w, col, acc):
-    # the Paget96 Garage brand mark: a garage roof and an open door with a gauge glowing inside
-    rw = s * 1.05
-    d.line([c - rw, c - s * 0.15, c, c - s * 0.95, c + rw, c - s * 0.15], fill=col, width=w, joint='curve')
-    for x, y in ((c - rw, c - s * 0.15), (c, c - s * 0.95), (c + rw, c - s * 0.15)):
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
-    x0, x1, y0, y1 = c - s * 0.78, c + s * 0.78, c - s * 0.08, c + s * 0.95
-    d.line([x0, y1, x0, y0, x1, y0, x1, y1], fill=col, width=w, joint='curve')
-    for x, y in ((x0, y1), (x1, y1)):
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
-    gr = s * 0.42
-    gy = y1 - s * 0.12
-    d.arc([c - gr, gy - gr, c + gr, gy + gr], 180, 360, fill=acc, width=int(w * 0.8))
-    a = math.radians(-50)
-    d.line([c, gy, c + gr * 0.8 * math.cos(a), gy + gr * 0.8 * math.sin(a)], fill=acc, width=int(w * 0.8))
-    d.ellipse([c - w * 0.7, gy - w * 0.7, c + w * 0.7, gy + w * 0.7], fill=col)
-
-
-def _health(d, c, s, w, col, acc):
-    # Health: a shield, and a heart-beat line across it
-    top, bot, hw = c - s * 1.0, c + s * 1.02, s * 0.86
-    pts = [(c, top), (c + hw, top + s * 0.28), (c + hw, c + s * 0.05)]
-    # the lower sides curve in to the point
-    for i in range(1, 9):
-        t = i / 8
-        pts.append((c + hw * (1 - t) ** 1.4, c + s * 0.05 + (bot - c - s * 0.05) * t ** 0.9))
-    pts += [(c - hw * (1 - t) ** 1.4, c + s * 0.05 + (bot - c - s * 0.05) * t ** 0.9) for t in [i / 8 for i in range(7, 0, -1)]]
-    pts += [(c - hw, c + s * 0.05), (c - hw, top + s * 0.28), (c, top)]
+def poly(d, pts, w, col, ends=True):
     d.line(pts, fill=col, width=w, joint='curve')
-    for x, y in ((c, top), (c, bot)):
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
-    # the beat, in amber, round ends
-    y0 = c + s * 0.02
-    beat = [(c - s * 1.18, y0), (c - s * 0.42, y0), (c - s * 0.22, y0 - s * 0.42), (c + s * 0.02, y0 + s * 0.5),
-            (c + s * 0.24, y0 - s * 0.22), (c + s * 0.4, y0), (c + s * 1.18, y0)]
-    aw = int(w * 0.85)
-    d.line(beat, fill=acc, width=aw, joint='curve')
-    for x, y in (beat[0], beat[-1]):
-        d.ellipse([x - aw / 2, y - aw / 2, x + aw / 2, y + aw / 2], fill=acc)
-
-
-
-def _log(d, c, s, w, col, acc):
-    # Datalog: two axes and a trace climbing like a run, the newest sample a dot
-    x0, x1, y0, y1 = c - s * 0.95, c + s * 0.95, c - s * 0.9, c + s * 0.8
-    d.line([x0, y0, x0, y1, x1, y1], fill=col, width=w, joint='curve')
-    for x, y in ((x0, y0), (x1, y1)):
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
-    pts = [(x0 + s * 0.3 + (x1 - x0 - s * 0.6) * k / 10, y1 - s * 0.25 - (y1 - y0 - s * 0.55) * (1 - math.exp(-k / 3.2)) / (1 - math.exp(-10 / 3.2)))
-           for k in range(11)]
-    d.line(pts, fill=acc, width=w, joint='curve')
-    x, y = pts[-1]
-    d.ellipse([x - w * 1.1, y - w * 1.1, x + w * 1.1, y + w * 1.1], fill=acc)
-
+    if ends:
+        for p in (pts[0], pts[-1]): dot(d, p[0], p[1], w, col)
 
 def _datalog(d, c, s, w, col, acc):
-    # Datalog: a stopwatch over a rising line chart (a run, its time and its log)
-    r = s * 0.62
-    sx, sy = c - s * 0.18, c - s * 0.22
-    d.ellipse([sx - r, sy - r, sx + r, sy + r], outline=col, width=w)
-    # the crown and the button
-    d.line([sx, sy - r - w * 0.4, sx, sy - r - s * 0.2], fill=col, width=w)
-    d.line([sx - s * 0.16, sy - r - s * 0.24, sx + s * 0.16, sy - r - s * 0.24], fill=col, width=w)
-    for x, y in ((sx - s * 0.16, sy - r - s * 0.24), (sx + s * 0.16, sy - r - s * 0.24), (sx, sy - r - s * 0.2)):
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
-    a = math.radians(-55)
-    d.line([sx, sy, sx + r * 0.62 * math.cos(a), sy + r * 0.62 * math.sin(a)], fill=acc, width=w)
-    d.ellipse([sx - w * 0.8, sy - w * 0.8, sx + w * 0.8, sy + w * 0.8], fill=col)
-    # the chart: a rising line in amber with round joins and ends, along the bottom right
-    pts = [(c - s * 1.0, c + s * 0.95), (c - s * 0.35, c + s * 0.72), (c + s * 0.25, c + s * 0.8), (c + s * 0.95, c + s * 0.1)]
-    d.line(pts, fill=acc, width=w, joint='curve')
-    for x, y in pts:
-        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=acc)
+    # Datalog: a gauge, its needle rising into the last part of the scale (the details)
+    r = s * 1.0; cy = c + s * 0.18
+    d.arc([c - r, cy - r, c + r, cy + r], 160, 330, fill=col, width=w)
+    d.arc([c - r, cy - r, c + r, cy + r], 330, 380, fill=acc, width=w)
+    for a in (160, 380):
+        t = math.radians(a); dot(d, c + (r - w / 2) * math.cos(t), cy + (r - w / 2) * math.sin(t), w, col if a == 160 else acc)
+    for a in range(180, 330, 30):
+        t = math.radians(a); poly(d, [(c + r * 0.62 * math.cos(t), cy + r * 0.62 * math.sin(t)), (c + r * 0.72 * math.cos(t), cy + r * 0.72 * math.sin(t))], int(w * 0.6), col)
+    t = math.radians(305); poly(d, [(c, cy), (c + r * 0.78 * math.cos(t), cy + r * 0.78 * math.sin(t))], w, acc)
+    dot(d, c, cy, w * 2.0, col)
 
+def _health(d, c, s, w, col, acc):
+    # Health: a heart, the beat across it
+    pts = []
+    for k in range(0, 361, 6):
+        t = math.radians(k)
+        x = 16 * math.sin(t) ** 3
+        y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+        pts.append((c + x * s / 16.5, c - y * s / 16.5 + s * 0.05))
+    d.line(pts, fill=col, width=w, joint='curve')
+    y0 = c + s * 0.05
+    poly(d, [(c - s * 1.15, y0), (c - s * 0.4, y0), (c - s * 0.2, y0 - s * 0.38), (c + s * 0.05, y0 + s * 0.42), (c + s * 0.27, y0), (c + s * 1.15, y0)], int(w * 0.85), acc)
+def _exhaust(d, c, s, w, col, acc):
+    # Exhaust: the exhaust tip seen from behind, with its flap inside turned half open, and the sound leaving it
+    cx, r = c - s * 0.3, s * 0.78
+    d.ellipse([cx - r, c - r, cx + r, c + r], outline=col, width=w)
+    ri = r - w * 1.6
+    d.ellipse([cx - ri, c - ri, cx + ri, c + ri], outline=col, width=int(w * 0.5))
+    # the flap: a plate on its shaft, half open (seen as a tilted ellipse), the shaft across the pipe
+    fl = Image.new('RGBA', d._image.size, (0, 0, 0, 0)); fd = ImageDraw.Draw(fl)
+    fw, fh = ri * 0.95, ri * 0.42
+    fd.ellipse([cx - fw, c - fh, cx + fw, c + fh], fill=acc)
+    fl = fl.rotate(40, center=(cx, c), resample=Image.BICUBIC)
+    d._image.alpha_composite(fl)
+    dot(d, cx, c, w * 1.3, col)
+    aw = int(w * 0.85)
+    for rr in (s * 1.08, s * 1.4):
+        a0, a1 = -32, 32
+        d.arc([cx - rr, c - rr, cx + rr, c + rr], a0, a1, fill=col, width=aw)
+        for an in (a0, a1):
+            t = math.radians(an); dot(d, cx + (rr - aw / 2) * math.cos(t), c + (rr - aw / 2) * math.sin(t), aw, col)
 
 def _standby(d, c, s, w, col, acc):
-    # Standby: a clock face with its hands, and a crescent moon over its top left with a gap around it
+    # Standby: a crescent moon and a small star
     im = d._image
-    cx, cy, r = c + s * 0.15, c + s * 0.17, s * 0.74
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col, width=w)
-    d.line([cx, cy, cx, cy - r * 0.6], fill=acc, width=int(w * 0.8))
-    d.line([cx, cy, cx + r * 0.45, cy + r * 0.14], fill=acc, width=int(w * 0.8))
-    for x, y in ((cx, cy - r * 0.6), (cx + r * 0.45, cy + r * 0.14)):
-        d.ellipse([x - w * 0.4, y - w * 0.4, x + w * 0.4, y + w * 0.4], fill=acc)
-    d.ellipse([cx - w * 0.6, cy - w * 0.6, cx + w * 0.6, cy + w * 0.6], fill=col)
-    mx, my, mr = c - s * 0.65, c - s * 0.67, s * 0.46
-    moon = Image.new('L', im.size, 0)
-    md = ImageDraw.Draw(moon)
-    md.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=255)
-    bx, by, br = mx + mr * 0.5, my - mr * 0.38, mr * 0.84
+    m = Image.new('L', im.size, 0); md = ImageDraw.Draw(m)
+    r = s * 0.95; md.ellipse([c - r, c - r, c + r, c + r], fill=255)
+    br = r * 0.82; bx, by = c + r * 0.42, c - r * 0.3
     md.ellipse([bx - br, by - br, bx + br, by + br], fill=0)
-    gap = moon.filter(ImageFilter.MaxFilter(2 * int(w * 0.55) + 1))
-    clear = Image.new('RGBA', im.size, (0, 0, 0, 0))
-    im.paste(clear, (0, 0), gap)
-    im.paste(Image.new('RGBA', im.size, col), (0, 0), moon)
+    im.paste(Image.new('RGBA', im.size, col), (0, 0), m)
+    sx, sy, sr = c + s * 0.62, c - s * 0.55, s * 0.22
+    poly(d, [(sx - sr, sy), (sx + sr, sy)], int(w * 0.7), acc); poly(d, [(sx, sy - sr), (sx, sy + sr)], int(w * 0.7), acc)
+
+def _house(d, c, s, w, col):
+    rw = s * 1.05
+    poly(d, [(c - rw, c - s * 0.15), (c, c - s * 0.95), (c + rw, c - s * 0.15)], w, col)
+    x0, x1, y0, y1 = c - s * 0.78, c + s * 0.78, c - s * 0.08, c + s * 0.95
+    poly(d, [(x0, y1), (x0, y0), (x1, y0), (x1, y1)], w, col)
+    return x0, x1, y0, y1
+
+def _garage(d, c, s, w, col, acc):
+    # Garage, the brand mark: the garage with a car's front inside: the cabin, the body with two dark headlights, the wheels below
+    x0, x1, y0, y1 = _house(d, c, s, w, col)
+    aw = int(w * 0.75)
+    by0, by1 = y1 - s * 0.5, y1 - s * 0.16
+    poly(d, [(c - s * 0.42, by0), (c - s * 0.3, y0 + s * 0.28), (c + s * 0.3, y0 + s * 0.28), (c + s * 0.42, by0)], aw, acc)
+    d.rounded_rectangle([c - s * 0.58, by0, c + s * 0.58, by1], radius=s * 0.12, fill=acc)
+    for hx in (c - s * 0.34, c + s * 0.34):
+        dot(d, hx, (by0 + by1) / 2, w * 0.95, col)
+    for wx in (c - s * 0.4, c + s * 0.4):
+        d.rounded_rectangle([wx - s * 0.1, by1 - s * 0.02, wx + s * 0.1, y1 - s * 0.02], radius=s * 0.04, fill=acc)
+
+# name -> draw(d, centre, radius, stroke, ink, detail); add new apps' glyphs here
+GLYPHS = {'garage': _garage, 'datalog': _datalog, 'health': _health, 'exhaust': _exhaust, 'standby': _standby}
 
 
-
-def _exhaust(d, c, s, w, col, acc):
-    # Exhaust: twin tail pipes seen from behind under the silencer's edge, sound waves leaving them
-    r = s * 0.42
-    y = c + s * 0.24
-    xs = (c - s * 0.74, c + s * 0.12)
-    for x in xs:
-        d.ellipse([x - r, y - r, x + r, y + r], outline=col, width=w)
-        ri = r * 0.42
-        d.ellipse([x - ri, y - ri, x + ri, y + ri], outline=col, width=max(2, int(w * 0.6)))
-    yb = y - s * 0.86
-    x0, x1 = c - s * 1.16, c + s * 0.54
-    d.line([x0, yb, x1, yb], fill=col, width=w)
-    for x in (x0, x1):
-        d.ellipse([x - w / 2, yb - w / 2, x + w / 2, yb + w / 2], fill=col)
-    ox, aw = xs[1], int(w * 0.85)
-    for k, rr in enumerate((s * 0.68, s * 0.9, s * 1.12)):
-        a0, a1 = -40 + k * 6, 40 - k * 6
-        d.arc([ox - rr, y - rr, ox + rr, y + rr], a0, a1, fill=acc, width=aw)
-        for a in (a0, a1):
-            t = math.radians(a)
-            px, py = ox + (rr - aw / 2) * math.cos(t), y + (rr - aw / 2) * math.sin(t)
-            q = aw / 2
-            d.ellipse([px - q, py - q, px + q, py + q], fill=acc)
-
-# name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog, 'standby': _standby, 'exhaust': _exhaust}
+def _draw(fn, s):
+    big = 2 * S
+    im = Image.new('RGBA', (big, big), (0, 0, 0, 0))
+    fn(ImageDraw.Draw(im), big / 2, s, int(S * STROKE), INK + (255,), DETAIL + (255,))
+    return im.crop(im.getchannel('A').getbbox())
 
 
 def glyph_layer(name):
-    im = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    GLYPHS[name](ImageDraw.Draw(im), S / 2, S * 0.26, int(S * 0.055), ORANGE + (255,), AMBER + (255,))
-    return im
+    """The glyph centred on a transparent S x S layer, sized like every other glyph. It is drawn twice: once to
+    measure it, then again at the radius that fits, so the line weight stays the same in every icon."""
+    fn = GLYPHS[name]
+    g = _draw(fn, S * 0.26)
+    k = min(BOX * S / math.sqrt(g.size[0] * g.size[1]), MAX_SIDE * S / max(g.size))
+    g = _draw(fn, S * 0.26 * k)
+    out = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    out.alpha_composite(g, ((S - g.size[0]) // 2, (S - g.size[1]) // 2))
+    return out
 
 
 def mask_layer(path):
     src = Image.open(path).convert('RGBA').resize((S, S), Image.LANCZOS)
-    im = Image.new('RGBA', (S, S), ORANGE + (0,))
+    im = Image.new('RGBA', (S, S), INK + (0,))
     im.putalpha(src.getchannel('A'))
     return im
 
@@ -234,12 +173,6 @@ def icon(gl):
     r = int(S * CORNER)
     base = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     base.paste(_gradient(S, BG_TOP, BG_BOTTOM), (0, 0), _squircle(S, r))
-    edge = ImageChops.subtract(_squircle(S, r), _squircle(S, r - 3, int(S * 0.012)))
-    base.paste(EDGE, (0, 0), edge.point(lambda v: int(v * EDGE_ALPHA)))
-    glow = gl.getchannel('A').filter(ImageFilter.GaussianBlur(S * GLOW_BLUR)).point(lambda v: int(v * GLOW_ALPHA))
-    gc = Image.new('RGBA', (S, S), ORANGE + (0,))
-    gc.putalpha(glow)
-    base = Image.alpha_composite(base, gc)
     sh = gl.getchannel('A').filter(ImageFilter.GaussianBlur(S * SHADOW_BLUR)).point(lambda v: int(v * SHADOW_ALPHA))
     si = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     si.putalpha(sh)
@@ -251,7 +184,6 @@ def icon(gl):
 
 def save(im, out):
     im.save(out, optimize=True)
-    import os
     n = os.path.getsize(out)
     if n > MAX_BYTES:
         os.remove(out)
@@ -260,7 +192,7 @@ def save(im, out):
 
 def main(argv):
     if len(argv) >= 2 and argv[0] == '--sheet':
-        names = argv[2:] or ['clock', 'flag', 'gauge', 'wrench']
+        names = argv[2:] or list(GLYPHS)
         sheet = Image.new('RGBA', (len(names) * 160 + 20, 180), (34, 37, 44, 255))
         for i, g in enumerate(names):
             sheet.alpha_composite(icon(glyph_layer(g)), (20 + i * 160, 20))
