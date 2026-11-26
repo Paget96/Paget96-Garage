@@ -16,7 +16,7 @@
  *             never shown as done without the read-back. One command at a time per flap; CAR pressed while one is
  *             under way goes right after it.
  *   hold      the engine unit lets a tester's command go after about 20 s, so OPEN and CLOSE are sent again every 15 s.
- *   rpm guard Close is handed back (CAR) above the "Close: hand back above" engine speed and resumes 500 rpm below it;
+ *   rpm guard Close is handed back (CAR) above the "Keep CLOSED up to" engine speed and resumes 500 rpm below it;
  *             armed with a limit and no live engine speed, Close is not held.
  *
  * Two flaps (a V8 with two engine units, each drives its bank's flap): the sides 'left' and 'right', each with its own

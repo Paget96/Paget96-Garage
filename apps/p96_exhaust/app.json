@@ -61,7 +61,7 @@
     {"key": "demoCar", "label": "Demo car", "type": "choice", "default": "b48", "options": [["b48", "B48"], ["b58", "B58"], ["s58", "S58"], ["s63", "S63 V8"], ["b57", "B57 diesel"], ["phev", "PHEV"], ["ev", "EV"]]},
     {"key": "arm", "label": "Flap control", "type": "choice", "default": "off", "options": [["off", "Simulated (safe, sends nothing)"], ["on", "Armed (commands the real flap)"]]},
     {"key": "hold", "label": "Hold OPEN and CLOSE", "type": "bool", "default": true},
-    {"key": "closeLimit", "label": "Close: hand back above", "type": "choice", "default": "4000", "options": [["3000", "3 000 rpm"], ["4000", "4 000 rpm"], ["5000", "5 000 rpm"], ["0", "Never"]]},
+    {"key": "closeLimit", "label": "Keep CLOSED up to", "type": "choice", "default": "4000", "options": [["3000", "3 000 rpm"], ["4000", "4 000 rpm"], ["5000", "5 000 rpm"], ["0", "Never"]]},
     {"key": "leftIs", "label": "Left flap is", "type": "choice", "default": "1", "options": [["1", "Bank 1 (engine unit 0x12)"], ["2", "Bank 2 (engine unit 0x13)"]]}
   ]
 }
