@@ -50,10 +50,10 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | `bar(cv, x, y, w, h, frac, color, key)` | a progress bar with round ends; with a key the fill glides |
 | `curve(cv, pts, width, color)` | a smoothed line with round caps and joins |
 | `card(cv, x, y, w, h, label, { info, infoIcon })` | a glass card; with `info` a small (i) top right and the whole card opens the info popup (`infoIcon: true`: only the (i), for a card with rows or buttons of its own) |
-| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, info, minSpan, seq })` | a stat card: the number glides, the small chart is a strip under it with its range and time span |
+| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, info, minSpan, seq, slots, every })` | a stat card: the number glides, the small chart is a strip under it with its range and time span |
 | `ring(cv, cx, cy, r, { value, min, max, text, unit, label, color, scale, target, info })` | the hero ring: the arc and number glide; optional scale and target mark |
 | `pill(cv, x, y, text, color, filled)` | a status pill |
-| `chart(cv, x, y, w, h, series, { label, info, min, max, yTicks, yUnit, xLabels, legend, note, seq })` | a chart card with axes: round y numbers with the unit on the top one, x labels, a legend |
+| `chart(cv, x, y, w, h, series, { label, info, min, max, yTicks, yUnit, xLabels, legend, note, seq, slots, every, minSpan })` | a chart card with axes: round y numbers with the unit on the top one, x labels, a legend |
 | `dualChart(cv, x, y, w, h, xs, left, right, { label, info, xTicks, xUnit, marks })` | a chart card with two y axes (a dyno sheet: power left, torque right), each axis in its series' colour, peak marks with labels |
 | `button(cv, x, y, label, onPress, { filled })` | a pill button (glass, or filled for the main action); returns its width |
 | `segmented(cv, right, cy, options, value, onChange)` | a segmented choice; the selected pill slides |
@@ -73,8 +73,17 @@ is smooth at 60 fps. Nothing jumps.
 
 - Numbers, rings and bars glide to a new value (the kit's spring, `gauges.smooth`). Pass `smooth: false`
   for a value that must show the exact sample.
-- Charts move instead of redrawing in steps: give `seq`, the number of the newest sample, and when it goes
-  up the lines slide left by one step. A small chart's range glides too.
+- Live charts hold still while they fill (owner, 2026-11-26 20:16): give `seq`, the number of the newest
+  sample, and `slots`, how many samples the width holds (a stat strip with `seq` holds 60). The time axis is
+  fixed from the first frame: now at the right, 5 s of data sit at the right end, never stretched over the
+  width. The line moves left continuously with the clock (`every`: ms per sample, measured when not given).
+  The value axis starts round around the first values, never narrower than `minSpan` (per unit: about 6 C,
+  10 hPa, 0.5 bar), only widens within the minute, and glides over 300 ms when it changes; its numbers are the
+  range it goes to, so they change once, not every frame. A chart without `seq` glides its range the same way.
+- Moving parts whose speed follows a value (gas dots, a turbo wheel) run on `UI.phase(key, rate)`: speed x time
+  is added each frame and a new speed eases in over 300 ms, so a new value never makes them jump. Never draw a
+  position as time x speed. `UI.flowRate(rpm)` and `UI.turboRate(rpm, boost)` give the speeds for engine speed
+  (owner, 2026-11-26 20:17).
 - The selected tab pill slides to the new tab; a segmented choice slides its pill; a switch slides its knob
   and fades its track.
 - The info popup fades and scales in and out over about 200 ms.
