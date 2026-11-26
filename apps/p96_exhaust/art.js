@@ -36,18 +36,18 @@ const levelColour = (l) => (l > 0.6 ? C.orange : l > 0.25 ? C.amber : C.green);
 
 /* ---------- the exhaust path ---------- */
 
-const WIDTHS = { engine: 120, turbo: 68, cat: 70, opf: 90, scr: 80, mid: 120, flap: 40, rear: 140 };
+const WIDTHS = { engine: 120, turbo: 68, cat: 70, opf: 90, scr: 80, mid: 120, flap: 40, rear: 140, rearFlap: 200 };
 const E = need('./garage_engine', '../../lib/engine');
 /** The engine the drawings show (view.js sets it each frame from the car or the demo car); null: a generic one. */
 let ENGINE = null;
 function setEngine(p) { ENGINE = p || null; }
 /**
- * How many pipes the drawing has: two where the car has two turbos, two banks or two flaps (twin pipes to the two
- * tail pipes), else one.
+ * How many pipes the drawing has: two where the engine has two turbos or two banks, else one (owner, 2026-11-27 00:18:
+ * a car with one turbo has one pipe, even with two flaps; its pipe splits only at the rear silencer, into the two tail
+ * pipes, a flap in each).
  */
-function pipeRows(p, setup) {
-    const s = Object.assign({}, M.SETUP_DEFAULT, setup || {});
-    return p && (p.turbos === 2 || p.banks === 2 || p.flaps === 2) || s.flaps === '2' ? 2 : 1;
+function pipeRows(p) {
+    return p && (p.turbos === 2 || p.banks === 2) ? 2 : 1;
 }
 /**
  * The parts of this setup along the pipe from x0 to x1: [{ key, name, x, w }]. Parts the setup does not have (a car with no middle silencer, no OPF) are left
@@ -64,11 +64,15 @@ function layout(setup, x0, x1, sc, p) {
     if (s.opf !== 'none' && !(p && p.filter === null && p.fuel)) parts.push(['opf', E.filterName(p && p.fuel ? p : { filter: 'opf' })]);
     if (p && p.scr) parts.push(['scr', 'SCR (AdBlue)']);
     if (s.mid !== 'none') parts.push(['mid', 'Middle silencer']);
-    // the flap is in the rear silencer's way out: closed, the gas goes through the silencer; open, the short way out
-    parts.push(['rear', two ? 'Rear silencers' : 'Rear silencer']);
-    if (s.flaps !== '0' && s.flaps !== 'removed' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
-    const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = 120 * sc;
-    return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0]] * sc }));
+    // the flap is part of the rear silencer (owner, 2026-11-27 00:19: draw how it really is): the inlet goes on through
+    // it as a perforated tube to the flap and a tail pipe, chambers lie around it with a second tail pipe from the last
+    // one. flaps: 0 none, 1 or 2, 'removed' (the tube always open)
+    const fl = s.flaps === 'removed' ? 'removed' : s.flaps !== '0' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)
+        ? (s.flaps === '2' || (p && p.flaps === 2) ? 2 : 1) : 0;
+    parts.push(['rear', fl === 0 ? (two ? 'Rear silencers' : 'Rear silencer') : fl === 'removed' ? 'Rear silencer, flap removed'
+        : (two ? 'Rear silencers' : 'Rear silencer') + (fl === 2 ? ' and flaps' : ' and flap'), fl]);
+    const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = (fl ? 230 : 120) * sc;
+    return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0] === 'rear' && q[2] ? 'rearFlap' : q[0]] * sc, flaps: q[0] === 'rear' ? q[2] || 0 : undefined }));
 }
 /** The temperature along the pipe (0 engine .. 1 tail pipe), from the two the engine unit reports (cat, opf), for
  * the gas colour only; no number is drawn where there is no sensor. */
@@ -134,7 +138,8 @@ function exhaustPath(cv, x0, x1, cy, o) {
     const px0 = parts[0].x - 30 * sc, px1 = x1 - 30 * sc, S = (v) => v * sc;
     const two = pipeRows(p, o.setup) === 2, k = two ? 0.58 : 1, rows = two ? [cy - S(30), cy + S(30)] : [cy];
     const nFlaps = !p || !p.fuel ? ((o.setup || {}).flaps === '2' ? 2 : 1) : Math.max(1, p.flaps || 1);
-    rows.forEach((ry) => cv.line(px0, ry, px1, ry, Math.max(8, S(22) * (two ? 0.7 : 1)), PIPE));
+    const rearP = parts.filter((q) => q.key === 'rear')[0], valved = !!(rearP && rearP.flaps), boxL = valved ? rearP.x - rearP.w / 2 : px1;
+    rows.forEach((ry) => cv.line(px0, ry, valved ? boxL : px1, ry, Math.max(8, S(22) * (two ? 0.7 : 1)), PIPE));
     if (two) cv.line(parts[0].x, rows[0], parts[0].x, rows[1], Math.max(8, S(16)), PIPE);
     parts.forEach((q, i) => {
         const X = q.x, tc = q.key === 'cat' ? (o.temps || {}).cat : q.key === 'opf' ? (o.temps || {}).opf : null;
@@ -151,9 +156,39 @@ function exhaustPath(cv, x0, x1, cy, o) {
                 const a = spin * 6.2832 + ri * 0.7;
                 for (let j = 0; j < 5; j++) { const aa = a + j * 1.2566; cv.line(X, ty, X + K(24) * Math.cos(aa), ty + K(24) * Math.sin(aa), 3, col); }
             } else if (q.key === 'flap') {
+                if (!two && nFlaps === 2) {
+                    // one pipe, two flaps: it splits after the rear silencer into two tail pipes, a flap in each
+                    const r0 = Math.max(10, K(20)), dy = Math.max(r0 + 6, S(26));
+                    [-1, 1].forEach((d, fi) => {
+                        cv.line(X - S(56), ry, X - S(24), ry + d * dy, Math.max(6, S(14)), PIPE);
+                        cv.line(X - S(24), ry + d * dy, px1, ry + d * dy, Math.max(6, S(14)), PIPE);
+                        cv.circle(X, ry + d * dy, r0, '#16181c');
+                        flapGlyph(cv, X, ry + d * dy, r0, fi === 1 && o.flap2 ? o.flap2 : o.flap, fi === 1 && o.flapAngle2 != null ? o.flapAngle2 : o.flapAngle);
+                    });
+                    return;
+                }
                 if (ri >= nFlaps) return;
                 cv.circle(X, ry, Math.max(10, K(20)), '#16181c');
                 flapGlyph(cv, X, ry, Math.max(10, K(20)), ri === 1 && o.flap2 ? o.flap2 : o.flap, ri === 1 && o.flapAngle2 != null ? o.flapAngle2 : o.flapAngle);
+            } else if (q.key === 'rear' && q.flaps) {
+                // the valved rear silencer cut open: perforated tube on top to the flap (or flaps), baffles below it,
+                // the chambers' own tail pipe at the bottom
+                const w = q.w * (two ? 0.86 : 1), L = X - w / 2, Rr = X + w / 2, yt = ry - K(18), yb = ry + K(22);
+                cv.line(Rr, yb, px1, yb, Math.max(5, K(12)), PIPE);
+                const outs = q.flaps === 2 && !two ? [yt - K(8), yt + K(8)] : [yt];
+                outs.forEach((oy) => cv.line(Rr, oy, px1, oy, Math.max(5, K(12)), PIPE));
+                cv.roundRect(L, ry - K(40), w, K(80), K(18), '#16181c');
+                cv.strokeRoundRect(L, ry - K(40), w, K(80), K(18), small || two ? 3 : 4, col);
+                cv.line(L + S(10), yt, Rr - S(4), yt, Math.max(5, K(12)), '#2b2f36');
+                for (let j = 0; j < 7; j++) cv.circle(L + S(18) + j * (w - S(36)) / 6, yt + K(8), Math.max(1.5, S(2)), '#5a616c');
+                cv.line(X - w * 0.12, ry - K(2), X - w * 0.12, ry + K(30), 3, GREY);
+                cv.line(X + w * 0.2, ry + K(6), X + w * 0.2, ry + K(40), 3, GREY);
+                if (q.flaps !== 'removed') outs.forEach((oy, fi) => {
+                    const fx = Rr + S(26), r0 = Math.max(8, K(14));
+                    cv.circle(fx, oy, r0, '#16181c');
+                    const st = fi === 1 && o.flap2 ? o.flap2 : ri === 1 && o.flap2 ? o.flap2 : o.flap, an = fi === 1 && o.flapAngle2 != null ? o.flapAngle2 : o.flapAngle;
+                    flapGlyph(cv, fx, oy, r0, st, an);
+                });
             } else if (!q.pipeOnly) {
                 const w = q.w * (two ? 0.86 : 1);
                 cv.roundRect(X - w / 2, ry - K(34), w, K(68), K(18), '#16181c');
@@ -172,15 +207,34 @@ function exhaustPath(cv, x0, x1, cy, o) {
         if (o.numbers !== false && tc != null) cv.text(Math.round(tc) + ' °C', X, top - off - (small ? (i % 2 ? 40 : 62) * Math.max(0.75, sc) : two ? 12 : 52), small ? 16 : 19, C.text, { font: 'bold', align: 'center', literal: true });
     });
     // the gas, in each pipe
-    const flapP = parts.filter((q) => q.key === 'flap')[0], n = 24, gx0 = parts[0].x + S(64), len = px1 - gx0;
+    // the gas: along the pipe; in a valved rear silencer the way the flap sets: open (or removed) straight through the
+    // tube and out, closed out of the tube's holes, round the baffles and out of the bottom tail pipe; the car's own
+    // setting half each
+    const n = 24, gx0 = parts[0].x + S(64);
+    const along = (pts, f) => {
+        let tot = 0; const ls = [];
+        for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); ls.push(d); tot += d; }
+        let d = f * tot;
+        for (let i = 0; i < ls.length; i++) { if (d <= ls[i]) { const kk = ls[i] ? d / ls[i] : 0; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * kk, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * kk]; } d -= ls[i]; }
+        return pts[pts.length - 1];
+    };
     rows.forEach((ry, ri) => {
+        const K = (v) => S(v) * k;
+        let wayOpen = [[gx0, ry], [px1, ry]], wayShut = wayOpen;
+        if (valved) {
+            const w = rearP.w * (two ? 0.86 : 1), X = rearP.x, L = X - w / 2, yt = ry - K(18), yb = ry + K(22);
+            wayOpen = [[gx0, ry], [L, ry], [L + S(12), yt], [px1, yt]];
+            wayShut = [[gx0, ry], [L, ry], [L + S(12), yt], [L + w * 0.25, yt + K(10)], [X - w * 0.2, ry + K(34)], [X - w * 0.05, ry + K(34)], [X + w * 0.05, ry], [X + w * 0.3, ry + K(4)], [X + w * 0.36, yb], [px1, yb]];
+        }
+        const fl = ri === 1 && o.flap2 ? o.flap2 : o.flap, removed = valved && rearP.flaps === 'removed';
         for (let i = 0; i < n; i++) {
-            const f = (gas + i / n + ri * 0.5 / n) % 1, x = gx0 + f * len;
-            const fl = ri === 1 && o.flap2 ? o.flap2 : o.flap;
-            if (flapP && ri < nFlaps && x > flapP.x + S(20) && fl === 'CLOSED' && i % 2) continue;
-            cv.circle(x, ry, Math.max(3, S(5) * (two ? 0.8 : 1)), heat(tempAt(f, o.temps)));
+            const f = (gas + i / n + ri * 0.5 / n) % 1;
+            const shut = valved && !removed && (fl === 'CLOSED' || (fl !== 'OPEN' && i % 2));
+            const q = along(shut ? wayShut : wayOpen, f);
+            cv.circle(q[0], q[1], Math.max(3, S(5) * (two ? 0.8 : 1)), heat(tempAt(f, o.temps)));
         }
     });
+    void nFlaps;
     return parts;
 }
 

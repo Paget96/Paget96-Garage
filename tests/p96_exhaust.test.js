@@ -340,8 +340,11 @@ test('the drawing: two pipes for two turbos or banks, the SCR on a diesel, DPF n
     assert.strictEqual(ART.pipeRows(E.demoCar('b58')), 1);
     const keys = (id) => ART.layout(DEMO.setupFor(E.demoCar(id)), 0, 1400, 1, E.demoCar(id)).map((q) => q.key + ':' + q.name);
     assert.deepStrictEqual(keys('b57').filter((k) => /opf|scr|flap/.test(k)), ['opf:DPF', 'scr:SCR (AdBlue)']);
-    assert.ok(keys('s63').indexOf('flap:Flaps') >= 0);
+    // the flaps are part of the rear silencer, not a part after it
+    assert.ok(keys('s63').indexOf('rear:Rear silencers and flaps') >= 0);
     assert.ok(keys('phev').every((k) => !/flap/.test(k)));
+    // one turbo, two flaps: still one pipe
+    assert.strictEqual(ART.pipeRows(E.demoCar('b48')), 1);
 });
 test('a real car: the engine from its answers and what Exhaust found', () => {
     const p = M.engineFor({ fuel: 'diesel', cylinders: 6 }, { soot: true, adblue: true }, {});
