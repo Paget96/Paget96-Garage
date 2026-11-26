@@ -54,6 +54,14 @@ const INFO = {
             'heat soaked: wait a minute before the next run.',
         note: 'Normal: 10 to 25 °C above the outside air under load.',
     },
+    heatSoak: {
+        label: 'Heat soak', title: 'Heat soak: the intercooler is full of heat', draw: A.heatSoakArt,
+        text: 'The turbo heats the air it squeezes; the intercooler cools it again before the engine. Run after run, or after ' +
+            'standing in traffic with a hot engine, the intercooler and the pipes around it soak up heat and cannot take it out any ' +
+            'more. The air reaching the engine stays hot, hot air is thinner, and the engine makes less power: the run is slower.\n\n' +
+            'Datalog marks a run heat soak when the charge air was 15 °C or more over the intake air at the start.',
+        note: 'What helps: a few minutes of gentle driving between runs, or the bonnet open with the engine off. Not a fault.',
+    },
     airChart: {
         label: 'Air temperatures', title: 'Three air temperatures, one path', draw: A.airPath('all'),
         text: 'Outside (mirror), after the filter (intake) and before the throttle (charge air), over the last run.\n\n' +

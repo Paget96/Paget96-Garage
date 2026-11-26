@@ -271,8 +271,12 @@ function runTable(cv, m, x, y, w, runs, opts) {
         if (hasAir) ltext(cv, [m.has('intake') ? r.intake : undefined, m.has('charge') ? r.charge : undefined].filter((x) => x !== undefined)
             .map((x) => fix(U.temp(x), 0) + ' ' + U.tempU).join(' / '), cols[4], ry, 20, C.text);
         if (isBest) UI.pill(cv, cols[5], ry - 24, 'best', 'ok');
-        else if (M.heatSoaked(r)) UI.pill(cv, cols[5] - 20, ry - 24, 'heat soak', 'warm');
         if (opts.onPick && cv.target) cv.target(x + 10, ry - 32, w - 20, 46, () => opts.onPick(r), 'dlrow|' + r.at, 18);
+        if (!isBest && M.heatSoaked(r)) {
+            // a tap on the pill says what heat soak is, drawn (the row's own tap opens the run)
+            UI.pill(cv, cols[5] - 20, ry - 24, 'heat soak  i', 'warm');
+            if (cv.target) cv.target(cols[5] - 30, ry - 32, 140, 46, () => UI.openInfo(INFO.heatSoak), 'dlsoak|' + r.at, 18);
+        }
     });
     return shown.length;
 }

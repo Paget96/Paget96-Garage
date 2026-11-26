@@ -25,7 +25,14 @@ test('an unknown car: petrol figures, a diesel its own', () => {
     assert.strictEqual(E.limits({ diesel: true }).rail, 2700);
 });
 test('the Settings rows default to Auto', () => {
-    Object.keys(E.LIMIT_ROWS).forEach((k) => { assert.strictEqual(E.LIMIT_ROWS[k].default, 'auto', k); assert.strictEqual(E.LIMIT_ROWS[k].options[0][0], 'auto', k); });
+    Object.keys(E.LIMIT_ROWS).forEach((k) => {
+        const r = E.LIMIT_ROWS[k];
+        if (r.type === 'number') { assert.strictEqual(r.default, 0, k); assert.strictEqual(r.zero, 'Auto', k); return; }    // a stepper: 0 is Auto
+        assert.strictEqual(r.default, 'auto', k); assert.strictEqual(r.options[0][0], 'auto', k);
+    });
+    // the boost stepper at 0 and an old saved 'auto' both follow the engine
+    assert.strictEqual(E.limits({ boost: 1.3 }, () => 0).boostMax, E.limits({ boost: 1.3 }, () => 'auto').boostMax);
+    assert.strictEqual(E.limits({ boost: 1.3 }, (k) => (k === 'boostMax' ? 2.25 : null)).boostMax, 2.25);
 });
 console.log(failed ? failed + ' failed' : 'all passed');
 process.exit(failed ? 1 : 0);

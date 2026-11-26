@@ -425,4 +425,38 @@ function compareArt(cv, x, y, w, h, t) {
     if (k >= 1) lbl(cv, 'B: 0.14 s slower, 6 °C warmer charge air', x + w / 2, y + 30, C.amber, 16, true);
 }
 
-module.exports = { setEngine, airPath, boostArt, wastegateArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };
+/**
+ * Heat soak, drawn (owner, 2026-11-26 23:55: "mora ljudima sve da se crta"): the air path with the intercooler
+ * filling with heat run after run, and the charge air of three runs in a row climbing while the intake stays put.
+ */
+function heatSoakArt(cv, x, y, w, h, t) {
+    const k = (t % 6) / 6, soak = Math.min(1, k * 1.4);
+    // the intercooler, cooler blue going warm
+    const ix = x + w * 0.28, iy = y + 60, iw = 150, ih = 110;
+    const col = [Math.round(90 + 165 * soak), Math.round(140 - 40 * soak), Math.round(200 - 150 * soak)];
+    cv.roundRect(ix - iw / 2, iy, iw, ih, 12, [col[0], col[1], col[2], 60]);
+    cv.strokeRoundRect(ix - iw / 2, iy, iw, ih, 12, 3, GREY);
+    for (let i = 0; i < 7; i++) cv.line(ix - iw / 2 + 8, iy + 10 + i * 15, ix + iw / 2 - 8, iy + 10 + i * 15, 2, [col[0], col[1], col[2], 255]);
+    cv.text('intercooler', ix, iy + ih + 24, 15, C.dim, { align: 'center', literal: true });
+    cv.text(soak < 0.4 ? 'cool: takes the turbo heat out' : soak < 0.8 ? 'warming: takes less out' : 'soaked: hot air goes in', ix, iy + ih + 46, 15, soak < 0.4 ? C.green : C.amber, { font: 'bold', align: 'center', literal: true });
+    // air in (from the turbo, hot) and out (to the engine)
+    cv.line(ix - iw / 2 - 70, iy + ih / 2, ix - iw / 2, iy + ih / 2, 14, TRACK);
+    cv.line(ix + iw / 2, iy + ih / 2, ix + iw / 2 + 70, iy + ih / 2, 14, TRACK);
+    cv.text('from turbo', ix - iw / 2 - 70, iy + ih / 2 - 16, 13, C.dim, { literal: true });
+    cv.text('to engine', ix + iw / 2 + 4, iy + ih / 2 - 16, 13, C.dim, { literal: true });
+    // three runs in a row: intake flat, charge air climbing
+    const bx = x + w * 0.58, bw = w * 0.36, by = y + 190, bh = 150, runs = [[20, 27], [20, 36], [21, 44]];
+    cv.line(bx, by, bx + bw, by, 1, DIMLINE);
+    runs.forEach((r, i) => {
+        const cx = bx + (i + 0.5) * bw / 3, on = k * 3 >= i;
+        const hi = (v) => v / 50 * bh;
+        cv.roundRect(cx - 26, by - hi(r[0]), 22, hi(r[0]), 4, on ? C.green : TRACK);
+        cv.roundRect(cx + 4, by - hi(r[1]), 22, hi(r[1]), 4, on ? (r[1] - r[0] >= 15 ? C.amber : C.blue) : TRACK);
+        if (on) cv.text(r[1] + ' °C', cx + 15, by - hi(r[1]) - 8, 14, C.text, { align: 'center', literal: true });
+        cv.text('run ' + (i + 1), cx, by + 22, 14, C.dim, { align: 'center', literal: true });
+    });
+    cv.circle(bx + 6, y + 40, 6, C.green); cv.text('intake air', bx + 18, y + 45, 14, C.dim, { literal: true });
+    cv.circle(bx + 120, y + 40, 6, C.amber); cv.text('charge air', bx + 132, y + 45, 14, C.dim, { literal: true });
+}
+
+module.exports = { setEngine, heatSoakArt, airPath, boostArt, wastegateArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };
