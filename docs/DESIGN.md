@@ -18,9 +18,9 @@ The same page drawn by `lib/ui.js` (`node tools/ui_demo.js`, the head unit's sof
 | App name | top left, x 28, baseline 44 | bold 24, orange, soft orange glow |
 | Tabs | glass bar x 270 to 1170, y 12, 56 high | pills; the selected one filled orange with a glow and dark text, the others dim. Many tabs scroll sideways: the ends fade out, round-ended arrows (left, right) show where there is more, position dots sit under the bar, the selected tab glides into view, and the iDrive knob goes through all tabs |
 | Status pill | glass pill 130 x 44, left of the two buttons (x 1250) | a dot and LIVE (green) or demo |
-| How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in orange, a small dim label under each. Both pages are mandatory in every app |
+| How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in the accent, no labels under them (owner, 17:17). Both pages are mandatory in every app |
 | Hero ring | left column, centre (200, 300), r 150 | dark track, orange arc with glow over 270 degrees, the number large in the middle, a unit line, an uppercase label below. Only where an app has one main number |
-| Cards | right of the ring, 3 x 2, 386 x 200, 14 px apart | glass: white 6 % fill, 10 % outline, radius 22; uppercase dim label, big condensed number, small unit, a coloured one-line status, a sparkline on the right |
+| Cards | right of the ring, 3 x 2, 386 x 200, 14 px apart | glass: white 6 % fill, 10 % outline, radius 22; uppercase dim label, a dim (i) top right, big condensed number, small unit, a coloured one-line status, a sparkline on the right under the (i) |
 
 Status colours: green (70,210,130) ok, amber (255,186,70) warming, orange (255,128,40) accent, dim
 (140,148,160) neutral, red bad, blue info. Text (236,240,245).
@@ -40,12 +40,33 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | `status(cv, label, note, color)` | LIVE / demo as plain text (a page without the header) |
 | `bar(cv, x, y, w, h, frac, color)` | a progress bar with round ends |
 | `curve(cv, pts, width, color)` | a smoothed line with round caps and joins |
-| `card(cv, x, y, w, h, label)` | a glass card |
-| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history })` | a stat card with sparkline |
+| `card(cv, x, y, w, h, label, r, onInfo)` | a glass card with the (i) top right; `onInfo` makes the card a target that opens its popup, `false` leaves the (i) out |
+| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, onInfo })` | a stat card with sparkline |
 | `ring(cv, cx, cy, r, { value, min, max, text, unit, label, color })` | the hero ring (the arc glides) |
 | `pill(cv, x, y, text, color, filled)` | a status pill |
-| `chart(cv, x, y, w, h, series, { label, min, max })` | a chart card: grid, lines, a soft fill under the first |
+| `chart(cv, x, y, w, h, series, { label, min, max, onInfo })` | a chart card: grid, lines, a soft fill under the first |
+| `infoPopup(cv, { title, sections, art, since, onClose })` | a card's info popup over the page: animation left, text right, close X and Got it |
+| `helpPage(cv, { topics, sel, onSelect, onClose, since })` | the How to use page: topics, animation, text, close X |
+| `explain`, `wrap`, `button`, `infoDot` | the parts: sections of wrapped text, word wrap, the filled accent button, the (i) |
 | `spark`, `glass`, `glowRoundRect`, `glowArc`, `glowText` | the parts, for new widgets |
+
+## Explaining every card (owner, 17:35)
+
+Every card has a small dim (i) top right (`card()`, `stat()`, `chart()` draw it). Tapping the card
+opens its popup, `infoPopup()`: the page dims, an animation on the left shows what the value is and
+how it works, plain text on the right says what it is, where it comes from, why it matters and its
+normal values (`sections: [{ head, text }]`), with a close X and a Got it button. The How to use page
+behind the ? button, `helpPage()`, uses the same pattern on a whole page: up to 6 topics on the left,
+the topic's animation in the middle, its explanation on the right, a close X where Settings sits.
+
+An app keeps the open popup or topic in its own state and draws the overlay last. Both take the knob
+and touches while open: they drop the page's targets under them. `art(cv, x, y, w, h, t)` draws the
+animation each frame, `t` in seconds since `since` (the ms the popup or topic opened), so it starts
+from the beginning. Without `art` a pulsing (i) stands in. Text goes through the translations before
+it is wrapped, so whole sentences are translated.
+
+![Info popup](design/ui-demo-popup.png)
+![How to use](design/ui-demo-help.png)
 
 ## Round ends everywhere
 
@@ -60,7 +81,8 @@ square ends anywhere.
 Everything static (background, title, tab bar per selection, card glass and label, ring track and
 label, chart grid) is a cached layer (`gauges.layer`), drawn into a texture once; a frame records only
 numbers, sparklines and the ring's arc. `tools/ui_demo.js` reports the recording time of a frame
-(about 0.15 ms on a PC for the reference page, 1386 words).
+(about 0.5 ms on a laptop for the reference page, 2980 words) and also draws the popup and the How to
+use page (`docs/design/ui-demo-popup.png`, `docs/design/ui-demo-help.png`).
 
 **In an app** the file ships as `garage_ui.js` beside `main.js` (`tools/build.py` copies it):
 `const UI = require('./garage_ui');`. Node 8 only syntax.
