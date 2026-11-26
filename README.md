@@ -13,6 +13,15 @@ installed and updated from the MGU Store.
 > Nothing has been tested on a car yet, so
 > treat everything here as a preview until the first release.
 
+**Made by Danijel Markov (Paget96).** Follow the work and talk to us:
+[Instagram](https://www.instagram.com/thedakiness/) ·
+[TikTok](https://www.tiktok.com/@paget96) ·
+[X](https://x.com/Paget96) ·
+[Telegram channel](https://t.me/paget96_projects_channel) ·
+[Telegram group](https://t.me/Paget96_Projects) ·
+[paget96projects.com](https://paget96projects.com) ·
+[GitHub](https://github.com/Paget96)
+
 ## Contents
 
 - [Install](#install)
@@ -20,6 +29,7 @@ installed and updated from the MGU Store.
 - [How every app works](#how-every-app-works)
 - [Building](#building)
 - [Contributing](#contributing)
+- [Follow](#follow)
 - [Credits](#credits)
 - [Disclaimer](#disclaimer)
 - [License](#license)
@@ -430,6 +440,22 @@ Issues and pull requests are welcome. Anything that is useful beyond Paget96 Gar
 new signal) goes to [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) as a pull
 request first, and comes here with the next kit sync. App ids start with `p96_`. Text never uses
 an em dash or an en dash.
+
+## Follow
+
+New apps, videos from the car and early builds show up here first:
+
+| | |
+|---|---|
+| Instagram | [@thedakiness](https://www.instagram.com/thedakiness/) |
+| TikTok | [@paget96](https://www.tiktok.com/@paget96) |
+| X | [@Paget96](https://x.com/Paget96) |
+| Telegram channel | [paget96_projects_channel](https://t.me/paget96_projects_channel) |
+| Telegram group, for questions | [Paget96_Projects](https://t.me/Paget96_Projects) |
+| Web | [paget96projects.com](https://paget96projects.com) |
+| GitHub | [Paget96](https://github.com/Paget96) |
+
+The same names are at the bottom of every app's Settings page.
 
 ## Credits
 
