@@ -2,7 +2,7 @@
   "id": "p96_lights",
   "title": "Lights",
   "description": "The car's lights: any colour on the ambient light, light sequences and high beam flashes while parked, simulated until you arm it",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "vendor": "custom",
   "loggingId": "PGL1",
   "iconGlyph": "lights",
@@ -32,6 +32,10 @@
       "_broadcasts": [
         "sendTasuResponse"
       ]
+    },
+    "de.bmw.infotainment.misc.ComfortFunctionIuK": {
+      "_optional": "the car's own Ambient light menu: which colour it is on, shown on the Ambient page",
+      "statusAmbientLightInteriorColour": "rs"
     }
   },
   "screens": [

@@ -29,7 +29,11 @@ function shot(name, set, t) {
     play(rec.words(), cv);
     fs.writeFileSync(path.join(out, name + '.png'), cv.png(9));
 }
+v.ambient.lights = [{ name: 'Dash line centre' }, { name: 'Driver front door line' }, { name: 'Driver rear door line' }, { name: 'Driver front door pocket' }, { name: 'Console line driver front' }, { name: 'Sunroof front left' }];
+v.carAmbient = 4; v.ambient.n = 6;
 shot('ambient', { tab: 0 }); shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
+v.live = { on: true, rows: [['Left headlight, channel 1', '75 %', true], ['Left headlight, channel 9', '41 %', true], ['Right headlight, channel 1', '75 %', true], ['Body controller outputs on', '6', false]] };
+shot('outside', { tab: 3 });
 shot('help', { page: 'help', topic: 1 }, 1); shot('settings', { page: 'settings' });
 // the GIF: Party playing Welcome, then Ambient breathing
 const fr = path.join(out, '..', '..', '..', '.stage', 'lights-frames');
@@ -47,4 +51,4 @@ for (let i = 0; i < 64; i++) {
     play(rec.words(), cv);
     fs.writeFileSync(path.join(fr, ('000' + i).slice(-4) + '.png'), cv.png(1));
 }
-console.log('5 pictures in ' + out + ', GIF frames in ' + fr);
+console.log('6 pictures in ' + out + ', GIF frames in ' + fr);

@@ -40,6 +40,11 @@ mgu.run({
             VehicleCondition: (v) => { const s = JSON.stringify(v || ''); left = /PARKEN_BN_NIO|SLEEP|PARKEN_BN_IO/i.test(s) && !/WOHNEN|PRUEFEN|FAHREN/i.test(s); },
         }, log).catch(() => {});
         const moving = () => (speed === null ? null : speed > 3);
+        // the car's own Ambient light menu: which colour slot it is on (read only, shown on the Ambient page)
+        let carAmbient = null;
+        ctx.signals.watch('de.bmw.infotainment.misc.ComfortFunctionIuK', '1', {
+            statusAmbientLightInteriorColour: (v) => { carAmbient = typeof v === 'number' ? v : v && typeof v === 'object' ? (v.colour != null ? v.colour : JSON.stringify(v).slice(0, 24)) : v; },
+        }, log).catch(() => {});
 
         /* ---------- the body controller, only once armed ---------- */
         let diag = null, lights = null, lamps = null, linking = null;
@@ -72,32 +77,81 @@ mgu.run({
         const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'WAIT', statusColor: 'dim', demo: false, now: t0 };
         st.report = Report.forApp(ctx);
         const presets = PR.load(path.join(ctx.dataDir, 'presets.json'));
-        const V = { preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
+        const V = { region: 'all', regionColours: {}, paused: null, outsideWant: settings.get('outsideWant') || {}, live: { on: false, rows: [], note: null }, preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
             flash: { pattern: 'both', rate: 'normal' }, playAt: null };
 
         const sendScene = () => { if (armed()) link().then(() => { if (lights && !allowed('ambient')) { if (V.scene.own) lights.carColour(); else lights.show(V.scene); } }); };
         const go = (i) => { st.page = 'main'; st.tab = (i + P.TABS.length) % P.TABS.length; };
+        // a region's own colour: laid over the lights of that region (lights.js overlay), the rest keep the scene
+        const sendRegion = (key) => {
+            if (!armed()) return;
+            link().then(() => {
+                if (!lights || allowed('ambient')) return;
+                const c = V.regionColours[key];
+                lights.overlay('reg|' + key, c ? (l) => P.regionOf(l) === key : null, () => ({ rgb: c.rgb, bright: c.bright }));
+            });
+        };
+        // Stop all (and every safeguard): the sequence or the flashes stopped, every light given back to the car
+        const stopAll = (why) => {
+            V.playAt = null; V.paused = null;
+            try { if (lamps && lamps.running) lamps.stop(); } catch (e) { /* stopping */ }
+            try { if (lights) { Object.keys(V.regionColours).forEach((k) => lights.overlay('reg|' + k, null)); lights.carColour(); } } catch (e) { /* stopping */ }
+            V.regionColours = {}; V.scene = Object.assign({}, V.scene, { own: true }); V.ours = false;
+            if (why) log.info('lights: stopped, ' + why);
+        };
+        /* ---------- the lamps as the car drives them now: reads only, while Lamps now is on ---------- */
+        async function readLive() {
+            if (!V.live.on || !armed() || !diag || st.tab !== 3) return;
+            const rows = [];
+            const rd = async (addr, did) => { try { const r = await diag.physical(addr, 0x22, [did >> 8, did & 255], 1500); return r && r[0] === 0x62 ? r : null; } catch (e) { return null; } };
+            for (const side of [[0x43, 'Left'], [0x44, 'Right']]) {
+                const r = await rd(side[0], 0xD6DB);           // FLM02 (a G20's LED headlights): 15 channels of 5 bytes, PWM % first
+                if (!r) continue;
+                for (let ch = 0; ch < 15; ch++) { const pwm = r[3 + ch * 5]; if (pwm) rows.push([side[1] + ' headlight, channel ' + (ch + 1), pwm + ' %', true]); }
+            }
+            const b = await rd(0x40, 0xE3B9);                   // the body controller's lamp outputs (BDC_G05)
+            if (b) { let n = 0; for (let i = 4; i < b.length; i++) if (b[i]) n++; rows.push(['Body controller outputs on', String(n), false]); }
+            V.live.rows = rows; V.live.note = rows.length ? null : 'No answer from the headlights or the body controller';
+        }
+        setInterval(() => { readLive().catch(() => {}); }, 1500);
         const act = {
             tab: (i) => go(i),
             help: () => { st.page = 'help'; },
             settings: () => { st.page = 'settings'; },
             back: () => { st.page = 'main'; },
             topic: (i) => { st.topic = i; },
-            set: (k, v) => { settings.set(k, v, 'user'); if (k === 'arm' && v === 'on') link(); if (k === 'arm' && v !== 'on') act.stop(); },
+            set: (k, v) => { settings.set(k, v, 'user'); if (k === 'arm' && v === 'on') link(); if (k === 'arm' && v !== 'on') stopAll('disarmed'); },
+            stopAll: () => stopAll('Stop all'),
+            region: (k) => { V.region = k; },
+            outside: (k, v) => { V.outsideWant = Object.assign({}, V.outsideWant, { [k]: v }); settings.set('outsideWant', V.outsideWant, 'user'); },
+            live: () => { V.live.on = !V.live.on; V.live.rows = []; if (V.live.on) link(); },
+            pause: () => {
+                const p = presets[V.preset];
+                V.paused = V.playAt != null ? Math.floor((now() - V.playAt) / p.beatMs) % PR.BEATS : 0;
+                V.playAt = null;
+                if (lamps && lamps.running) lamps.stop();
+            },
             demoOff: () => settings.set('demo', 'off', 'user'),
-            colour: (rgb) => { V.scene = Object.assign({}, V.scene, { own: false, upper: { rgb: rgb, bright: V.scene.upper.bright }, lower: { rgb: rgb, bright: V.scene.upper.bright } }); sendScene(); },
+            colour: (rgb) => {
+                V.ours = true;
+                if (V.region !== 'all') { V.regionColours[V.region] = { rgb: rgb, bright: V.scene.upper.bright }; sendRegion(V.region); return; }
+                V.scene = Object.assign({}, V.scene, { own: false, upper: { rgb: rgb, bright: V.scene.upper.bright }, lower: { rgb: rgb, bright: V.scene.upper.bright } }); sendScene();
+            },
             effect: (kind) => { V.scene = Object.assign({}, V.scene, { kind: kind, own: false }); sendScene(); },
             bright: (d) => {
                 const b = Math.max(10, Math.min(100, V.scene.upper.bright + d));
                 V.scene = Object.assign({}, V.scene, { own: false, upper: { rgb: V.scene.upper.rgb, bright: b }, lower: { rgb: V.scene.lower.rgb, bright: b } }); sendScene();
             },
-            carOwn: () => { V.scene = Object.assign({}, V.scene, { own: true }); sendScene(); },
+            carOwn: () => stopAll('the car\'s own colour'),
             pick: (i) => { V.preset = i; },
             play: () => {
-                V.playAt = now();
-                if (armed()) link().then(() => { if (lamps && !allowed('lamps')) { const p = presets[V.preset]; lamps.play(p.beats, { beatMs: p.beatMs }); } });
+                // Go on after a pause: the sequence turned so it starts at the beat it stopped on
+                const p = presets[V.preset], from = V.paused || 0;
+                V.playAt = now() - from * p.beatMs; V.paused = null;
+                const beats = p.beats.slice(from).concat(p.beats.slice(0, from));
+                if (armed()) link().then(() => { if (lamps && !allowed('lamps')) lamps.play(beats, { beatMs: p.beatMs }); });
             },
-            stop: () => { V.playAt = null; if (lamps && lamps.running) lamps.stop(); },
+            stop: () => { V.playAt = null; V.paused = null; if (lamps && lamps.running) lamps.stop(); },
             flashPattern: (p) => { V.flash.pattern = p; },
             flashRate: (r) => { V.flash.rate = r; },
             flash: () => {
@@ -105,6 +159,10 @@ mgu.run({
                 if (armed()) link().then(() => { if (lamps && !allowed('lamps')) lamps.start({ lights: 'high', pattern: V.flash.pattern, rate: V.flash.rate }); });
             },
         };
+        // safeguards beside Stop all: leaving the app stops everything, and so does the car moving (lamps.js also stops
+        // a run after 30 s by itself, and the car switches each flash off on its own)
+        ui.onVisible((name, on) => { if (name === 'MAIN' && !on) stopAll('the app left the screen'); });
+        setInterval(() => { if (lamps && lamps.running && moving() !== false) stopAll('the car moves'); }, 500);
         ui.onClick('BTN_PAGE', () => go(st.tab + 1));
         ui.onClick('BTN_PREV', () => go(st.tab - 1));
         ui.onClick('BTN_SETTINGS', () => { st.page = st.page === 'settings' ? 'main' : 'settings'; });
@@ -119,7 +177,8 @@ mgu.run({
             const beat = V.playAt != null || !armed() ? Math.floor((t - (V.playAt || t0)) / p.beatMs) % PR.BEATS : 0;
             return {
                 armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, beat: beat, flash: V.flash,
-                ambient: { state: lights ? lights.state : null, n: lights ? lights.lights.length : 0, scene: V.scene },
+                ambient: { state: lights ? lights.state : null, n: lights ? lights.lights.length : 0, lights: lights ? lights.lights : [], scene: V.scene, ours: !!V.ours && armed() },
+                carAmbient: carAmbient, region: V.region, regionColours: V.regionColours, paused: V.paused, outsideWant: V.outsideWant, outside: {}, live: V.live,
                 lamps: lamps ? { kind: lamps.kind, running: lamps.running, note: lamps.note } : { running: V.playAt != null && !armed() ? null : null },
             };
         }

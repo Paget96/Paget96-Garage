@@ -11,7 +11,7 @@ function test(name, fn) { try { fn(); console.log('ok   ' + name); } catch (e) {
 const act = new Proxy({}, { get: () => () => {} });
 const base = { presets: PR.DEFAULTS, preset: 0, beat: 3, flash: { pattern: 'both', rate: 'fast' }, ambient: { scene: { kind: 'rainbow', upper: { rgb: [1, 2, 3], bright: 50 }, lower: { rgb: [1, 2, 3], bright: 50 } } }, lamps: { running: null } };
 test('every page draws, simulated and armed, standing and moving', () => {
-    [false, true].forEach((armed) => [false, true, null].forEach((moving) => [0, 1, 2].forEach((tab) => {
+    [false, true].forEach((armed) => [false, true, null].forEach((moving) => [0, 1, 2, 3].forEach((tab) => {
         const rec = new Recorder(UI.W, UI.H);
         P.draw(rec, Object.assign({}, base, { armed: armed, moving: moving }), { page: 'main', tab: tab, settings: P.DEFAULTS, status: 'X' }, 1.5, act);
         assert.ok(rec.words().length > 10);
@@ -22,5 +22,15 @@ test('How to use and Settings draw', () => {
 });
 test('light control is simulated by default', () => { assert.strictEqual(P.DEFAULTS.arm, 'off'); });
 test('six sequences of 16 beats', () => { assert.strictEqual(PR.DEFAULTS.length, 6); PR.DEFAULTS.forEach((p) => assert.strictEqual(p.beats.length, PR.BEATS)); });
+test('regions: only what this car has, by the lights the body controller lists', () => {
+    const lights = [{ name: 'Driver front door pocket' }, { name: 'Dash line centre' }, { name: 'Passenger rear door line' }];
+    assert.deepStrictEqual(P.regionsOf(lights).map((r) => r[0]), ['all', 'dash', 'rearDoors', 'pockets']);
+    assert.deepStrictEqual(P.regionsOf([]).map((r) => r[0]), ['all']);
+});
+test('Stop all shows only while something of ours runs', () => {
+    const keys = (v) => { const rec = new Recorder(UI.W, UI.H); P.draw(rec, Object.assign({}, base, v), { page: 'main', tab: 1, settings: P.DEFAULTS }, 1, act); return rec.targets.map((q) => q.key); };
+    assert.ok(keys({ lamps: { running: 'sequence' } }).indexOf('lstopall') >= 0);
+    assert.ok(keys({ lamps: { running: null } }).indexOf('lstopall') < 0);
+});
 console.log(failed ? failed + ' failed' : 'all passed');
 process.exit(failed ? 1 : 0);

@@ -20,5 +20,6 @@ sequences from Paget96's Exterior Lights, PR #254). Not tried on a car as Lights
 | Ambient | ![](../../docs/media/p96_lights/ambient.png) |
 | Party | ![](../../docs/media/p96_lights/party.png) |
 | Flash | ![](../../docs/media/p96_lights/flash.png) |
+| Outside | ![](../../docs/media/p96_lights/outside.png) |
 | How to use | ![](../../docs/media/p96_lights/help.png) |
 | Settings | ![](../../docs/media/p96_lights/settings.png) |
