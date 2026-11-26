@@ -188,8 +188,33 @@ def _standby(d, c, s, w, col, acc):
     im.paste(Image.new('RGBA', im.size, col), (0, 0), moon)
 
 
+
+def _exhaust(d, c, s, w, col, acc):
+    # Exhaust: twin tail pipes seen from behind under the silencer's edge, sound waves leaving them
+    r = s * 0.42
+    y = c + s * 0.24
+    xs = (c - s * 0.74, c + s * 0.12)
+    for x in xs:
+        d.ellipse([x - r, y - r, x + r, y + r], outline=col, width=w)
+        ri = r * 0.42
+        d.ellipse([x - ri, y - ri, x + ri, y + ri], outline=col, width=max(2, int(w * 0.6)))
+    yb = y - s * 0.86
+    x0, x1 = c - s * 1.16, c + s * 0.54
+    d.line([x0, yb, x1, yb], fill=col, width=w)
+    for x in (x0, x1):
+        d.ellipse([x - w / 2, yb - w / 2, x + w / 2, yb + w / 2], fill=col)
+    ox, aw = xs[1], int(w * 0.85)
+    for k, rr in enumerate((s * 0.68, s * 0.9, s * 1.12)):
+        a0, a1 = -40 + k * 6, 40 - k * 6
+        d.arc([ox - rr, y - rr, ox + rr, y + rr], a0, a1, fill=acc, width=aw)
+        for a in (a0, a1):
+            t = math.radians(a)
+            px, py = ox + (rr - aw / 2) * math.cos(t), y + (rr - aw / 2) * math.sin(t)
+            q = aw / 2
+            d.ellipse([px - q, py - q, px + q, py + q], fill=acc)
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog, 'standby': _standby}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog, 'standby': _standby, 'exhaust': _exhaust}
 
 
 def glyph_layer(name):

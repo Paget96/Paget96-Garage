@@ -9,15 +9,14 @@ a rooted head unit next to BMW's own apps, read what the car already reports, an
 modern look: dark glass cards, orange accents, live numbers. Every app in this repository is
 installed and updated from the MGU Store.
 
-> **Status, November 2026:** **Health** is built; testing on a car is next. **Datalog** and **Standby** are built as well.
-> **Exhaust** is designed (preview below). Nothing has been tested on a car yet, so
+> **Status, November 2026:** **Health**, **Datalog**, **Exhaust** and **Standby** are built; testing on a car is next.
+> Nothing has been tested on a car yet, so
 > treat everything here as a preview until the first release.
 
 ## Contents
 
 - [Install](#install)
 - [The apps](#the-apps)
-- [Coming next](#coming-next)
 - [How every app works](#how-every-app-works)
 - [Building](#building)
 - [Contributing](#contributing)
@@ -53,6 +52,7 @@ describes.
 | <img src="apps/p96_health/icon.png" width="48"> | [Health](#p96_health) | One look at the whole car: faults with their history, 12 V battery, service, tyres, fluids, a score and a report to share |
 | <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, boost, the air, tyres, temperatures, a log and two runs compared |
 | <img src="apps/p96_standby/icon.png" width="48"> | [Standby](#p96_standby) | A calm clock for waiting and night drives, the car at a glance, this drive and today |
+| <img src="apps/p96_exhaust/icon.png" width="48"> | [Exhaust](#p96_exhaust) | The exhaust live, the flap with your own rules, the particulate filter and its regenerations, and a better sound without changing anything |
 
 <!--
 One row per app, in this form:
@@ -278,25 +278,83 @@ The Display block (the same in every Paget96 Garage app), then Clock (24 h or 12
 (Auto, On, Off; Auto follows the car's day and night, else 20:00 to 07:00) and Hide the menu after
 (5, 10 or 30 seconds, or Never).
 
-## Coming next
+<a id="p96_exhaust"></a>
+### Exhaust
 
-These are design previews: drawn to show the look and the pages before the app is built. The numbers
-in them are made up.
+The exhaust from the engine to the tail pipe. Exhaust shows the gas on its way with the temperatures the engine
+unit reports, runs the exhaust flap with your own rules, watches the particulate filter (OPF) and its
+regenerations, tells you when your drives are too short for the filter, times the catalyst warm-up after a cold
+start, draws how the sound is made and what damps it, and lists what gives a better sound without changing
+anything on the car. A Setup page records what your exhaust has, and the drawings follow it.
 
-### Exhaust (designed)
+Exhaust shows only what your car reports: the Flap pages appear when the engine unit answers for an electric
+flap, the filter pages when it reports soot or load, and a rule can only use a value your car sends. The
+screenshots use demo data, which shows everything.
 
-The exhaust from the engine to the tail pipe: live temperatures on every part, the exhaust flap with
-your own rules (open above an engine speed, in Sport, at full throttle; closed on a cold start or at
-night), the particulate filter with its regenerations, how the sound is made and what damps it, and
-tips for a better sound without changing anything. A setup page records what your exhaust has.
+![Exhaust working](docs/media/p96_exhaust/demo.gif)
 
-| Now | Flap and its rules |
+| Page | Screenshot |
 |---|---|
-| ![](docs/media/preview/exhaust/now.png) | ![](docs/media/preview/exhaust/flap.png) |
+| Now: engine to tail pipe, live | ![](docs/media/p96_exhaust/now.png) |
+| Flap: AUTO, OPEN, CLOSE, CAR and the rules | ![](docs/media/p96_exhaust/flap.png) |
+| Flap: a car with two flaps | ![](docs/media/p96_exhaust/flap-two.png) |
+| Flap: add a rule | ![](docs/media/p96_exhaust/rule-new.png) |
+| Flap: change a rule, with an "and" | ![](docs/media/p96_exhaust/rule-edit.png) |
+| Flap log: the week and every change | ![](docs/media/p96_exhaust/flap-log.png) |
+| OPF: load, regeneration, the last five | ![](docs/media/p96_exhaust/opf.png) |
+| OPF: regenerating now | ![](docs/media/p96_exhaust/opf-regen.png) |
+| Filter care: short drives, ash | ![](docs/media/p96_exhaust/filter-care.png) |
+| Cold start: the catalyst warm-up | ![](docs/media/p96_exhaust/cold-start.png) |
+| Sound: what each part damps | ![](docs/media/p96_exhaust/sound.png) |
+| Better sound: tips checked live | ![](docs/media/p96_exhaust/better-sound.png) |
+| History: 8 weeks of the filter | ![](docs/media/p96_exhaust/history.png) |
+| Setup: what your exhaust has | ![](docs/media/p96_exhaust/setup.png) |
+| Arming the flap control | ![](docs/media/p96_exhaust/arm.png) |
+| Info popup (every card has an (i)) | ![](docs/media/p96_exhaust/popup.png) |
+| How to use | ![](docs/media/p96_exhaust/help.png) |
+| Settings | ![](docs/media/p96_exhaust/settings.png) |
 
-| Particulate filter | How the sound is made | Setup |
-|---|---|---|
-| ![](docs/media/preview/exhaust/opf.png) | ![](docs/media/preview/exhaust/sound.gif) | ![](docs/media/preview/exhaust/setup.png) |
+Every card's info popup is in [docs/media/p96_exhaust/popups/](docs/media/p96_exhaust/popups/).
+
+**The flap and its rules.** AUTO lets your rules decide: an ordered list, the top rule that is switched on and
+holds wins, and when none holds the car decides. A rule is "when engine speed, speed, load, gear, drive mode,
+coolant temperature, time of day or exhaust temperature is above or below a value (and optionally a second
+condition), then the flap OPEN, CLOSE or CAR DECIDES". Every number has a margin ("above 3 000 rpm" opens above
+3 000 and closes only below 2 500), so the flap does not click at the edge. OPEN and CLOSE hold the flap; CAR
+hands it back. With two flaps (a V8 with two engine units) each can be set on its own.
+
+**What it writes, and only this.** The exhaust flap, the way upstream's
+[Engine Config](https://github.com/cauliflowermossgrape/idrive7-apps/tree/main/apps/live_adjustments) does it:
+BMW's own flap control on the engine unit (2F 60 FD: open at 10 %, close at 90 %, hand back), sent again every
+15 s because the engine unit lets a tester's command go after about 20 s. Out of the box it is **simulated**:
+nothing is sent until you arm it in Settings and confirm. Opening the app sends nothing by itself; a command
+leaves only on a button press, a change of what your rules decide, or the car coming up with OPEN, CLOSE or AUTO
+kept. What was asked, whether the engine unit took it and what was read back are shown apart, and a request is
+never shown as done without the read-back. CLOSE is handed back to the car above an engine speed you set
+(4 000 rpm by default) and when there is no engine speed. Disarming hands every flap back first.
+
+**What it reads from the car.** From the car's broadcasts: engine speed, speed (Exhaust counts the km it sees),
+gear, drive mode, coolant and outside temperature. From the engine unit, only while Exhaust's screen is shown:
+soot, ash and the load of the particulate filter, its temperature, the exhaust temperature after the catalyst (the
+engine unit's model), the exhaust camshaft and the engine load; and the flap's state.
+
+**Limits.**
+
+- A regeneration is seen from the outside (the filter hot and the soot falling): the car reports no regeneration
+  status Exhaust could find. Only regenerations while the app is open are seen.
+- The regeneration mark (about 80 %), the point where a filter counts as full of ash (45 g) and the catalyst's
+  working temperature (300 °C) are estimates; the car does not report them.
+- The km are the ones Exhaust counted from the speed, not the odometer.
+- Rules on load and exhaust temperature work only while the app is open; the others work in the background too.
+- The sound percentages illustrate each part; they are not a measurement. The app records your setup and never
+  advises removing a catalyst or a filter.
+- Which engine unit drives the left flap on a car with two is not known yet: there is a setting for it.
+- Tested on the PC preview with demo data and a pretend engine unit only. ID7 head units only for now.
+
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+Follow ambient lighting, Demo data. Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
+car with two flaps, Left flap is (bank 1 or 2).
 
 ## How every app works
 
