@@ -1,17 +1,41 @@
-# Paget96 Garage
+<p align="center">
+  <img src="docs/brand/banner.png" alt="Paget96 Garage">
+</p>
 
-![Paget96 Garage](docs/brand/banner.png)
+<p align="center">
+  <b>Four apps for the BMW iDrive 7 head unit: live engine data, a full car health check, the exhaust flap under your control and a calm clock.</b><br>
+  One modern look, drawn by the GPU at 60 fps, installed and updated from the MGU Store.
+</p>
 
-![Health working](docs/media/p96_health/demo.gif)
+<p align="center">
+  <img alt="BMW iDrive 7 MGU" src="https://img.shields.io/badge/BMW-iDrive%207%20MGU-e4002b?style=for-the-badge">
+  <img alt="Tested on a car" src="https://img.shields.io/badge/tested%20on-a%20real%20car-2ea44f?style=for-the-badge">
+  <img alt="60 fps" src="https://img.shields.io/badge/frame%20rate-60%20fps-ff7a1a?style=for-the-badge">
+  <img alt="4 apps" src="https://img.shields.io/badge/apps-4-1c6dd0?style=for-the-badge">
+</p>
+<p align="center">
+  <img alt="MGU Store source" src="https://img.shields.io/badge/MGU%20Store-Paget96%2FPaget96--Garage-8957e5?style=flat-square">
+  <img alt="License" src="https://img.shields.io/github/license/Paget96/Paget96-Garage?style=flat-square">
+  <img alt="Last commit" src="https://img.shields.io/github/last-commit/Paget96/Paget96-Garage?style=flat-square">
+  <img alt="Stars" src="https://img.shields.io/github/stars/Paget96/Paget96-Garage?style=flat-square">
+</p>
 
-Paget96 Garage is a set of apps for the BMW iDrive 7 head unit (MGU), made by Paget96. They run on
-a rooted head unit next to BMW's own apps, read what the car already reports, and show it in one
-modern look: dark glass cards, orange accents, live numbers. Every app in this repository is
-installed and updated from the MGU Store.
+<p align="center">
+  <img src="docs/media/garage-live.gif" alt="Datalog, Exhaust, Health and Standby running live in the iDrive 7 screen" width="100%">
+  <br><sub>Live in the iDrive 7 screen (1920 x 720): Datalog, Exhaust, Health and Standby, demo values marked DEMO.</sub>
+</p>
 
-> **Status, November 2026:** **Health**, **Datalog**, **Exhaust** and **Standby** are built; testing on a car is next.
-> Nothing has been tested on a car yet, so
-> treat everything here as a preview until the first release.
+| What you see live | |
+|---|---|
+| **Boost** against its target, intake and charge air, oil, coolant and gearbox temperatures | Datalog |
+| **0 to 100, 402 m, trap speed**, weather corrected times and a dyno sheet from your own runs | Datalog |
+| **Exhaust after the catalyst, particulate filter load and soot**, the flap's state and your own flap rules | Exhaust |
+| **Every control unit's faults** with freeze frames, misfires per cylinder, lambda, VANOS, battery, service, tyres | Health |
+| A calm **clock** with outside temperature, battery and range for waiting and night drives | Standby |
+
+> **Status, November 2026:** Health, Datalog, Exhaust and Standby are built and run on the developer's own car
+> (BMW G20, B48 engine, iDrive 7): touch, the side menu and live values are checked there. Still a preview until the
+> first release: report what you see with **Send a report** in each app's Settings.
 
 **Made by Danijel Markov (Paget96).** Follow the work and talk to us:
 [Instagram](https://www.instagram.com/thedakiness/) ·
@@ -26,6 +50,7 @@ installed and updated from the MGU Store.
 
 - [Install](#install)
 - [The apps](#the-apps)
+- [Gallery](#gallery)
 - [How every app works](#how-every-app-works)
 - [Send a report](#send-a-report)
 - [Our renderer](#our-renderer)
@@ -65,6 +90,27 @@ describes.
 | <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, boost, the air, tyres, temperatures, a log and two runs compared |
 | <img src="apps/p96_standby/icon.png" width="48"> | [Standby](#p96_standby) | A calm clock for waiting and night drives, the car at a glance, this drive and today |
 | <img src="apps/p96_exhaust/icon.png" width="48"> | [Exhaust](#p96_exhaust) | The exhaust live, the flap with your own rules, the particulate filter and its regenerations, and a better sound without changing anything |
+
+## Gallery
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/p96_datalog/now.png" alt="Datalog Now"><br><b>Datalog</b>: boost against its target, air and temperatures live</td>
+<td width="50%"><img src="docs/media/p96_datalog/tyres.png" alt="Datalog Tyres"><br><b>Datalog</b>: tyre pressures and temperatures on the car from above</td>
+</tr>
+<tr>
+<td><img src="docs/media/p96_exhaust/now.png" alt="Exhaust Now"><br><b>Exhaust</b>: engine to tail pipe, catalyst and filter temperatures, flap</td>
+<td><img src="docs/media/p96_exhaust/flap.png" alt="Exhaust Flap"><br><b>Exhaust</b>: the flap with AUTO rules, OPEN, CLOSE and CAR</td>
+</tr>
+<tr>
+<td><img src="docs/media/p96_health/overview.png" alt="Health Overview"><br><b>Health</b>: one score for the whole car</td>
+<td><img src="docs/media/p96_health/engine.png" alt="Health Engine"><br><b>Health</b>: misfires per cylinder, knock control, VANOS, lambda</td>
+</tr>
+<tr>
+<td><img src="docs/media/p96_standby/clock.png" alt="Standby Clock"><br><b>Standby</b>: the calm clock</td>
+<td><img src="docs/media/p96_standby/glance.png" alt="Standby Glance"><br><b>Standby</b>: the car at a glance</td>
+</tr>
+</table>
 
 <!--
 One row per app, in this form:
