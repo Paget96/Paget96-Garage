@@ -1,0 +1,113 @@
+{
+  "id": "p96_datalog",
+  "title": "Datalog",
+  "description": "Logs every pull: boost against the target, intake, charge and exhaust temperatures, air correction, tyres, runs side by side",
+  "version": "1.0.0",
+  "vendor": "custom",
+  "loggingId": "PG01",
+  "iconGlyph": "log",
+  "mguHmi": ["ID7"],
+  "requires": { "idrive7-renderd": "2.1.18", "mgu-inputgate": "1.1.0" },
+  "signals": {
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "statusCarSpeed2": "rs"
+    },
+    "de.bmw.infotainment.vehicle.CDS": {
+      "statusEngineSpeed2": "rs",
+      "statusEngineTemperature": "rs"
+    },
+    "de.bmw.infrastructure.EnvironmentalInformation": {
+      "_optional": "the outside temperature (air correction when the engine unit sends no intake temperature)",
+      "ExteriorTemperature": "s"
+    },
+    "de.bmw.infrastructure.analytics.BasicDataSet": {
+      "_optional": "gearbox oil temperature on the Temps page",
+      "basicDataSet": "s"
+    },
+    "de.bmw.infotainment.vehicle.TPMS": {
+      "_optional": "tyre pressures and temperatures on the Tyres page",
+      "statusTyreTemperature": "rs",
+      "statusTyrePressure": "rs",
+      "statusTargetTyrePressure": "rs"
+    },
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": {
+      "_optional": "read-only requests to the engine unit (boost, intake air, outside pressure)",
+      "_instances": "SystemFunctionsInternalTasuInst1",
+      "_methods": [
+        "sendTasuRequest"
+      ],
+      "_broadcasts": [
+        "sendTasuResponse"
+      ]
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "title": "Datalog",
+      "buttons": [
+        ["BTN_PAGE", "Next page"],
+        ["BTN_PREV", "Previous page"],
+        ["BTN_SETTINGS", "Settings"]
+      ]
+    }
+  ],
+  "settings": [
+    {"key": "renderer", "label": "Renderer", "type": "choice", "default": "auto",
+     "options": [["auto", "GPU"], ["software", "Software"]]},
+    {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60,
+     "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
+    {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
+    {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto",
+     "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "runLength", "label": "Run length", "type": "choice", "default": 402,
+     "options": [[201, "201 m"], [402, "402 m"]]},
+    {"key": "corrected", "label": "Corrected times", "type": "bool", "default": false},
+    {"key": "boostTarget", "label": "Boost mark", "type": "number", "unit": "bar", "default": 1.45, "min": 0.5, "max": 3, "step": 0.05},
+    {"key": "tyreHot", "label": "Tyre target (hot)", "type": "number", "unit": "bar", "default": 2.5, "min": 1.5, "max": 3.5, "step": 0.05}
+  ],
+  "config": {
+    "comment": "raw -> value * factor + offset. Signal scalings are BMW's own, as in Car Vitals. dme: values read from the engine unit (ecu 18 = DME 0x12) with UDS 0x22 through the kit's read-only link, which refuses anything that is not a read. Candidates are tried in order; the first plausible one wins. Pressures are absolute kPa (boost = manifold minus ambient), temperatures deg C. A candidate with obd asks the same PID with OBD service 01. Add your engine's own identifier at the top of a list if a tile stays empty.",
+    "scaling": {
+      "speed": {"factor": 0.015625, "offset": 0, "invalid": 65535},
+      "rpm": {"factor": 0.25, "offset": 0, "invalid": 65535},
+      "ambient": {"factor": 0.5, "offset": -40, "invalid": 255},
+      "engineTemp": {"factor": 1, "offset": -48, "invalid": 255},
+      "gearboxTemp": {"factor": 1, "offset": -48, "invalid": 255},
+      "tyreTemp": {"factor": 1, "offset": -40, "invalid": 65535},
+      "tyrePress": {"factor": 0.1, "offset": 0, "invalidFrom": 65532, "note": "0.1 per bit in the car's pressure unit; main.js turns bar, psi and kPa into bar from the value's range"}
+    },
+    "dme": {
+      "ecu": 18,
+      "manifold": [
+        {"did": "580B", "bytes": 2, "at": 0, "factor": 0.00390625, "offset": 0, "min": 20, "max": 400, "note": "BMW boost pressure actual (absolute), kPa = raw / 256"},
+        {"did": "F470", "bytes": 2, "at": 3, "factor": 0.03125, "offset": 0, "min": 20, "max": 600, "note": "OBD PID 0x70 boost pressure sensor A (absolute), 1/32 kPa"},
+        {"did": "F487", "bytes": 2, "at": 1, "factor": 0.03125, "offset": 0, "min": 20, "max": 600, "note": "OBD PID 0x87 intake manifold absolute pressure A, 1/32 kPa"},
+        {"did": "F40B", "bytes": 1, "at": 0, "factor": 1, "offset": 0, "min": 20, "max": 255, "note": "OBD PID 0x0B intake manifold absolute pressure, kPa"},
+        {"obd": "0B", "bytes": 1, "at": 0, "factor": 1, "offset": 0, "min": 20, "max": 255, "note": "OBD service 01 PID 0x0B"}
+      ],
+      "boostTarget": [
+        {"did": "4AB0", "bytes": 2, "at": 0, "factor": 0.00390625, "offset": 0, "min": 20, "max": 400, "note": "BMW boost pressure setpoint (absolute), kPa = raw / 256"},
+        {"did": "F470", "bytes": 2, "at": 1, "factor": 0.03125, "offset": 0, "min": 20, "max": 600, "note": "OBD PID 0x70 commanded boost pressure A (absolute), 1/32 kPa"},
+        {"obd": "70", "bytes": 2, "at": 1, "factor": 0.03125, "offset": 0, "min": 20, "max": 600, "note": "OBD service 01 PID 0x70"}
+      ],
+      "ambient": [
+        {"did": "F433", "bytes": 1, "at": 0, "factor": 1, "offset": 0, "min": 50, "max": 115, "note": "OBD PID 0x33 barometric pressure, kPa"},
+        {"obd": "33", "bytes": 1, "at": 0, "factor": 1, "offset": 0, "min": 50, "max": 115, "note": "OBD service 01 PID 0x33"}
+      ],
+      "intake": [
+        {"did": "F40F", "bytes": 1, "at": 0, "factor": 1, "offset": -40, "min": -40, "max": 120, "note": "OBD PID 0x0F intake air temperature"},
+        {"obd": "0F", "bytes": 1, "at": 0, "factor": 1, "offset": -40, "min": -40, "max": 120, "note": "OBD service 01 PID 0x0F"}
+      ],
+      "charge": [
+        {"did": "F477", "bytes": 1, "at": 1, "factor": 1, "offset": -40, "min": -40, "max": 150, "note": "OBD PID 0x77 charge air cooler temperature, bank 1 sensor 1"},
+        {"obd": "77", "bytes": 1, "at": 1, "factor": 1, "offset": -40, "min": -40, "max": 150, "note": "OBD service 01 PID 0x77"}
+      ],
+      "egt": [
+        {"did": "F43C", "bytes": 2, "at": 0, "factor": 0.1, "offset": -40, "min": 0, "max": 1100, "note": "OBD PID 0x3C catalyst temperature, bank 1 sensor 1"},
+        {"obd": "3C", "bytes": 2, "at": 0, "factor": 0.1, "offset": -40, "min": 0, "max": 1100, "note": "OBD service 01 PID 0x3C"}
+      ]
+    }
+  }
+}

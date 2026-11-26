@@ -132,8 +132,22 @@ def _health(d, c, s, w, col, acc):
         d.ellipse([x - aw / 2, y - aw / 2, x + aw / 2, y + aw / 2], fill=acc)
 
 
+
+def _log(d, c, s, w, col, acc):
+    # Datalog: two axes and a trace climbing like a run, the newest sample a dot
+    x0, x1, y0, y1 = c - s * 0.95, c + s * 0.95, c - s * 0.9, c + s * 0.8
+    d.line([x0, y0, x0, y1, x1, y1], fill=col, width=w, joint='curve')
+    for x, y in ((x0, y0), (x1, y1)):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
+    pts = [(x0 + s * 0.3 + (x1 - x0 - s * 0.6) * k / 10, y1 - s * 0.25 - (y1 - y0 - s * 0.55) * (1 - math.exp(-k / 3.2)) / (1 - math.exp(-10 / 3.2)))
+           for k in range(11)]
+    d.line(pts, fill=acc, width=w, joint='curve')
+    x, y = pts[-1]
+    d.ellipse([x - w * 1.1, y - w * 1.1, x + w * 1.1, y + w * 1.1], fill=acc)
+
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log}
 
 
 def glyph_layer(name):
