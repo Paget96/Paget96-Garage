@@ -586,30 +586,52 @@ function fluids(cv, S, V, A, t) {
 /** The per-cylinder views this car has, in order: misfires, rough running, ignition angle (petrol only). */
 const CYL_VIEWS = [['misfire', 'Misfires'], ['rough', 'Rough running'], ['ignition', 'Ignition']];
 const CYL_FMT = {
-    misfire: { label: 'Misfires per cylinder', lo: 0, hi: 40, unit: 'counted', decimals: 0, info: 'misfire' },
-    rough: { label: 'Rough running per cylinder', lo: -6, hi: 6, mid: 0, unit: 'rad/s²', decimals: 1, info: 'rough' },
-    ignition: { label: 'Ignition angle per cylinder', lo: -10, hi: 40, mid: 0, unit: '°', decimals: 1, info: 'ignition' },
+    // every value says what it is measured in (owner, 2026-11-27 00:02 and 00:04): the unit is in the title too
+    misfire: { label: 'Misfires per cylinder (count)', lo: 0, hi: 40, unit: 'misfires', unitLong: 'count since cleared', decimals: 0, info: 'misfire' },
+    rough: { label: 'Rough running per cylinder (rad/s²)', lo: -6, hi: 6, mid: 0, unit: 'rad/s²', unitLong: 'rad/s², 0 is even', decimals: 1, info: 'rough' },
+    ignition: { label: 'Ignition angle per cylinder (° before top dead centre)', lo: -10, hi: 40, mid: 0, unit: '° BTDC', unitLong: '° before top dead centre', decimals: 1, info: 'ignition' },
 };
 function engine(cv, S, V, A, t) {
     const cp = S.caps, p = S.engine || E.profile({}), ev = S.eng || {}, cyl = ev.cyl || {};
     const views = CYL_VIEWS.filter((k) => M.has(cp, k[0]) && (k[0] !== 'ignition' || p.ignition));
     const right = [];
-    if (M.has(cp, 'knock') && p.knock) right.push({ label: 'Knock control', value: ev.knock, decimals: 1, unit: '°', sub: ev.knock == null ? 'not read yet' : Math.abs(ev.knock) < 0.5 ? 'no timing pulled back' : 'timing pulled back on average', color: ev.knock == null ? 'dim' : Math.abs(ev.knock) < 2 ? 'ok' : 'warm', info: 'knock' });
-    if (M.has(cp, 'vanos')) right.push({ label: 'Camshafts (VANOS)', value: ev.vanosIn, decimals: 1, unit: '°', sub: ev.vanosEx == null ? 'intake' : 'intake, exhaust ' + ev.vanosEx.toFixed(1) + ' °', color: 'ok', info: 'vanos' });
-    if (M.has(cp, 'lambda')) right.push({ label: 'Lambda', value: ev.lambda, decimals: 3, unit: '', sub: ev.lambda == null ? 'not read yet' : p.diesel ? 'lean, as a diesel runs' : Math.abs(ev.lambda - 1) < 0.03 ? 'right at 1: clean burn' : ev.lambda < 1 ? 'rich: more fuel (full load, cooling)' : 'lean', color: 'ok', info: 'lambda' });
+    if (M.has(cp, 'knock') && p.knock) right.push({ label: 'Knock control', value: ev.knock, decimals: 1, unit: '° crank', sub: ev.knock == null ? 'not read yet' : Math.abs(ev.knock) < 0.5 ? 'no timing pulled back' : 'timing pulled back, average', color: ev.knock == null ? 'dim' : Math.abs(ev.knock) < 2 ? 'ok' : 'warm', info: 'knock' });
+    if (M.has(cp, 'vanos')) right.push({ label: 'VANOS', value: ev.vanosIn, decimals: 1, unit: '° crank', sub: ev.vanosEx == null ? 'intake camshaft' : 'intake; exhaust ' + ev.vanosEx.toFixed(1) + ' °', color: 'ok', info: 'vanos' });
+    if (M.has(cp, 'lambda')) right.push({ label: 'Lambda', value: ev.lambda, decimals: 3, unit: 'ratio', sub: ev.lambda == null ? 'not read yet' : p.diesel ? 'lean, as a diesel runs' : Math.abs(ev.lambda - 1) < 0.03 ? 'right at 1: clean burn' : ev.lambda < 1 ? 'rich: more fuel (full load, cooling)' : 'lean', color: 'ok', info: 'lambda' });
     const railOnly = M.has(cp, 'rail') && right.length === 0;
     if (M.has(cp, 'rail') && !railOnly) right.push({ label: 'Fuel rail pressure', value: ev.rail, decimals: 0, unit: 'bar', sub: 'normal ' + p.rail[0] + ' to ' + p.rail[1] + ' bar', color: 'ok', info: 'rail' });
     const hasRight = right.length || railOnly;
     const lw = views.length ? (hasRight ? 1000 : X1 - X0) : 0, rx = X0 + (lw ? lw + 14 : 0), rw = X1 - rx;
     if (views.length) {
-        const pick = views.some((k) => k[0] === V.cyl) ? V.cyl : views[0][0], f = CYL_FMT[pick];
-        UI.cylinders(cv, X0, TOP, lw, UI.hh(), { label: f.label, banks: E.cylinderBanks(p), values: cyl[pick] || {}, lo: f.lo, hi: f.hi, mid: f.mid,
-            unit: f.unit, decimals: f.decimals, status: (v) => M.cylStatus(pick, v, cyl[pick]), info: info(f.info),
-            sub: p.banks === 2 && pick === 'ignition' ? 'bank 2 from the second engine unit' : p.cylinders ? E.describe(p) : 'the cylinder count comes from the engine unit' });
-        if (views.length > 1) {
-            const opts = views.map((k) => [k[0], k[1]]);
-            UI.segmented(cv, X0 + lw - 60, TOP + 26, opts, pick, (k) => A.cyl(k), 'cylview');
-        }
+        // the three per-cylinder views on one card, one band each (owner, 2026-11-27 00:05: "sva tri na jednom ekranu"):
+        // a column per cylinder with its number and a bar, so 4, 6, 8 or 12 cylinders all fit (a V engine: a gap between
+        // the banks); each band names what it shows and its unit, its own info button
+        UI.card(cv, X0, TOP, lw, UI.hh(), 'Per cylinder', { info: info(CYL_FMT[views[0][0]].info) });
+        const banks = E.cylinderBanks(p), nums = [].concat.apply([], banks.map((b) => b.cylinders));
+        const n = Math.max(1, nums.length), gapB = banks.length > 1 ? 30 : 0, x0 = X0 + 250, x1 = X0 + lw - 24;
+        const cw = (x1 - x0 - gapB) / n, top = TOP + 52, bh = (UI.hh() - 52 - 34) / views.length;
+        views.forEach((vw, k) => {
+            const kind = vw[0], f = CYL_FMT[kind], vals = cyl[kind] || {}, y = top + k * bh;
+            if (k) cv.fillRect(X0 + 20, Math.round(y), lw - 40, 1, [255, 255, 255, 24]);
+            cv.text(vw[1], X0 + 24, y + bh / 2 - 4, 19, C.text, { font: 'bold', literal: true });
+            cv.text(f.unitLong, X0 + 24, y + bh / 2 + 20, 14, C.dim, { literal: true });
+            if (cv.target) cv.target(X0 + 12, y + 6, 220, bh - 12, () => A.cyl(kind), 'cylband|' + kind, 14);
+            nums.forEach((c, i) => {
+                const cx = x0 + i * cw + (banks.length > 1 && i >= banks[0].cylinders.length ? gapB : 0) + cw / 2;
+                const v = vals[c], st = M.cylStatus(kind, v, vals), col = st === 'bad' ? C.red : st === 'warm' ? C.amber : st === 'ok' ? C.green : C.dim;
+                cv.text(v == null ? '--' : v.toFixed(f.decimals), cx, y + bh / 2 - 6, n > 8 ? 17 : 21, v == null ? C.dim : C.text, { font: 'num', align: 'center', literal: true });
+                const tw = Math.min(70, cw - 14), ty = y + bh / 2 + 8, lo = f.lo, hi = f.hi, z = f.mid != null ? f.mid : lo;
+                cv.roundRect(cx - tw / 2, ty, tw, 8, 4, '#30343b');
+                if (v != null) {
+                    const at = (q) => cx - tw / 2 + tw * Math.max(0, Math.min(1, (q - lo) / (hi - lo)));
+                    const a0 = Math.min(at(z), at(v)), a1 = Math.max(at(z), at(v));
+                    cv.roundRect(a0, ty, Math.max(8, a1 - a0), 8, 4, col);
+                }
+                if (k === views.length - 1) cv.text(String(c), cx, y + bh - 6, 14, C.dim, { align: 'center', literal: true });
+            });
+        });
+        cv.text(banks.length > 1 ? 'cylinder numbers under the last row, bank 1 then bank 2' : 'cylinder numbers under the last row', X0 + 24, TOP + UI.hh() - 14, 14, C.dim, { literal: true });
+        void V;
     }
     if (railOnly) {
         UI.card(cv, rx, TOP, rw, UI.hh(), 'Fuel rail pressure', { info: info('rail') });
