@@ -92,6 +92,12 @@ the mode the car reports (`FES statusFESVehicleDynamicSwitchHMI`), if readable. 
 to the new colour (about 0.5 s). Short overlays (turn glow, open door red, strobe, welcome) are
 ignored so the UI does not blink (proposed, claude).
 
+**Only the chrome follows (owner, 17:19, D14).** `C.accent` is the chrome: title, selected tab, tab
+arrows and dots, the button glyphs. Every chart, sparkline, ring, gauge, bar, pill and status text
+keeps its fixed colour (`C.orange`, the status colours), because red means the limit or bad, amber
+warm, green ok, and that must never change with the cabin light. When the accent becomes live, the
+cached chrome layers must carry the accent in their cache key.
+
 A colour too dark, too pale or too close to the status colours (green ok, amber warming) is adjusted
 in lightness so text and charts stay readable. On by default, with a setting "Follow ambient lighting" to turn it off
 (owner, 17:13). Every app has it on its Settings page.
