@@ -108,7 +108,7 @@ function head(cv, st, act) {
     }
     // a tap brings the menu back (and keeps it while it shows): the whole page when it is gone, the content when not
     if (st.tab === 0 && cv.target && act.wake) {
-        const rx = railMode && !on ? -UI.RAIL : 0, eh = railMode ? UI.bottom() + 20 : UI.H;
+        const rx = railMode && !on ? -UI.railW() : 0, eh = railMode ? UI.bottom() + 20 : UI.H;
         cv.target(rx, on ? T : 0, UI.W - rx, on ? eh - T : eh, act.wake, 'sbwake', 0);
     }
 }
@@ -138,7 +138,7 @@ function pageClock(cv, v, st) {
     const tt = M.timeText(now, st.settings.clock);
     const sl = M.digitSlots(tt.text, (ch) => cv.textWidth(ch, CLOCK_SIZE, { font: 'num' }), 4);
     // the centre of what shows: with the side menu gone the clock moves to the middle of the whole screen
-    const cxs = UI.W / 2 - (UI.railOn && UI.railOn(cv) ? (UI.RAIL / 2) * (1 - UI.railShown()) : 0);
+    const cxs = UI.W / 2 - (UI.railOn && UI.railOn(cv) ? (UI.railW() / 2) * (1 - UI.railShown()) : 0);
     const x0 = Math.round(cxs - sl.w / 2);
     clockDy = UI.railOn && UI.railOn(cv) ? Math.round((UI.bottom() - 504) / 2) : 0;
     sl.slots.forEach((s) => digit(cv, s.ch, x0 + s.x, Math.round(s.w), big));

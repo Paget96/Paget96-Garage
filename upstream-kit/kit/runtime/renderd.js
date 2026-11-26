@@ -36,7 +36,7 @@ const E = { READY: 101, TICK: 102, ERROR: 103, STATS: 104, CCU: 105 };
 const CLAIM = 9, TOUCH = 105, CLOSED = 106;
 // mgu-render/1 (mgu-store native/mgu-render/PROTOCOL.md)
 const X = { MODE: 0x4d520001, GRAB: 0x4d520002, READY: 0x4d520101, STATE: 0x4d520102, CCU: 0x4d520103 };
-const X_MODE_LAYER = 1;
+const X_MODE_LAYER = 1, X_MODE_EMBED = 2;
 
 function msg(type, payload) {
     const len = payload ? payload.length : 0;
@@ -214,6 +214,9 @@ class RenderClient extends EventEmitter {
                 const caps = p.readUInt32LE(8);
                 this.native = true;
                 this.info = { touch: !!(caps & 1), controller: !!(caps & 2), frontGate: !!(caps & 4) };
+                // the modes offered now (bit 0 layer, bit 1 embed) and the embed box (PROTOCOL.md X_READY)
+                this.modes = p.readUInt32LE(4);
+                this.embedBox = p.length >= 28 ? { x: p.readInt32LE(12), y: p.readInt32LE(16), w: p.readInt32LE(20), h: p.readInt32LE(24) } : null;
                 // the app area (where the HMI leaves room for apps, in screen px): after the embed box
                 this.area = p.length >= 44 ? { x: p.readInt32LE(28), y: p.readInt32LE(32), w: p.readInt32LE(36), h: p.readInt32LE(40) } : null;
             } else if (type === E.READY) {
@@ -222,7 +225,14 @@ class RenderClient extends EventEmitter {
                 this.touch = p.length >= 16 && p.readUInt32LE(12) !== 0;
                 this.log.info('renderd: connected, screen ' + this.screen.w + 'x' + this.screen.h +
                     (this.native ? ', mgu-render/1 ' + JSON.stringify(this.info) : this.opts.native ? ', upstream dialect (no mgu-render/1)' : ''));
-                if (this.native) this._write(this._u32msg(X.MODE, [X_MODE_LAYER]));
+                if (this.native) {
+                    // Paget96 Garage: embed (drawn inside the app's HMI page, under its title bar and popups, as the MGU
+                    // Store does) where the app asks for it and the renderer offers it; layer otherwise
+                    const eb = this.embedBox;
+                    this.mode = this.opts.embed && (this.modes & 2) && eb && eb.w > 0 && eb.h > 0 ? 'embed' : 'layer';
+                    this._write(this._u32msg(X.MODE, [this.mode === 'embed' ? X_MODE_EMBED : X_MODE_LAYER]));
+                    this.log.info('renderd: ' + this.mode + (this.mode === 'embed' ? ' ' + eb.w + 'x' + eb.h + ' at ' + eb.x + ',' + eb.y : ''));
+                }
                 else if (this.grabbing && this.opts.native) this._write(this._u32msg(M.GRAB, [1]));
                 this.emit('ready', this.screen);
                 // after the app's placement (sent in 'ready'): SHOW again. A SHOW sent before the renderer

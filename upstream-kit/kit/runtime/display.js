@@ -180,7 +180,8 @@ class Display {
     _startGpu(file) {
         // mgu-render/1 for every app that draws no pixel images (Doom: "chrome": false)
         const native = this.screen.chrome !== false && process.env.MGU_RENDERD_PROTO !== 'upstream';
-        const gpu = this.gpu = new RenderClient(this.spec.id, this.log, Object.assign({ native }, file ? { file } : {}));
+        const embed = !!(this.spec.screens || []).some((s) => s.embed);
+        const gpu = this.gpu = new RenderClient(this.spec.id, this.log, Object.assign({ native, embed }, file ? { file } : {}));
         gpu.on('ready', () => { if (this.gpu !== gpu) return; this._place(); this._syncVisible(); this._grab(); });
         gpu.on('tick', () => { if (this.gpu === gpu) { this.tickT = Date.now(); this.tickHandlers.forEach((fn) => fn()); } });
         gpu.on('close', () => { if (this.gpu === gpu) { clearTimeout(this.frontTimer); this.blocked = false; this._lost(); } });
@@ -529,6 +530,10 @@ class Display {
         // the header as far as the HMI's status corner shows through it (iDrive 7); iDrive 8 has none in the
         // app's area: the whole row is the app's, as a tap there must not count as the HMI's (mgu-render closes)
         const he = HMI.status.h ? this.headEnd : W;
+        if (this.own() && FULL.bare && pl.embed) {
+            this.gpu.claim([{ x: 0, y: 0, w: pl.w, h: pl.h }].map(logical));
+            return;
+        }
         if (this.own() && FULL.bare && HMI.status.h) {
             // no header: the page under the status strip; the strip and the back column stay the HMI's
             this.gpu.claim([{ x: hx, y: HMI.status.h, w: W - hx, h: pl.h - HMI.status.h }].map(logical));
@@ -626,7 +631,13 @@ class Display {
             }
         }
         const B = FULL.bare;
-        if (B && pl.full && HMI.status.h) {
+        if (B && pl.full && this.gpu.mode === 'embed' && this.gpu.embedBox) {
+            // embed: the frame is the HMI page's box (under the HMI's own title bar); the rail and the page fill it
+            const eb = this.gpu.embedBox, s = Math.floor(eb.w / (PAGE.w + (B.rail || 0)) * 1000) / 1000;
+            pl = { x: eb.x, y: eb.y, w: eb.w, h: eb.h, full: true, embed: true, scale: s,
+                ox: Math.round((B.rail || 0) * s), oy: Math.round(PAGE_GAP - (B.top || 0) * s) };
+            pl.extra = Math.max(0, Math.floor((eb.h - PAGE_GAP - pl.oy) / s - PAGE.h));
+        } else if (B && pl.full && HMI.status.h) {
             // the page fills the area under the status strip: as wide as the screen allows with the rail beside it
             const top = HMI.status.h, aw = pl.w - HMI.left;
             const s = Math.floor(aw / (PAGE.w + (B.rail || 0)) * 1000) / 1000;
@@ -931,8 +942,10 @@ class Display {
             c.strokeRoundRect(fx - 8, fy - 8, fw + 16, fh + 16, fr + 8, 6, G.withAlpha(S, 0.55));
             c.strokeRoundRect(fx - 4, fy - 4, fw + 8, fh + 8, fr + 4, 2.5, '#ffffff');
         }
-        c.clip(0, 0, W, HMI.status.h).clear(0).noclip();
-        if (hx > 0) c.clip(0, 0, hx, HMI.colEnd - pl.y).clear(0).noclip();
+        if (!pl.embed) {
+            c.clip(0, 0, W, HMI.status.h).clear(0).noclip();
+            if (hx > 0) c.clip(0, 0, hx, HMI.colEnd - pl.y).clear(0).noclip();
+        }
         r.xf(1, 0, 0).append(c).xf();
     }
 

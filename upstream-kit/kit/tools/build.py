@@ -299,6 +299,10 @@ def build_ui(spec, language='en', hmi='ID7'):
         # settings: the wide state (full screen width), as BMW's own settings lists
         # menu: an app's own main menu (buttons, then its settings), in the same wide state
         widget = 'LT_State_Laptimer' if kind == 'canvas' else 'LT_State_Wide' if kind in ('settings', 'menu') else 'LT_State_Regular_ContentHidden'
+        # embed (iDrive 7): the A4A page state, which mgu-render-hmi turns into an app box the HMI keeps still
+        # (no status-bar overlay flipping between full and normal), as the MGU Store does
+        if kind == 'canvas' and scr.get('embed'):
+            widget = 'LT_State_A4A_WelcomeApp'
         if id8:
             widget = STATE8
         cont = {'type': 'state', 'name': scr['name'], 'components': {}}
