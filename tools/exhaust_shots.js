@@ -96,6 +96,16 @@ function reset() {
     regenNow = false; caps = CAR ? M.capsForCar(CAR) : M.ALL_CAPS;
     UI.closeInfo();
 }
+/** Every control gets its own tap: the first target under the centre of each one is that one (owner 2026-11-26 20:23:
+ * on the car a card's info target took every tap). */
+function reachable(rec, name) {
+    rec.targets.forEach((q) => {
+        const cx = q.x + q.w / 2, cy = q.y + q.h / 2;
+        const hit = rec.targets.find((t) => cx >= t.x && cx < t.x + t.w && cy >= t.y && cy < t.y + t.h);
+        if (/^p96tab/.test(q.key)) return;   // the tab bar's own scroll and tap handling is checked in tests/tabs.test.js
+        if (hit !== q && hit && hit.key !== q.key) throw new Error(name + ': a tap on ' + q.key + ' goes to ' + hit.key);
+    });
+}
 function shot(name, setup, check) {
     reset(); settle(300);
     setup();
@@ -103,6 +113,7 @@ function shot(name, setup, check) {
     const rec = frame();
     png(rec, path.join(out, name + '.png'));
     if (check) check(rec);
+    reachable(rec, name);
     shots.push(name);
     return rec;
 }
