@@ -1,0 +1,17 @@
+{
+  "repo": "https://github.com/cauliflowermossgrape/idrive7-apps",
+  "commit": "54f9f74890d6653d0cf9bd5d505fa58901f25073",
+  "date": "2026-11-26T15:10:23+01:00",
+  "paths": [
+    "LICENSE",
+    "kit/runtime",
+    "kit/platform",
+    "kit/localization",
+    "kit/tools/build.py",
+    "kit/tools/pack_data.py",
+    "kit/tools/localize.py",
+    "kit/tools/locale-revisions.json",
+    "kit/tools/oapgen",
+    "kit/tools/make_icon.js"
+  ]
+}
