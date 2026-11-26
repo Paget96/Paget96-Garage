@@ -1,0 +1,25 @@
+name: check
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '8'
+      - name: Docs, icons and dashes
+        run: python tools/check_docs.py
+      - name: Node 8 syntax
+        run: for f in lib/*.js tools/*.js $(ls apps/*/*.js 2>/dev/null); do node --check "$f" || exit 1; done
+      - name: Garage UI renders
+        run: node tools/ui_demo.js /tmp/ui-demo.png
+      - name: Python 3.12 syntax
+        run: python -m py_compile tools/*.py
+      - name: Icon tool
+        run: pip install pillow && python tools/make_icon.py clock /tmp/icon.png
