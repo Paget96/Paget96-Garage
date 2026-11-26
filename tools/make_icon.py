@@ -146,8 +146,28 @@ def _log(d, c, s, w, col, acc):
     d.ellipse([x - w * 1.1, y - w * 1.1, x + w * 1.1, y + w * 1.1], fill=acc)
 
 
+def _datalog(d, c, s, w, col, acc):
+    # Datalog: a stopwatch over a rising line chart (a run, its time and its log)
+    r = s * 0.62
+    sx, sy = c - s * 0.18, c - s * 0.22
+    d.ellipse([sx - r, sy - r, sx + r, sy + r], outline=col, width=w)
+    # the crown and the button
+    d.line([sx, sy - r - w * 0.4, sx, sy - r - s * 0.2], fill=col, width=w)
+    d.line([sx - s * 0.16, sy - r - s * 0.24, sx + s * 0.16, sy - r - s * 0.24], fill=col, width=w)
+    for x, y in ((sx - s * 0.16, sy - r - s * 0.24), (sx + s * 0.16, sy - r - s * 0.24), (sx, sy - r - s * 0.2)):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
+    a = math.radians(-55)
+    d.line([sx, sy, sx + r * 0.62 * math.cos(a), sy + r * 0.62 * math.sin(a)], fill=acc, width=w)
+    d.ellipse([sx - w * 0.8, sy - w * 0.8, sx + w * 0.8, sy + w * 0.8], fill=col)
+    # the chart: a rising line in amber with round joins and ends, along the bottom right
+    pts = [(c - s * 1.0, c + s * 0.95), (c - s * 0.35, c + s * 0.72), (c + s * 0.25, c + s * 0.8), (c + s * 0.95, c + s * 0.1)]
+    d.line(pts, fill=acc, width=w, joint='curve')
+    for x, y in pts:
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=acc)
+
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog}
 
 
 def glyph_layer(name):

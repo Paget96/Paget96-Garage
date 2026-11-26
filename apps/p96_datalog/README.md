@@ -1,59 +1,73 @@
 # Datalog
 
-Datalog records every pull. It times each run from a standstill, keeps the boost the engine made
-against the boost it asked for, the intake, charge air and exhaust temperatures, and the air the run
-was made in, so two runs on different days can be compared fairly. Everything comes from the car and
-the engine unit; Datalog only reads.
+Part of [Paget96 Garage](../../README.md), by Danijel Markov (Paget96).
 
-![Datalog working](../../docs/media/p96_datalog/datalog.gif)
+Your car's strip day in one app. Datalog times 201 m, 402 m and 1/2 mile runs from a standstill, with 0 to 100 km/h,
+60 to 100 km/h, 201 m, the trap speed and your reaction, and corrects every time to standard air (SAE J1349) so runs
+on different days compare fairly. Next to that: a dyno sheet from a full throttle pull, the boost, the three air
+temperatures from the mirror to the throttle, the tyres from cold to hot, the fluids, a log of every run and two runs
+side by side.
+
+Datalog shows only what your car reports: a page, card, chart line or setting appears once your car has sent that
+value (remembered for this car). Demo data shows everything.
+
+![Datalog working](../../docs/media/p96_datalog/demo.gif)
+
+![Datalog explained: the boost popup and How to use](../../docs/media/p96_datalog/explain.gif)
 
 | Page | Screenshot |
 |---|---|
-| Now | ![](../../docs/media/p96_datalog/now.png) |
-| Runs | ![](../../docs/media/p96_datalog/runs.png) |
-| Correction | ![](../../docs/media/p96_datalog/correction.png) |
-| Boost | ![](../../docs/media/p96_datalog/boost.png) |
-| Tyres | ![](../../docs/media/p96_datalog/tyres.png) |
-| Temps | ![](../../docs/media/p96_datalog/temps.png) |
-| Log | ![](../../docs/media/p96_datalog/log.png) |
-| Compare | ![](../../docs/media/p96_datalog/compare.png) |
+| Now: boost, the air, the run, oil and gearbox | ![](../../docs/media/p96_datalog/now.png) |
+| Runs: the last run and every run today | ![](../../docs/media/p96_datalog/runs.png) |
+| Dyno: power and torque over the rev range | ![](../../docs/media/p96_datalog/dyno.png) |
+| Correction: three air temperatures, pressure, the SAE factor | ![](../../docs/media/p96_datalog/correction.png) |
+| Tyres: pressure and temperature, cold to hot | ![](../../docs/media/p96_datalog/tyres.png) |
+| Boost: manifold minus outside, target and peak | ![](../../docs/media/p96_datalog/boost.png) |
+| Temps: oil, coolant, gearbox, air, exhaust, 10 minutes | ![](../../docs/media/p96_datalog/temps.png) |
+| Log: sessions and their runs | ![](../../docs/media/p96_datalog/log.png) |
+| Log: a run opened | ![](../../docs/media/p96_datalog/log-run.png) |
+| Compare: two runs, every split, boost, charge air, the air | ![](../../docs/media/p96_datalog/compare.png) |
+| Info popup: boost, animated | ![](../../docs/media/p96_datalog/popup-boost.png) |
+| Info popup: charge air, the air path | ![](../../docs/media/p96_datalog/popup-charge.png) |
+| Info popup: the dyno sheet | ![](../../docs/media/p96_datalog/popup-dyno.png) |
 | How to use | ![](../../docs/media/p96_datalog/help.png) |
 | Settings | ![](../../docs/media/p96_datalog/settings.png) |
-| Card info | ![](../../docs/media/p96_datalog/popup.png) |
 
-## Pages
+The screenshots and GIFs come from the upstream emulator (the car's own draw engine) on demo data.
 
-- **Now:** boost against the target, the run in progress, the air and the temperatures at a glance.
-- **Runs:** every saved run with its time, trap speed and the air it was made in. Tap a run to compare it with the best one.
-- **Correction:** the SAE J1349 correction factor and the density altitude from the intake temperature and the outside air pressure.
-- **Boost:** the last minute of boost and target, and how far the engine fell short.
-- **Tyres:** pressure and temperature of each tyre against the hot target.
-- **Temps:** oil, coolant, gearbox, intake, charge air and exhaust, each against its own limits.
-- **Log:** what happened, in order: runs, heat soak, demo on or off.
-- **Compare:** speed over time for the best run and the chosen one, with the difference at each split.
+**What it reads from the car.** Only reads, never writes. From the car's own broadcasts: speed, engine speed, engine
+torque, the gear, oil and coolant temperature, the gearbox oil temperature, the outside temperature (mirror sensor) and
+the tyre pressures and temperatures (TPMS). From the engine unit, with read requests only (UDS 22, through the kit's
+read only diagnostic link) and only while Datalog's screen is shown: the intake air after the filter, the charge air
+before the throttle, the intake manifold pressure, the outside air pressure, the boost target, the engine's own torque
+figure, the accelerator pedal and the exhaust gas temperature model. When Datalog is not on the screen nothing goes on
+the bus; runs are still timed from the broadcasts.
 
-Every card has an (i) that explains it, and How to use walks through the app.
+**How it works out the numbers.**
 
-## What it reads from the car
+- Times start when the car moves (0.5 km/h), so the reaction (throttle to moving) is shown on its own. Crossing
+  moments are worked out between speed samples, so they do not depend on how often the car sends speed.
+- Weather correction: SAE J1349 from the intake air temperature and the outside pressure at the launch, as dry air.
+  Distances are corrected by the cube root of the factor, speed windows by the factor, the trap speed the other way.
+  The raw time is always shown next to the corrected one.
+- Boost = intake manifold pressure minus the outside pressure, so it is below zero (vacuum) at idle.
+- Dyno: a pull is full throttle in one gear (2nd or higher) with the rpm climbing over at least 1 500 rpm. Torque is
+  the engine unit's own figure; power = torque x rpm / 7 121 (hp). Both corrected to standard air.
 
-Speed, engine speed, oil and coolant temperature (CDS, Vehicle2), the outside temperature, the gearbox
-oil temperature and the tyre pressures and temperatures. From the engine unit (DME) it reads the boost
-pressure and its setpoint, the outside air pressure, the intake and charge air temperatures and the
-catalyst temperature, through the kit's read-only link, which refuses any request that is not a read.
-The identifiers are in `app.json` (`config.dme`), BMW's own first and the standard OBD ones after them;
-add your engine's identifier at the top of a list if a card stays empty.
+**Limits.**
 
-## Limits
+- The dyno sheet is an estimate at the engine from the engine unit's own torque figure: not a real dyno, and not at
+  the wheels (where 10 to 15 % less arrives).
+- The car reports no humidity, so the correction treats the air as dry. A turbo engine makes up some of the thin air
+  itself, so the correction overstates its loss up high.
+- The engine unit values are read only while the screen is shown, so a run timed with Datalog in the background has
+  no boost or air trace.
+- The exhaust gas temperature is the engine unit's model, not a sensor, and not every engine has it.
+- The identifiers are those of the B38, B48 and B58 engine units (G series); another engine may answer some of them
+  or none. Not tried on a car yet: tested with demo data in the PC preview and the emulator. ID7 head units only.
 
-- Runs are timed from the car's speed signal, not GPS: good for comparing runs on one car, not a timeslip.
-- The exhaust value is the engine's catalyst model, not a sensor in the manifold.
-- Values the engine unit does not answer stay empty; the rest of the app works without them.
-- Runs are kept on the head unit (the last 30), in the app's data folder.
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+Follow ambient lighting, Demo data. Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
+mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
+and Units (metric or imperial).
 
-## Settings
-
-- **Renderer, Frame rate, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app.
-- **Run length:** 201 m or 402 m.
-- **Corrected times:** show run times corrected to standard air.
-- **Boost mark:** the target line on the Boost page when the engine sends no setpoint.
-- **Tyre target (hot):** the pressure the Tyres page compares each tyre with.

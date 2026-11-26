@@ -2,192 +2,314 @@
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
 /**
- * Datalog's illustrations: each is draw(cv, x, y, w, h, t), t in seconds, called every frame by the info
- * popup and the How to use page, so they animate. Own drawings only (no BMW artwork).
+ * Datalog illustrations: the animations on the left of every info popup and in the middle of How to use.
+ * Each is draw(cv, x, y, w, h, t) with t in seconds, so it moves. Data colours are fixed (never the accent).
+ * Every line has round ends (cv.line and stroke draw round caps).
  */
-function ui() {
-    try { return require('./garage_ui'); }              // inside a built app
-    catch (e) { return require('../../lib/ui'); }        // in the repo
+function lib() {
+    try { return require('./garage_ui'); }                     // inside a built app
+    catch (e) { return require('../../lib/ui'); }             // in the repo (tests, previews)
 }
-const UI = ui();
+const UI = lib();
 const C = UI.C;
-const GREY = '#969ea8', LINE = '#6e7480', DARK = '#30343c';
-const lit = { align: 'center', literal: true };
-const ease = (p) => p * p * (3 - 2 * p);
+const GREY = '#969ea8', DIMLINE = '#6e7480', TRACK = '#30343c';
+const lbl = (cv, s, x, y, c, size, bold) => cv.text(s, x, y, size || 14, c || C.dim, { align: 'center', literal: true, font: bold ? 'bold' : 'label' });
+const ease = (f) => f * f * (3 - 2 * f);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-/** Air path: filter, turbo, intercooler, throttle, engine, the air moving and changing colour, the three sensors. */
-function airPath(cv, x, y, w, h, t) {
-    const cy = y + h / 2 - 10, x0 = x + 70, x1 = x + w - 70;
-    cv.line(x0, cy, x1 - 40, cy, 26, DARK);
-    const at = (f) => x0 + (x1 - x0) * f;
-    cv.strokeRoundRect(at(0.1) - 25, cy - 35, 50, 70, 10, 3, GREY);
-    for (let k = 0; k < 4; k++) cv.line(at(0.1) - 17 + k * 11, cy - 28, at(0.1) - 17 + k * 11, cy + 28, 2, LINE);
-    cv.arc(at(0.33), cy, 36, 39, 0, 360, GREY);
-    for (let k = 0; k < 5; k++) {
-        const a = t * 12 + k * 1.2566;
-        cv.line(at(0.33), cy, at(0.33) + 26 * Math.cos(a), cy + 26 * Math.sin(a), 3, GREY);
-    }
-    cv.strokeRoundRect(at(0.56) - 35, cy - 45, 70, 90, 10, 3, GREY);
-    for (let k = 0; k < 6; k++) cv.line(at(0.56) - 29, cy - 36 + k * 14, at(0.56) + 29, cy - 36 + k * 14, 2, '#5a8cc8');
-    cv.line(at(0.75), cy - 18, at(0.75), cy + 18, 4, GREY);
-    cv.circle(at(0.75), cy, 6, GREY);
-    cv.strokeRoundRect(at(0.93) - 40, cy - 45, 80, 90, 14, 3, GREY);
-    for (let i = 0; i < 14; i++) {
-        const f = (t * 0.6 + i / 14) % 1, px = x0 + f * (at(0.9) - x0);
-        cv.circle(px, cy, 5, px < at(0.33) ? C.blue : px < at(0.56) ? '#ff6e3c' : '#d2c896');
-    }
-    const pulse = 0.5 + 0.5 * Math.sin(t * 6.28);
-    [[x0 - 30, C.blue, 'outside', 0], [at(0.2), C.green, 'intake', 0], [at(0.66), C.amber, 'charge air', 1]].forEach((s) => {
-        if (s[3]) cv.circle(s[0], cy - 40, 12 + 8 * pulse, [255, 186, 70, Math.round(40 + 90 * (1 - pulse))]);
-        cv.line(s[0], cy - 28, s[0], cy - 12, 3, s[1]);
-        cv.circle(s[0], cy - 40, 8, s[1]);
-        cv.text(s[2], s[0], cy - 60, 14, s[1], { font: 'bold', align: 'center', literal: true });
+/* ---------- the air path: filter, turbo, intercooler, throttle, engine ---------- */
+
+/**
+ * The air on its way into the engine, with the sensors along it. focus: 'outside' (the mirror sensor), 'intake'
+ * (after the filter), 'charge' (before the throttle) or 'all': that sensor pulses.
+ */
+function airPath(focus) {
+    return function (cv, x, y, w, h, t) {
+        const cy = y + h / 2 + 10, x0 = x + 80, x1 = x + w - 60;
+        const at = (f) => x0 + (x1 - x0) * f;
+        cv.line(x0, cy, at(0.9), cy, 26, TRACK);
+        // filter
+        cv.strokeRoundRect(at(0.1) - 25, cy - 35, 50, 70, 10, 3, GREY);
+        for (let k = 0; k < 4; k++) cv.line(at(0.1) - 17 + k * 11, cy - 28, at(0.1) - 17 + k * 11, cy + 28, 2, DIMLINE);
+        // turbo, spinning
+        cv.arc(at(0.33), cy, 36, 39, 0, 360, GREY);
+        for (let k = 0; k < 5; k++) {
+            const a = t * 12 + k * 1.2566;
+            cv.line(at(0.33), cy, at(0.33) + 26 * Math.cos(a), cy + 26 * Math.sin(a), 3, GREY);
+        }
+        // intercooler
+        cv.strokeRoundRect(at(0.56) - 35, cy - 45, 70, 90, 10, 3, GREY);
+        for (let k = 0; k < 6; k++) cv.line(at(0.56) - 29, cy - 36 + k * 14, at(0.56) + 29, cy - 36 + k * 14, 2, '#5a8cc8');
+        // throttle, opening and closing a little
+        const th = 0.5 + 0.5 * Math.sin(t * 1.3);
+        cv.line(at(0.75) - 14 * th, cy - 18, at(0.75) + 14 * th, cy + 18, 4, GREY);
+        cv.circle(at(0.75), cy, 6, GREY);
+        // engine
+        cv.strokeRoundRect(at(0.93) - 40, cy - 45, 80, 90, 14, 3, GREY);
+        cv.arc(at(0.93) - 16, cy - 14, 8, 10, 0, 360, DIMLINE); cv.arc(at(0.93) + 16, cy - 14, 8, 10, 0, 360, DIMLINE);
+        // the air: cool before the turbo, hot after it, cooler after the intercooler
+        for (let i = 0; i < 16; i++) {
+            const f = (t * 0.5 + i / 16) % 1, px = x0 + f * (at(0.9) - x0);
+            const c = px < at(0.33) ? C.blue : px < at(0.56) ? '#ff6e3c' : '#d2c896';
+            cv.circle(px, cy, 5, c);
+        }
+        // the sensors
+        const pulse = 0.5 + 0.5 * Math.sin(t * 6.28);
+        const sensors = [
+            ['outside', x0 - 30, y + 46, C.blue, 'mirror sensor'],
+            ['intake', at(0.2), cy - 40, C.green, 'intake'],
+            ['charge', at(0.66), cy - 40, C.amber, 'charge air'],
+        ];
+        sensors.forEach((s) => {
+            const on = focus === s[0] || focus === 'all';
+            if (on) cv.circle(s[1], s[2], 12 + 9 * pulse, [255, 255, 255, Math.round(25 + 50 * (1 - pulse))]);
+            if (s[0] !== 'outside') cv.line(s[1], s[2] + 12, s[1], cy - 12, 3, s[3]);
+            cv.circle(s[1], s[2], on ? 9 : 7, s[3]);
+            lbl(cv, s[4], s[1], s[2] - 20, s[3], 14, on);
+        });
+        // the mirror: a little housing at the top left, the outside air around it
+        cv.strokeRoundRect(x0 - 60, y + 30, 40, 30, 10, 2.5, GREY);
+        [[0.1, 'filter'], [0.33, 'turbo'], [0.56, 'intercooler'], [0.75, 'throttle'], [0.93, 'engine']].forEach((p) => lbl(cv, p[1], at(p[0]), cy + 72, C.dim, 13));
+        lbl(cv, 'air in', x0 - 30, cy + 5, C.blue, 13);
+    };
+}
+
+/* ---------- small gauge (for the boost popup) ---------- */
+
+function miniGauge(cv, cx, cy, r, v, min, max, col, name, scale) {
+    const a0 = -135, span = 270, ang = (val) => a0 + span * clamp((val - min) / (max - min), 0, 1);
+    cv.arc(cx, cy, r - 7, r + 7, a0, a0 + span, TRACK, { round: true });
+    cv.arc(cx, cy, r - 7, r + 7, a0, ang(v), col, { round: true });
+    scale.forEach((s) => {
+        const a = ang(s) * Math.PI / 180, px = cx + Math.sin(a) * (r + 24), py = cy - Math.cos(a) * (r + 24);
+        cv.text(String(s), px, py + 4, 12, C.dim, { align: 'center', literal: true });
     });
-    [[0.1, 'filter'], [0.33, 'turbo'], [0.56, 'intercooler'], [0.75, 'throttle'], [0.93, 'engine']].forEach((p) =>
-        cv.text(p[1], at(p[0]), cy + 72, 13, C.dim, lit));
+    cv.text(v.toFixed(2), cx, cy + 10, 30, C.text, { align: 'center', font: 'num', literal: true });
+    cv.text('bar', cx, cy + 32, 13, C.dim, { align: 'center', literal: true });
+    lbl(cv, name, cx, cy + r + 34, col, 16, true);
 }
 
-/** A round gauge for the boost popup: label, value, a needle over min..max. */
-function gauge(cv, cx, cy, r, v, min, max, label, unit, c) {
-    cv.arc(cx, cy, r - 5, r + 5, -135, 135, DARK, { round: true });
-    const f = clamp((v - min) / (max - min), 0, 1), a = -135 + 270 * f;
-    if (f > 0.01) cv.arc(cx, cy, r - 5, r + 5, -135, a, c, { round: true });
-    cv.text(v.toFixed(2), cx, cy + 8, 26, C.text, { font: 'num', align: 'center', literal: true });
-    cv.text(unit, cx, cy + 30, 13, C.dim, lit);
-    cv.text(label, cx, cy + r + 28, 14, c, { font: 'bold', align: 'center', literal: true });
-}
-/** Idle (vacuum) to full throttle: outside, manifold and boost = manifold minus outside, then a mountain road. */
+/**
+ * Boost explained: outside air into the turbo, packed tighter into the manifold; three gauges outside - manifold
+ * = boost. The throttle goes idle (vacuum) - opening - full and back.
+ */
 function boostArt(cv, x, y, w, h, t) {
-    const p = (t % 8) / 8, hill = p > 0.55, k = hill ? ease(clamp((p - 0.55) / 0.2, 0, 1)) : 0;
-    const thr = hill ? 1 : ease(clamp((p - 0.1) / 0.3, 0, 1));
-    const out = 1.01 - 0.2 * k, man = 0.35 + (2.43 - 0.35) * thr - (hill ? 0 : 0), boost = man - out;
-    const cy = y + h / 2 - 20, r = 62;
-    gauge(cv, x + w * 0.2, cy, r, out, 0, 3, 'outside', 'bar abs', C.blue);
-    gauge(cv, x + w * 0.5, cy, r, man, 0, 3, 'manifold', 'bar abs', C.text);
-    gauge(cv, x + w * 0.8, cy, r, boost, -1, 2, 'boost', 'bar', C.orange);
-    cv.text('-', x + w * 0.35, cy + 8, 30, C.dim, lit);
-    cv.text('=', x + w * 0.65, cy + 8, 30, C.dim, lit);
-    // throttle pedal
-    const py = y + h - 54;
-    cv.text(hill ? 'up a mountain: thinner air outside, the same manifold pressure, more boost' : thr < 0.05 ? 'idle: the throttle is shut, vacuum in the manifold' : 'full throttle: the turbo pushes air in',
-        x + w / 2, py + 34, 15, hill ? C.amber : C.dim, lit);
-    UI.bar(cv, x + 120, py, w - 240, 12, thr, C.orange);
-    cv.text('pedal', x + 80, py + 11, 13, C.dim, lit);
+    const ph = t % 8, f = ph < 2 ? 0 : ph < 3.5 ? ease((ph - 2) / 1.5) : ph < 6.5 ? 1 : 1 - ease((ph - 6.5) / 1.5);
+    const outside = 1.01, manifold = 0.45 + f * (2.43 - 0.45), boost = manifold - outside;
+    // the tube: outside air (blue, spread out), the turbo, the manifold (orange, packed by the boost)
+    const ty = y + 66, tx0 = x + 40, tx1 = x + w - 40, tc = x + w * 0.44;
+    cv.roundRect(tx0, ty - 12, tx1 - tx0, 24, 12, '#262a32');
+    for (let i = 0; i < 8; i++) {
+        const px = tx0 + 18 + ((i * 28 + t * 40) % (tc - 40 - tx0));
+        cv.circle(px, ty, 4.5, C.blue);
+    }
+    const gap = 28 - 16 * f, n = Math.floor((tx1 - tc - 50) / gap);
+    for (let i = 0; i < n; i++) {
+        const px = tc + 40 + ((i * gap + t * (40 + 60 * f)) % (n * gap));
+        cv.circle(px, ty, 4.5, C.orange);
+    }
+    cv.circle(tc, ty, 32, '#1a1c22');
+    cv.arc(tc, ty, 30, 33, 0, 360, GREY);
+    for (let k = 0; k < 5; k++) {
+        const a = t * (3 + 14 * f) + k * 1.2566;
+        cv.line(tc, ty, tc + 22 * Math.cos(a), ty + 22 * Math.sin(a), 3, GREY);
+    }
+    lbl(cv, 'outside air', (tx0 + tc - 32) / 2, ty + 40, C.blue, 14);
+    lbl(cv, 'turbo', tc, ty + 52, C.dim, 14);
+    lbl(cv, f > 0.5 ? 'manifold (packed tighter)' : 'manifold (throttle closed: thinner)', (tc + 32 + tx1) / 2, ty + 40, C.orange, 14);
+    // the three gauges
+    const gy = y + h - 130, gs = w / 3;
+    miniGauge(cv, x + gs * 0.5, gy, 52, outside, 0, 3, C.blue, 'outside', [0, 1.5, 3]);
+    miniGauge(cv, x + gs * 1.5, gy, 52, manifold, 0, 3, C.text, 'manifold', [0, 1.5, 3]);
+    miniGauge(cv, x + gs * 2.5, gy, 52, boost, -1, 2, C.orange, 'boost', [-1, 0.5, 2]);
+    cv.line(x + gs - 8, gy, x + gs + 8, gy, 4, C.dim);
+    cv.line(x + 2 * gs - 8, gy - 5, x + 2 * gs + 8, gy - 5, 4, C.dim);
+    cv.line(x + 2 * gs - 8, gy + 5, x + 2 * gs + 8, gy + 5, 4, C.dim);
+    const st = f < 0.05 ? 'idle: vacuum' : f > 0.95 ? 'full throttle' : 'opening';
+    lbl(cv, 'Throttle: ' + st, x + w / 2, y + h - 14, C.amber, 15, true);
 }
 
-/** A 402 m run: the timer counts, the car accelerates along a scale. */
+/* ---------- a run on the strip ---------- */
+
 function runArt(cv, x, y, w, h, t) {
-    const p = (t % 5) / 5, ph = clamp((p - 0.2) / 0.7, 0, 1), pos = ph * ph;
+    const p = (t % 5) / 5, ph = clamp((p - 0.22) / 0.7, 0, 1), pos = ph * ph;
     const tx0 = x + 42, tx1 = x + w - 46, ty = y + h - 86;
-    cv.line(tx0, ty, tx1, ty, 4, DARK);
+    cv.line(tx0, ty, tx1, ty, 4, TRACK);
     ['0', '100 m', '201 m', '300 m', '402 m'].forEach((l, k) => {
         const lx = tx0 + (tx1 - tx0) * k / 4;
         cv.line(lx, ty - 8, lx, ty + 8, 2, '#5a606a');
-        cv.text(l, lx, ty + 30, 13, C.dim, lit);
+        cv.text(l, lx, ty + 30, 13, C.dim, { align: 'center', literal: true });
     });
     const cx = tx0 + (tx1 - tx0) * pos, by = ty - 36;
     cv.roundRect(cx - 34, by + 4, 68, 26, 12, GREY);
     cv.roundRect(cx - 18, by - 12, 34, 20, 8, '#78808c');
     [cx - 20, cx + 20].forEach((wx) => { cv.circle(wx, by + 31, 9, GREY); cv.circle(wx, by + 31, 7, '#1e2026'); });
-    if (ph > 0 && ph < 1) for (let k = 0; k < 3; k++) cv.line(cx - 44 - k * 14, by + 12 + k * 6, cx - 58 - k * 14, by + 12 + k * 6, 3, C.orange);
-    const state = p < 0.2 ? 'READY' : ph < 1 ? 'RUNNING' : 'SAVED';
-    cv.text((12.84 * ph).toFixed(2) + ' s', x + w / 2, y + 86, 64, C.text, { font: 'num', align: 'center', literal: true });
-    cv.text(state, x + w / 2, y + 124, 18, p < 0.2 ? C.green : ph < 1 ? C.orange : C.blue, { font: 'bold', align: 'center', literal: true });
-    cv.text(Math.round(172.4 * Math.pow(ph, 0.6)) + ' km/h', x + w / 2, y + 156, 20, C.dim, lit);
+    if (ph > 0 && ph < 1) for (let k = 0; k < 3; k++) cv.line(cx - 44 - k * 14, by + 12 + k * 6, cx - 56 - k * 14, by + 12 + k * 6, 3, C.orange);
+    const armed = p < 0.16, throttle = p >= 0.16 && ph === 0;
+    const state = armed ? 'READY' : throttle ? 'THROTTLE' : ph < 1 ? 'RUNNING' : 'DONE';
+    cv.text((12.84 * ph).toFixed(2) + ' s', x + w / 2, y + 80, 64, C.text, { font: 'num', align: 'center', literal: true });
+    cv.text(state, x + w / 2, y + 120, 18, armed ? C.green : throttle ? C.amber : C.orange, { font: 'bold', align: 'center', literal: true });
+    cv.text(throttle ? 'reaction counts, the timer waits' : Math.round(172.4 * Math.pow(ph, 0.6)) + ' km/h', x + w / 2, y + 152, 18, C.dim, { align: 'center', literal: true });
 }
 
-/** Air density: the same box of air, cold and dense, then warm and thin; the correction factor moves. */
-function correctionArt(cv, x, y, w, h, t) {
-    const p = 0.5 + 0.5 * Math.sin(t * 0.9), temp = 5 + 35 * p, cf = 0.96 + 0.08 * p;
-    const bx = x + 60, by = y + 50, bw = w * 0.5, bh = h - 140;
-    cv.strokeRoundRect(bx, by, bw, bh, 18, 3, GREY);
-    const n = Math.round(60 - 26 * p);
-    for (let i = 0; i < n; i++) {
-        const sx = (Math.sin(i * 12.9898) * 43758.5453) % 1, sy = (Math.sin(i * 78.233) * 12345.678) % 1;
-        const jx = Math.sin(t * (1.5 + p * 3) + i) * 6, jy = Math.cos(t * (1.3 + p * 3) + i * 2) * 6;
-        cv.circle(bx + 20 + Math.abs(sx) * (bw - 40) + jx, by + 20 + Math.abs(sy) * (bh - 40) + jy, 5, p > 0.5 ? '#ff6e3c' : C.blue);
+/* ---------- speed over a run with its splits ---------- */
+
+function splitsArt(cv, x, y, w, h, t) {
+    const px = x + 70, py = y + 40, pw = w - 110, ph = h - 110, T = 13, V = 180;
+    for (let i = 0; i <= 3; i++) {
+        const gy = py + ph * i / 3;
+        cv.fillRect(px, gy, pw, 1, i === 3 ? '#3c4048' : '#262a32');
+        cv.text(String(V - i * 60), px - 10, gy + 5, 12, C.dim, { align: 'right', literal: true });
     }
-    cv.text('the same litre of air', bx + bw / 2, by + bh + 34, 14, C.dim, lit);
-    const rx = x + w * 0.64;
-    cv.text(Math.round(temp) + ' °C', rx + 80, y + 110, 40, C.text, { font: 'num', align: 'center', literal: true });
-    cv.text(p > 0.5 ? 'warm: less oxygen' : 'cool: more oxygen', rx + 80, y + 140, 15, p > 0.5 ? C.amber : C.green, lit);
-    cv.text('x ' + cf.toFixed(3), rx + 80, y + 230, 40, C.orange, { font: 'num', align: 'center', literal: true });
-    cv.text('correction factor', rx + 80, y + 260, 15, C.dim, lit);
-}
-
-/** Tyres: four tyres warming up, pressure rising toward the hot target. */
-function tyreArt(cv, x, y, w, h, t) {
-    const p = (t % 6) / 6, warm = ease(clamp(p / 0.8, 0, 1));
-    const cx = x + w / 2, cy = y + h / 2 - 10;
-    cv.roundRect(cx - 70, cy - 120, 140, 240, 50, '#262a31');
-    cv.strokeRoundRect(cx - 70, cy - 120, 140, 240, 50, 2, '#3c4048');
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach((q) => {
-        const tx = cx + q[0] * 105, ty = cy + q[1] * 75, c = UI.C.blue;
-        const col = warm < 0.5 ? c : warm < 0.9 ? C.green : C.amber;
-        cv.roundRect(tx - 18, ty - 34, 36, 68, 14, col);
-        const bar = (2.1 + 0.3 * warm).toFixed(2) + ' bar';
-        cv.text(bar, tx + q[0] * 90, ty + 6, 18, C.text, { font: 'bold', align: 'center', literal: true });
-        cv.text(Math.round(20 + 45 * warm) + ' °C', tx + q[0] * 90, ty + 30, 14, C.dim, lit);
+    cv.text('km/h', px - 10, py - 14, 12, C.dim, { align: 'right', literal: true });
+    ['0 s', '4 s', '8 s', '12 s'].forEach((s, i) => cv.text(s, px + pw * (i * 4) / T, py + ph + 22, 12, C.dim, { align: 'center', literal: true }));
+    const vAt = (s) => 172.4 * (1 - Math.exp(-s / 6.2)) / (1 - Math.exp(-12.84 / 6.2));
+    const k = (t % 6) / 5, upto = Math.min(1, k) * 12.84, pts = [];
+    for (let s = 0; s <= upto + 1e-6; s += 0.25) pts.push([px + pw * s / T, py + ph - ph * vAt(s) / V]);
+    if (pts.length > 1) UI.curve(cv, pts, 4, C.orange);
+    const marks = [[5.42, '0-100', C.blue], [8.31, '201 m', C.amber], [12.84, '402 m', C.green]];
+    marks.forEach((m) => {
+        if (upto < m[0]) return;
+        const mx = px + pw * m[0] / T, my = py + ph - ph * vAt(m[0]) / V;
+        cv.line(mx, my + 10, mx, py + ph, 2, m[2]);
+        cv.circle(mx, my, 7, m[2]);
+        cv.text(m[1] + '  ' + m[0].toFixed(2) + ' s', mx - 8, my - 16, 14, m[2], { align: 'right', font: 'bold', literal: true });
     });
-    cv.text(warm < 0.5 ? 'cold: pressure low' : warm < 0.9 ? 'warm: on target' : 'hot: over the target', cx, y + h - 20, 15, warm < 0.5 ? C.blue : warm < 0.9 ? C.green : C.amber, lit);
 }
 
-/** Temperatures: bars filling toward their working range, the ok zone marked. */
-function tempArt(cv, x, y, w, h, t) {
-    const p = ease(clamp((t % 6) / 4, 0, 1));
-    const rows = [['oil', 105, 140, C.green], ['coolant', 95, 130, C.green], ['gearbox', 85, 140, C.amber], ['charge air', 45, 90, C.amber]];
-    rows.forEach((r, i) => {
-        const ry = y + 70 + i * 74, v = 20 + (r[1] - 20) * p;
-        cv.text(r[0], x + 40, ry + 6, 16, C.text, { font: 'bold', literal: true });
-        UI.bar(cv, x + 170, ry - 6, w - 330, 14, v / r[2], v > r[1] * 0.9 ? r[3] : C.blue);
-        cv.text(Math.round(v) + ' °C', x + w - 60, ry + 6, 18, C.text, { font: 'num', align: 'right', literal: true });
-    });
-    cv.text(p < 1 ? 'warming up: wait before a run' : 'ready', x + w / 2, y + h - 22, 15, p < 1 ? C.amber : C.green, lit);
-}
+/* ---------- standard air against the air today ---------- */
 
-/** Two speed traces drawn side by side, the gap between them. */
-function compareArt(cv, x, y, w, h, t) {
-    const p = clamp((t % 5) / 4, 0, 1), px0 = x + 60, px1 = x + w - 40, py0 = y + 40, py1 = y + h - 70;
-    cv.fillRect(px0, py1, px1 - px0, 1.5, '#3c4048');
-    const pts = (k) => {
-        const out = [];
-        for (let i = 0; i <= 40 * p; i++) {
-            const s = i / 40 * 13, v = 230 * k * (1 - Math.exp(-s / 8.6));
-            out.push([px0 + (px1 - px0) * s / 13, py1 - (py1 - py0) * v / 200]);
+function correctionArt(cv, x, y, w, h, t) {
+    const bw = (w - 60) / 2, bh = h - 150, by = y + 50;
+    const boxes = [['standard air', '25 °C  99 kPa', 1.0, C.dim], ['your air now', '21 °C  97.9 kPa', 0.95, C.blue]];
+    boxes.forEach((b, i) => {
+        const bx = x + 20 + i * (bw + 20);
+        cv.strokeRoundRect(bx, by, bw, bh, 16, 2, '#3c4048');
+        lbl(cv, b[0], bx + bw / 2, by - 14, b[3], 15, true);
+        lbl(cv, b[1], bx + bw / 2, by + bh + 24, C.dim, 14);
+        const n = Math.round(40 * b[2]);
+        for (let k = 0; k < n; k++) {
+            const r1 = Math.sin(k * 12.9898) * 43758.5453, r2 = Math.sin(k * 78.233) * 12345.6789;
+            const fx = r1 - Math.floor(r1), fy = r2 - Math.floor(r2);
+            const dx = Math.sin(t * 1.5 + k) * 6, dy = Math.cos(t * 1.2 + k * 2) * 6;
+            cv.circle(bx + 18 + fx * (bw - 36) + dx, by + 18 + fy * (bh - 36) + dy, 5, i ? C.blue : '#78808c');
         }
-        return out;
+    });
+    const f = 0.5 + 0.5 * Math.sin(t * 1.2);
+    lbl(cv, 'factor x 1.0065: the time is shown as if the air were standard', x + w / 2, y + h - 34, C.amber, 15, true);
+    lbl(cv, 'thinner air = less oxygen = less power', x + w / 2, y + h - 12, f > 0.5 ? C.text : C.dim, 14);
+}
+
+/* ---------- outside pressure: lower up a mountain ---------- */
+
+function pressureArt(cv, x, y, w, h, t) {
+    const base = y + h - 60;
+    const hill = (f) => base - Math.max(0, Math.sin(f * Math.PI)) * (h - 150);
+    const pts = [];
+    for (let i = 0; i <= 40; i++) pts.push([x + 30 + (w - 60) * i / 40, hill(i / 40)]);
+    UI.curve(cv, pts, 4, '#5a606a');
+    const f = (t % 8) / 8, cf = f < 0.5 ? f * 2 : 2 - f * 2, carX = x + 30 + (w - 60) * cf * 0.5, carY = hill(cf * 0.5);
+    cv.roundRect(carX - 22, carY - 22, 44, 16, 7, GREY);
+    cv.circle(carX - 12, carY - 6, 6, GREY); cv.circle(carX + 12, carY - 6, 6, GREY);
+    const height = Math.round(Math.sin(cf * 0.5 * Math.PI) * 1800), hPa = 1013 * Math.pow(1 - height / 44330, 5.255);
+    cv.text(Math.round(hPa) + ' hPa', x + w - 40, y + 50, 40, C.blue, { align: 'right', font: 'num', literal: true });
+    cv.text('at ' + height + ' m', x + w - 40, y + 78, 15, C.dim, { align: 'right', literal: true });
+    for (let k = 0; k < 18; k++) {
+        const r1 = Math.sin(k * 12.9898) * 43758.5453, fx = r1 - Math.floor(r1), py = y + 30 + (k % 6) * 22;
+        if ((k % 6) / 6 < 0.35 + 0.6 * (1 - height / 1800)) cv.circle(x + 40 + fx * (w * 0.45), py + Math.sin(t + k) * 4, 4, [80, 170, 255, 150]);
+    }
+    lbl(cv, 'weather moves it a little, a mountain a lot', x + w / 2, y + h - 18, C.dim, 14);
+}
+
+/* ---------- tyres warming from cold to hot ---------- */
+
+function tyreArt(cv, x, y, w, h, t) {
+    const f = 0.5 - 0.5 * Math.cos(t * 0.8), cx = x + w / 2, cy = y + h / 2 - 6;
+    cv.strokeRoundRect(cx - 70, cy - 130, 140, 260, 60, 3, '#4a4e58');
+    cv.strokeRoundRect(cx - 45, cy - 60, 90, 70, 14, 2, '#3a3e48');
+    [[-1, -1, 'FL'], [1, -1, 'FR'], [-1, 1, 'RL'], [1, 1, 'RR']].forEach((p) => {
+        const tx = cx + p[0] * 98, ty = cy + p[1] * 78;
+        cv.roundRect(tx - 14, ty - 36, 28, 72, 14, f > 0.6 ? C.green : f > 0.3 ? C.amber : C.blue);
+        const pr = (p[2] === 'RL' ? 2.1 : 2.2) + f * 0.22, tc = 19 + f * 16;
+        const ax = cx + p[0] * 220;
+        cv.text(pr.toFixed(2) + ' bar', ax, ty - 4, 22, C.text, { align: 'center', font: 'bold', literal: true });
+        cv.text(Math.round(tc) + ' °C  ' + p[2], ax, ty + 22, 14, C.dim, { align: 'center', literal: true });
+    });
+    lbl(cv, f < 0.3 ? 'cold' : f > 0.7 ? 'hot: about 0.2 bar more' : 'warming', cx, y + h - 14, f > 0.7 ? C.green : C.amber, 16, true);
+}
+
+/* ---------- a temperature and its zones ---------- */
+
+/** A bar with the zones (warming, ok, warm, too hot) of a temperature kind, a marker sweeping over it. */
+function thermoArt(zones, unit, words) {
+    return function (cv, x, y, w, h, t) {
+        const bx = x + 50, bw = w - 100, by = y + h / 2 - 12, bh = 24, z = zones, min = z.cold != null ? z.cold - 40 : 0, max = z.max;
+        const X = (v) => bx + bw * clamp((v - min) / (max - min), 0, 1);
+        const seg = [];
+        if (z.cold != null) seg.push([min, z.cold, C.amber, words[0]]);
+        seg.push([z.cold != null ? z.cold : min, z.hot, C.green, words[1]], [z.hot, z.limit, C.amber, words[2]], [z.limit, max, C.red, words[3]]);
+        seg.forEach((s) => {
+            cv.roundRect(X(s[0]) + 2, by, Math.max(8, X(s[1]) - X(s[0]) - 4), bh, bh / 2, s[2]);
+            lbl(cv, s[3], (X(s[0]) + X(s[1])) / 2, by + bh + 30, s[2], 14, true);
+        });
+        [z.cold, z.hot, z.limit].forEach((v) => { if (v != null) lbl(cv, v + ' ' + unit, X(v), by - 16, C.dim, 13); });
+        const v = min + (max - min) * (0.5 - 0.5 * Math.cos(t * 0.7));
+        cv.line(X(v), by - 4, X(v), by + bh + 4, 6, C.text);
+        cv.text(Math.round(v) + ' ' + unit, X(v), by - 44, 30, C.text, { align: 'center', font: 'num', literal: true });
     };
-    const a = pts(1), b = pts(0.97);
-    if (a.length > 1) { UI.curve(cv, b, 4, C.blue); UI.curve(cv, a, 4, C.orange); }
-    cv.roundRect(px0, y + h - 40, 20, 6, 3, C.orange); cv.text('best', px0 + 28, y + h - 32, 15, C.dim, { literal: true });
-    cv.roundRect(px0 + 120, y + h - 40, 20, 6, 3, C.blue); cv.text('this run', px0 + 148, y + h - 32, 15, C.dim, { literal: true });
-    cv.text('+' + (0.18 * p).toFixed(2) + ' s', px1 - 10, y + h - 32, 18, C.amber, { font: 'bold', align: 'right', literal: true });
 }
 
-/** The log: lines arrive one by one, a dot blinks while it records. */
+/* ---------- the log: runs appear in a list, the best lit ---------- */
+
 function logArt(cv, x, y, w, h, t) {
-    const lines = ['17:02  Datalog started', '17:04  Run 1: 402 m in 12.67 s', '17:06  Run 2: 402 m in 12.79 s', '17:07  Charge air 27 °C over intake', '17:09  Run 3: 402 m in 12.91 s'];
-    const n = Math.floor((t % 6) / 1.1) + 1;
-    lines.slice(0, n).forEach((l, i) => cv.text(l, x + 50, y + 70 + i * 40, 17, i === n - 1 ? C.text : C.dim, { literal: true }));
-    const on = Math.floor(t * 2) % 2 === 0;
-    cv.circle(x + w - 60, y + 50, 9, on ? C.red : '#5a2626');
-    cv.text('REC', x + w - 76, y + 56, 15, C.red, { font: 'bold', align: 'right', literal: true });
+    const rows = [['Tue 24 Nov', '4 runs', '13.27 s'], ['Sat 21 Nov', '3 runs', '13.41 s'], ['Today', '3 runs', '13.25 s']];
+    const n = Math.min(rows.length, Math.floor((t % 6) / 1.2) + 1);
+    for (let i = 0; i < n; i++) {
+        const ry = y + 50 + i * 74, best = i === 2;
+        cv.roundRect(x + 30, ry, w - 60, 60, 18, best ? '#1c2a22' : '#1a1c22');
+        cv.text(rows[i][0], x + 56, ry + 37, 18, C.text, { font: 'bold', literal: true });
+        cv.text(rows[i][1], x + w / 2, ry + 37, 16, C.dim, { align: 'center', literal: true });
+        cv.text(rows[i][2], x + w - 56, ry + 37, 20, best ? C.green : C.text, { align: 'right', font: 'bold', literal: true });
+    }
+    lbl(cv, 'tap a run to open it, then pick it as A or B to compare', x + w / 2, y + h - 18, C.dim, 14);
 }
 
-/** What the car must report: the head unit asks the engine unit, values come back. */
-function carArt(cv, x, y, w, h, t) {
-    const hu = [x + 120, y + h / 2], ecu = [x + w - 120, y + h / 2];
-    cv.strokeRoundRect(hu[0] - 70, hu[1] - 45, 140, 90, 16, 3, GREY);
-    cv.text('head unit', hu[0], hu[1] + 6, 16, C.text, { font: 'bold', align: 'center', literal: true });
-    cv.strokeRoundRect(ecu[0] - 70, ecu[1] - 45, 140, 90, 16, 3, GREY);
-    cv.text('engine unit', ecu[0], ecu[1] + 6, 16, C.text, { font: 'bold', align: 'center', literal: true });
-    const f = (t % 1.6) / 1.6, go = f < 0.5, q = go ? f * 2 : (f - 0.5) * 2;
-    const px = go ? hu[0] + 80 + (ecu[0] - hu[0] - 160) * q : ecu[0] - 80 - (ecu[0] - hu[0] - 160) * q;
-    cv.line(hu[0] + 80, hu[1], ecu[0] - 80, ecu[1], 3, DARK);
-    cv.circle(px, hu[1], 8, go ? C.blue : C.green);
-    cv.text(go ? 'read 580B' : '2.43 bar', px, hu[1] - 20, 14, go ? C.blue : C.green, lit);
-    cv.text('read only: Datalog only asks, it never writes', x + w / 2, y + h - 30, 15, C.dim, lit);
+/* ---------- a dyno sheet drawing itself ---------- */
+
+function dynoArt(cv, x, y, w, h, t) {
+    const px = x + 60, py = y + 50, pw = w - 120, ph = h - 120, k = Math.min(1, (t % 6) / 4.5);
+    cv.fillRect(px, py + ph, pw, 1, '#3c4048');
+    for (let r = 2; r <= 6; r++) cv.text(String(r), px + pw * (r - 2) / 4.5, py + ph + 22, 13, C.dim, { align: 'center', literal: true });
+    cv.text('x 1 000 rpm', px + pw / 2, py + ph + 44, 13, C.dim, { align: 'center', literal: true });
+    const tq = (r) => (r < 3000 ? 488 - 68 * Math.pow((3000 - r) / 1000, 2) : 488 - 0.025 * (r - 3000) - 0.0000115 * (r - 3000) * (r - 3000));
+    const tp = [], pp = [];
+    for (let r = 2000; r <= 2000 + 4500 * k + 1e-6; r += 100) {
+        const X = px + pw * (r - 2000) / 4500;
+        tp.push([X, py + ph - ph * tq(r) / 520]);
+        pp.push([X, py + ph - ph * (tq(r) * r / 7121) / 300]);
+    }
+    if (tp.length > 1) { UI.curve(cv, pp, 4, C.orange); UI.curve(cv, tp, 4, C.blue); }
+    lbl(cv, 'power (hp)', x + 90, y + 30, C.orange, 15, true);
+    lbl(cv, 'torque (Nm)', x + w - 90, y + 30, C.blue, 15, true);
+    if (k >= 1) lbl(cv, 'hp = Nm x rpm / 7 121', x + w / 2, y + 30, C.dim, 14);
 }
 
-module.exports = { airPath, boostArt, runArt, correctionArt, tyreArt, tempArt, compareArt, logArt, carArt };
+/* ---------- two runs side by side ---------- */
+
+function compareArt(cv, x, y, w, h, t) {
+    const px = x + 50, py = y + 50, pw = w - 100, ph = h - 140;
+    cv.fillRect(px, py + ph, pw, 1, '#3c4048');
+    const k = Math.min(1, (t % 6) / 4.5);
+    const curve = (tau, end, col, name, row) => {
+        const pts = [];
+        for (let s = 0; s <= k * 13 + 1e-6; s += 0.25) pts.push([px + pw * s / 13, py + ph - ph * Math.min(1, (1 - Math.exp(-s / tau)) / (1 - Math.exp(-13 / tau)) * end)]);
+        if (pts.length > 1) UI.curve(cv, pts, 4, col);
+        cv.roundRect(px + row * 160, py + ph + 30, 20, 6, 3, col);
+        cv.text(name, px + row * 160 + 28, py + ph + 38, 15, C.dim, { literal: true });
+    };
+    curve(6.0, 1.0, C.blue, 'run A', 0);
+    curve(6.4, 0.97, C.orange, 'run B', 1);
+    if (k >= 1) lbl(cv, 'B: 0.14 s slower, 6 °C warmer charge air', x + w / 2, y + 30, C.amber, 16, true);
+}
+
+module.exports = { airPath, boostArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };
