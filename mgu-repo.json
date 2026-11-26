@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "apps": {
+    "path": "apps/*",
+    "manifest": "app.json",
+    "icon": "icon.png",
+    "mguHmi": ["ID7"],
+    "build": {
+      "python": "tools/build.py",
+      "args": ["{id}"],
+      "sdk": "oap-sdk",
+      "output": "dist/{id}@{version}.tgz",
+      "shared": ["upstream-kit/kit/runtime", "upstream-kit/kit/platform", "upstream-kit/kit/localization",
+        "upstream-kit/kit/tools/build.py", "upstream-kit/kit/tools/pack_data.py", "upstream-kit/kit/tools/localize.py",
+        "upstream-kit/kit/tools/locale-revisions.json", "upstream-kit/kit/tools/oapgen", "upstream-kit/kit/tools/make_icon.js",
+        "tools/build.py", "lib", "oap-sdk"]
+    }
+  }
+}
