@@ -11,7 +11,7 @@ M colours are never used.
 
 | Part | Value |
 |---|---|
-| Size | 140 x 140 px, drawn at 4x (560 px) and scaled down with Lanczos; at most 128 KiB |
+| Size | 140 x 140 px tile, drawn at 4x (560 px) and scaled down with Lanczos; the icon fills 84 % of it, centred, so the HMI focus frame shows round it (owner, 20:59); at most 128 KiB |
 | Shape | the iDrive 7 rounded square, corner radius 23.5 % of the side |
 | Background | three tones split on the diagonal, from the top left: orange (255,150,60 to 235,95,20) to 62 % of the way, deep orange (200,70,10 to 150,45,5) to 78 %, graphite (48,52,62 to 22,24,30) in the bottom right corner |
 | Glyph | white lines (250,250,252), line weight 6 % of the side in every icon |

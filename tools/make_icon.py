@@ -43,6 +43,7 @@ CORNER = 0.235                # rounded square corner radius, share of the side 
 STROKE = 0.06                 # line weight, share of the side, the same in every icon
 BOX = 0.58                    # every glyph's box has the area of a square this share of the side ...
 MAX_SIDE = 0.68               # ... and no side longer than this share
+ART = 0.84                    # the icon fills this share of the 140 px tile, so the HMI's focus frame shows round it
 SHADOW_BLUR = 0.02
 SHADOW_ALPHA = 0.45
 SHADOW_DX = 0.008
@@ -211,7 +212,11 @@ def icon(gl):
     e = Image.new('RGBA', (S, S), (255, 255, 255, 0))
     e.putalpha(edge.point(lambda v: int(v * EDGE_ALPHA)))
     out = Image.alpha_composite(out, e)
-    return out.resize((SIZE, SIZE), Image.LANCZOS)
+    # owner 2026-11-26 20:59: a little smaller, so the HMI's selector shows round the icon when the knob is on it
+    side = int(round(SIZE * ART))
+    tile = Image.new('RGBA', (SIZE, SIZE), (0, 0, 0, 0))
+    tile.alpha_composite(out.resize((side, side), Image.LANCZOS), ((SIZE - side) // 2, (SIZE - side) // 2))
+    return tile
 
 
 def save(im, out):
