@@ -18,7 +18,7 @@
 <p align="center">
   <img alt="MGU Store source" src="https://img.shields.io/badge/MGU%20Store-Paget96%2FPaget96--Garage-8957e5?style=flat-square">
   <img alt="License" src="https://img.shields.io/github/license/Paget96/Paget96-Garage?style=flat-square">
-  <img alt="Last commit" src="https://img.shields.io/github/last-commit/Paget96/Paget96-Garage/develop?style=flat-square&label=last%20commit">
+  <img alt="Last commit" src="https://badgen.net/github/last-commit/Paget96/Paget96-Garage/develop?label=last%20commit">
   <img alt="Stars" src="https://img.shields.io/github/stars/Paget96/Paget96-Garage?style=flat-square&label=stars&cacheSeconds=3600">
 </p>
 
@@ -73,9 +73,8 @@ The Store builds each app on the head unit straight from this repository.
 2. Settings, **Add source**, then type `Paget96/Paget96-Garage`.
 3. Pick an app from the list and install it.
 
-Updates arrive in the Store like any other source's. Paget96 Garage apps draw through the GPU renderer from
-[idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) (a default Store source); the
-Store installs it with the first app that needs it.
+Updates arrive in the Store like any other source's. The Store installs the Garage renderer
+([Our renderer](#our-renderer)) with the first app.
 
 ### Manual
 
@@ -440,9 +439,7 @@ condition), then the flap OPEN, CLOSE or CAR DECIDES". Every number has a margin
 3 000 and closes only below 2 500), so the flap does not click at the edge. OPEN and CLOSE hold the flap; CAR
 hands it back. With two flaps (a V8 with two engine units) each can be set on its own.
 
-**What it writes, and only this.** The exhaust flap, the way upstream's
-[Engine Config](https://github.com/cauliflowermossgrape/idrive7-apps/tree/main/apps/live_adjustments) does it:
-BMW's own flap control on the engine unit (2F 60 FD: open at 10 %, close at 90 %, hand back), sent again every
+**What it writes, and only this.** The exhaust flap, through BMW's own flap control on the engine unit (2F 60 FD: open at 10 %, close at 90 %, hand back), sent again every
 15 s because the engine unit lets a tester's command go after about 20 s. Out of the box it is **simulated**:
 nothing is sent until you arm it in Settings and confirm. Opening the app sends nothing by itself; a command
 leaves only on a button press, a change of what your rules decide, or the car coming up with OPEN, CLOSE or AUTO
@@ -558,8 +555,7 @@ You can also open an issue by hand with the [report template](.github/ISSUE_TEMP
 
 An iDrive 7 app does not draw pixels itself: it sends a list of shapes and text over a socket, and a renderer
 draws them on the head unit's GPU. Paget96 Garage has its own renderer, **p96-renderd**, in
-[renderer/](renderer/README.md). It starts from mgu-render (Robert Nisipeanu and IterioDev, GPL-3.0-or-later,
-shipped by idrive7-apps and the MGU Store) and speaks the same protocol, so any app written for that renderer
+[renderer/](renderer/README.md). It starts from mgu-render (Robert Nisipeanu and IterioDev, GPL-3.0-or-later) and speaks the same protocol, so any app written for that renderer
 runs on ours unchanged.
 
 **Status: it builds and its tests pass on a PC. It has not run on a car yet, and no app uses it yet.**
