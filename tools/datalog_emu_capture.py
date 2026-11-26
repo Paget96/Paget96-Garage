@@ -53,6 +53,7 @@ def setup(upstream, emu):
     shutil.copytree(os.path.join(ROOT, 'apps', 'p96_datalog'), app, ignore=shutil.ignore_patterns('README.md'))
     for name in ('ui', 'engine', 'render', 'qr', 'report'):          # lib/*.js as tools/build.py ships them (LIB)
         shutil.copy(os.path.join(ROOT, 'lib', name + '.js'), os.path.join(app, 'garage_' + name + '.js'))
+    shutil.copy(os.path.join(ROOT, 'lib', 'cartime.js'), os.path.join(app, 'garage_time.js'))
     os.makedirs(os.path.join(emu, 'oap-sdk'))
     open(os.path.join(emu, 'oap-sdk', 'index.js'), 'w').write('module.exports = {};\n')
     open(os.path.join(emu, 'oap-sdk', 'package.json'), 'w').write('{"name": "oap-sdk", "version": "0.0.0"}\n')

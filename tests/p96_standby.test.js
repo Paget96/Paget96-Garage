@@ -19,6 +19,8 @@ const { Recorder } = require(path.join(RT, 'record'));
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }
 const at = (h, m) => new Date(2026, 10, 26, h, m);
+// times as this computer keeps them, so the tests pass in any zone (the car's zone: tests/cartime.test.js)
+require(path.join(__dirname, '..', 'lib', 'cartime')).source('system');
 
 /* ---------- the clock ---------- */
 // a font where every digit has its own width, as real fonts do

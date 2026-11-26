@@ -68,11 +68,11 @@ const signed = (v, d) => (isNum(v) ? (Math.abs(v) < 0.5 * Math.pow(10, -d) ? (0)
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const two = (n) => (n < 10 ? '0' : '') + n;
 function dayName(ms, now) {
-    const d = new Date(ms), n = new Date(now || Date.now());
+    const d = UI.T.carTime(ms), n = UI.T.carTime(now || Date.now());   // the car's day (the head unit keeps UTC)
     if (d.toDateString() === n.toDateString()) return 'Today';
     return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
 }
-const clock = (ms) => { const d = new Date(ms); return two(d.getHours()) + ':' + two(d.getMinutes()); };
+const clock = (ms) => { const d = UI.T.carTime(ms); return two(d.getHours()) + ':' + two(d.getMinutes()); };
 /** At most n values of a list, evenly picked (a chart's per-frame cost stays low). */
 function thin(a, n) {
     if (!a || a.length <= n) return a || [];

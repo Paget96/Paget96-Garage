@@ -20,6 +20,7 @@
 
 const isNum = (v) => typeof v === 'number' && isFinite(v);
 const pad2 = (n) => (n < 10 ? '0' : '') + n;
+const CT = (function () { try { return require('./garage_time'); } catch (e) { return require('../../lib/cartime'); } })();   // the car's time (the head unit keeps UTC)
 
 /* ---------- the clock ---------- */
 
@@ -40,7 +41,7 @@ function timeText(d, fmt) {
 function dateText(d) { return DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; }
 /** 'HH:MM' (24 h) or 'h:MM AM' (12 h), for small times in text. */
 function shortTime(ms, fmt) {
-    const d = new Date(ms), t = timeText(d, fmt);
+    const d = CT.carTime(ms), t = timeText(d, fmt);
     return t.ampm ? t.text.trim() + ' ' + t.ampm : t.text;
 }
 
@@ -185,7 +186,7 @@ const MOVING = 2;             // km/h: above this the car is driving
 const END_MS = 3 * 60000;     // a drive ends after the car stood this long
 const GAP_MS = 10000;         // samples further apart than this are not integrated (no data in between)
 const TRACK_MS = 60000;       // one point of the today chart a minute
-const dayKey = (ms) => { const d = new Date(ms); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
+const dayKey = (ms) => { const d = CT.carTime(ms); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
 
 /**
  * This drive and today's drives, from the car's speed. A drive starts when the car moves and ends when it has
@@ -292,7 +293,7 @@ const Demo = {
         return v;
     },
     drives(now) {
-        const d = new Date(now), at = (h, m) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m).getTime();
+        const d = CT.carTime(now), at = (h, m) => CT.fromCar(new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m).getTime());
         const mk = (sh, sm, mins, km, lo, hi, fuel) => {
             const start = at(sh, sm), end = start + mins * 60000, track = [];
             for (let k = 0; k <= mins; k++) {

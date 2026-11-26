@@ -20,6 +20,7 @@ function need(local, repo) {
     try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
 }
 const E = need('./garage_engine', '../../lib/engine');
+const CT = need('./garage_time', '../../lib/cartime');   // the car's time (the head unit keeps UTC)
 
 const DAY = 86400000, WEEK = 7 * DAY, MIN = 60000;
 
@@ -301,7 +302,7 @@ function ago(t, now) {
     return Math.round(d / 7) + ' weeks ago';
 }
 /** "18:42". */
-const clock = (t) => { const d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); };
+const clock = (t) => { const d = CT.carTime(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); };
 const fmtThousands = R.thousands;
 
 /** The load of the last 8 weeks for the History chart: one value a day (the highest), null where none. */
@@ -380,6 +381,6 @@ function kindsFor(caps) {
     return R.KIND_ORDER.filter((k) => !need[k] || has(caps, need[k]));
 }
 
-module.exports = { CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
+module.exports = { CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
     LIGHT_OFF, COLD_COOLANT, coldWeek, SETUP, SETUP_DEFAULT, sound, tips, flapWeek, hm, ago, clock, fmtThousands, loadDays,
     CAPS, ALL_CAPS, has, found, TABS, tabsFor, pagesFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };

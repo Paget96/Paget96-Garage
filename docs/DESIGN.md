@@ -156,6 +156,14 @@ The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DI
 | `layout` | Full screen | On (`full`) / Off (`standard`), the kit's own setting; not offered with Software | On |
 | `followAmbient` | Follow ambient lighting | switch | on |
 | `demo` | Demo data | Auto / On / Off | Auto |
+| `timeZone` | Time zone | Auto, a zone, or a UTC offset (a stepper through the list) | Auto |
+
+**Times shown to the user go through `lib/cartime.js`** (`UI.T`, shipped as `garage_time.js`), never a raw
+`new Date()`: the head unit keeps its system time in UTC, so a raw Date is an hour or more off the car's clock
+(seen on the owner's car, 2026-11-26 20:12). `T.carTime(ms)` is a Date whose getters give the car's wall clock,
+`T.fromCar()` turns such a value back into UTC ms, `T.hhmm(ms)` gives "20:12". Auto is the head unit's own zone
+when it keeps one, else Central Europe with summer time; the EU and UK and the US summer time rules are worked
+out in code. Each app calls `T.source(() => settings.get('timeZone'))` once. Stored timestamps stay UTC ms.
 
 The entries have the shape upstream apps use for `"settings"` in `app.json` (`key`, `label`, `type`,
 `default`, `options`), so an app copies them there, first, and adds its own after them. `hint` is the

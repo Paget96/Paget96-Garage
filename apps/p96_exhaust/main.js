@@ -81,6 +81,7 @@ mgu.run({
         const getLink = () => linkReady || (linkReady = link.init().catch((e) => { log.warn('diagnostic link: ' + e); return link; }));
         getLink();
         const demoSetting = () => settings.get('demo') || 'auto';
+        UI.T.source(() => settings.get('timeZone'));   // times shown in the car's zone (Display card, Time zone)
         let carSeen = false;
         const useDemo = () => demoSetting() === 'on' || (demoSetting() === 'auto' && !carSeen && !link.available && Date.now() - t0 > 5000);
 
@@ -285,7 +286,7 @@ mgu.run({
         const modeOf = (side) => P.modes[side] || P.modes.both || 'OEM';
         /** The rule values now: stale ones are none (an rpm older than 5 s holds no rule). */
         const ruleVals = () => {
-            const d = new Date();
+            const d = UI.T.carNow();   // the car's time of day (the head unit keeps UTC)
             return { rpm: fresh('rpm'), speed: fresh('speed'), load: fresh('engLoad'), gear: fresh('gear', 10000), mode: fresh('mode', 3600000),
                 coolant: fresh('coolant', 60000), minutes: d.getHours() * 60 + d.getMinutes(), egt: fresh('egt') };
         };

@@ -22,6 +22,7 @@ const { DmeReader, Bank2Reader } = require('./dme');
 const fs = require('fs');
 const path = require('path');
 const E = require('./garage_engine');
+const CT = require('./garage_time');   // the car's time (the head unit keeps UTC)
 const P = require('./pages');
 const UI = require('./garage_ui');
 const Report = require('./garage_report');
@@ -33,6 +34,7 @@ mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
         UI.attach(ctx);         // the layout setting, and touch in the Standard layout
+        CT.source(() => settings.get('timeZone'));   // times shown in the car's zone (Display card, Time zone)
         let car = null;
         /* the engine (lib/engine.js): asked once, kept in engine.json; a V8's second engine unit gives bank 2 */
         const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));

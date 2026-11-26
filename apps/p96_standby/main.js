@@ -51,6 +51,7 @@ mgu.run({
             return v !== undefined && v !== null ? v : P.DEFAULTS[k];
         };
         const now = () => Date.now();
+        UI.T.source(() => val('timeZone'));   // times shown in the car's zone (Display card, Time zone)
 
         /* ---------- saved: what this car reports, today's drives ---------- */
         const FILE = path.join(ctx.dataDir, 'standby.json');
@@ -232,7 +233,7 @@ mgu.run({
             const d = usingDemo();
             st.status = d ? 'DEMO' : 'LIVE'; st.statusColor = d ? 'info' : 'ok'; st.now = t;
             st.menuA = M.menuAlpha(lastTap, t, st.settings.menuDelay);
-            st.nightP = UI.anim('sbnight', M.isNight(String(st.settings.night), d ? null : live.carNight, new Date(t)) ? 1 : 0, 1500);
+            st.nightP = UI.anim('sbnight', M.isNight(String(st.settings.night), d ? null : live.carNight, UI.T.carTime(t)) ? 1 : 0, 1500);
             const cv = ctx.canvas(W, H);
             // where the kit runs the screen, it draws the tabs and routes their taps to ctx.onTab (F10)
             if (cv.chrome) cv.chrome.tabs = { tabs: st.page === 'main' ? P.TABS : [], sel: st.tab, badges: [] };

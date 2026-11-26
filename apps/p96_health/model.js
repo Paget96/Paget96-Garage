@@ -21,6 +21,7 @@ function need(local, repo) {
     try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
 }
 const E = need('./garage_engine', '../../lib/engine');
+const CT = need('./garage_time', '../../lib/cartime');   // the car's time (the head unit keeps UTC)
 const DAY = 86400000, WEEK = 7 * DAY;
 
 /* ---------- control units ---------- */
@@ -243,7 +244,7 @@ function parseDue(s, now) {
     let m = /(\d{1,2})[./](\d{4})/.exec(str);
     if (m) { mo = Number(m[1]); y = Number(m[2]); } else if ((m = /(\d{4})-(\d{1,2})/.exec(str))) { y = Number(m[1]); mo = Number(m[2]); } else return null;
     if (!(mo >= 1 && mo <= 12)) return null;
-    const d = new Date(now || Date.now());
+    const d = CT.carTime(now || Date.now());
     return (y - d.getFullYear()) * 12 + (mo - 1 - d.getMonth());
 }
 const CBS_COLOURS = { DEFAULT: 0, RED: 1, YELLOW: 2, GREEN: 3, ORANGE: 4 };
@@ -675,8 +676,8 @@ function ago(t, now) {
     return Math.round(d / 30) + ' months ago';
 }
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const dateText = (t) => { const d = new Date(t); return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(); };
-const dayMonth = (t) => { const d = new Date(t); return d.getDate() + ' ' + MON[d.getMonth()]; };
+const dateText = (t) => { const d = CT.carTime(t); return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(); };
+const dayMonth = (t) => { const d = CT.carTime(t); return d.getDate() + ' ' + MON[d.getMonth()]; };
 
 /* ---------- the report (Share) ---------- */
 

@@ -123,7 +123,7 @@ function digit(cv, ch, x, w, col) {
 }
 
 function pageClock(cv, v, st) {
-    const now = new Date(st.now), p = Math.round((st.nightP || 0) * STEPS) / STEPS;
+    const now = UI.T.carTime(st.now), p = Math.round((st.nightP || 0) * STEPS) / STEPS;
     const big = M.mixColour(C.text, M.NIGHT_TEXT, p), small = M.mixColour('#a0a8b4', M.NIGHT_DIM, p), val = M.mixColour(C.text, M.NIGHT_TEXT, p);
     const tt = M.timeText(now, st.settings.clock);
     const sl = M.digitSlots(tt.text, (ch) => cv.textWidth(ch, CLOCK_SIZE, { font: 'num' }), 4);
@@ -250,8 +250,8 @@ function pageDrive(cv, v, st) {
         return;
     }
     // the chart: km so far today, on even steps from the first drive's hour to the next hour after now
-    const h0 = new Date(day.pts[0][0]); h0.setMinutes(0, 0, 0);
-    const t0 = h0.getTime(), hrs = Math.max(4, Math.ceil((now - t0) / 3600000 / 4) * 4), t1 = t0 + hrs * 3600000, N = 181;
+    const h0 = UI.T.carTime(day.pts[0][0]); h0.setMinutes(0, 0, 0);    // the car's hour (the head unit keeps UTC)
+    const t0 = UI.T.fromCar(h0.getTime()), hrs = Math.max(4, Math.ceil((now - t0) / 3600000 / 4) * 4), t1 = t0 + hrs * 3600000, N = 181;
     const vals = [];
     for (let i = 0; i < N; i++) {
         const t = t0 + (t1 - t0) * i / (N - 1);

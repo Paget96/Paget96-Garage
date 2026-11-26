@@ -84,7 +84,7 @@ function state(now, car) {
     const starts = [];
     for (let i = 0; i < 16; i++) starts.push({ t: now - (i + 0.3) * 0.45 * DAY, coolant: i % 4 === 3 ? 70 : 8, mins: [3, 12, 4, 20, 2, 9, 4, 30, 15, 3, 25, 18, 40, 22, 9, 35][i] });
     // the flap's log, newest first
-    const at = (h, m) => { const d = new Date(now); d.setHours(h, m, 0, 0); return d.getTime(); };
+    const at = (h, m) => { const d = M.CT.carTime(now); d.setHours(h, m, 0, 0); return M.CT.fromCar(d.getTime()); };
     const flapLog = [
         { t: at(18, 42), action: 'OPEN', rule: 'Above 3 000 rpm', reason: 'Above 3 000 rpm', detail: '3 120 rpm, 3rd gear' },
         { t: at(18, 41), action: 'OEM', rule: null, reason: 'no rule matched', detail: 'back under 2 500 rpm' },

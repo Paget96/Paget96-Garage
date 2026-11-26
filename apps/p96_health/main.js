@@ -87,6 +87,7 @@ mgu.run({
         const getLink = () => linkReady || (linkReady = link.init().catch((e) => { log.warn('diagnostic link: ' + e); return link; }));
 
         const demoSetting = () => settings.get('demo') || 'auto';
+        UI.T.source(() => settings.get('timeZone'));   // times shown in the car's zone (Display card, Time zone)
         const useDemo = () => demoSetting() === 'on' || (demoSetting() === 'auto' && live.rpm == null && live.units == null && !link.available);
 
         /* ---------- broadcast signals, always ---------- */
@@ -531,7 +532,7 @@ mgu.run({
             fs.writeFileSync(path.join(dir, 'scan-' + stamp + '.json'), JSON.stringify(S.units || []));
             const files = fs.readdirSync(dir).sort();
             while (files.length > 20) { try { fs.unlinkSync(path.join(dir, files.shift())); } catch (e) { break; } }
-            savedText = 'Report saved ' + M.dateText(Date.now()) + ', ' + new Date().toTimeString().slice(0, 5) + '. It is on the Share page too.';
+            savedText = 'Report saved ' + M.dateText(Date.now()) + ', ' + UI.T.hhmm(Date.now()) + '. It is on the Share page too.';
             return true;
         }
 

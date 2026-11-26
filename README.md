@@ -182,7 +182,7 @@ Demo car shows each layout.
 | Electric: the speed ring in place of the boost | ![](docs/media/cars/datalog-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
+Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
 
@@ -283,7 +283,7 @@ Engine page and no engine items in Service. Settings, Demo car shows each layout
 | Diesel: rough running and the rail pressure | ![](docs/media/cars/health-engine-b57-diesel.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
+Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
@@ -433,7 +433,7 @@ car has no exhaust: the app says so on its one page and reads nothing. Settings,
 | Electric: no exhaust | ![](docs/media/cars/exhaust-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
 
