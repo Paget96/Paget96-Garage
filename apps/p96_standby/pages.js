@@ -8,7 +8,7 @@
  *   draw(cv, v, st, t, act)
  *     v:   the values (main.js live(), or the demo): outside, outsideHist, volts, voltsHist, charge, range, fuelL,
  *          doors, windows, locked, seats, wheel, climate, ac, blower, drives, has(key)
- *     st:  { page: 'main' | 'help' | 'settings', tab, topic, settings, status, statusColor, now, menuA, nightP }
+ *     st:  { page: 'main' | 'help' | 'settings', tab, topic, settings, status, statusColor, now, menuA, nightP, report (lib/report.js Flow) }
  *     act: { tab(i), help(), settings(), back(), topic(i), set(key, v), wake() }
  *     t:   seconds, for the illustrations
  *
@@ -91,7 +91,8 @@ function head(cv, st, act) {
     const a = st.tab === 0 && st.menuA != null ? st.menuA : 1, on = a > 0.5;
     UI.tabs(cv, TABS, st.tab, { w: tabsWidth(cv), onSelect: on ? act.tab : null });
     UI.title(cv, TITLE, null, null, { clock: false });
-    if (UI.clock) UI.clock(cv, UI.MARGIN, UI.CLOCK_CY, st.now);      // the small clock under the name, on the app's own time
+    // the small clock under the name, on the app's own time; in the Standard layout the car's own clock shows instead
+    if (UI.clock && !(UI.standard && UI.standard(cv))) UI.clock(cv, UI.MARGIN, UI.CLOCK_CY, st.now);
     UI.header(cv, { status: st.status, statusColor: st.statusColor, onHelp: on ? act.help : null, onSettings: on ? act.settings : null });
     if (a < 1) {
         // the menu fades: the page's own background laid over it, more and more (works on both render paths)
@@ -285,13 +286,19 @@ const TOPICS = [
         text: 'Standby only reads. It never switches the heating, the climate or anything else. The 12 V voltage is read from the engine unit\'s battery sensor only while the Clock or Glance page is on the screen; everything else is what the car already broadcasts.' },
 ];
 
+// How to use: Standby's topics, then Send a report (the same in every app)
+const HELP_TOPICS = TOPICS.concat([UI.REPORT_TOPIC]);
+
 const PAGES = [pageClock, pageGlance, pageDrive];
 
 function draw(cv, v, st, t, act) {
     if (st.page === 'help') {
-        UI.howToUse(cv, TOPICS, st.topic || 0, t, { title: TITLE, onSelect: act.topic, onBack: act.back, onSettings: act.settings });
+        UI.howToUse(cv, HELP_TOPICS, st.topic || 0, t, { title: TITLE, onSelect: act.topic, onBack: act.back, onSettings: act.settings });
+    } else if (st.page === 'settings' && st.report && st.report.active()) {
+        UI.reportPage(cv, st.report, t, { title: TITLE, onHelp: () => { st.report.close(); act.help(); } });
     } else if (st.page === 'settings') {
-        UI.settingsPage(cv, (st.status === 'DEMO' ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help });
+        UI.settingsPage(cv, (st.status === 'DEMO' ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help,
+            onReport: st.report ? () => st.report.open() : null });
     } else {
         head(cv, st, act);
         PAGES[st.tab || 0](cv, v, st, act);

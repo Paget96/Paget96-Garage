@@ -101,6 +101,22 @@
       ]
     },
     {
+      "key": "layout",
+      "label": "Full screen",
+      "type": "choice",
+      "default": "full",
+      "options": [
+        [
+          "full",
+          "On"
+        ],
+        [
+          "standard",
+          "Off"
+        ]
+      ]
+    },
+    {
       "key": "followAmbient",
       "label": "Follow ambient lighting",
       "type": "bool",

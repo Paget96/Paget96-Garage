@@ -26,6 +26,8 @@ let VT = START;
 Date.now = () => VT;
 
 const UI = require('../lib/ui');
+// GARAGE_LAYOUT=standard: the pages as the Standard layout draws them (the car's own title and clock above them)
+if (process.env.GARAGE_LAYOUT) UI.setLayout(process.env.GARAGE_LAYOUT);
 const APP = path.join(ROOT, 'apps', 'p96_datalog');
 const { Model } = require(path.join(APP, 'model'));
 const P = require(path.join(APP, 'pages'));
@@ -41,6 +43,8 @@ fs.mkdirSync(media, { recursive: true });
 const values = { demo: 'on', demoCar: CAR || 'b48' };
 const settings = { get: (k) => values[k], set: (k, v) => { values[k] = v; } };
 const m = new Model({ settings, demo: () => true });
+// Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
+m.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_datalog/app.json'), get: () => undefined }));
 
 /** Move the clock by ms, stepping the model every 50 ms as the app does. */
 function run(ms) { const end = VT + ms; while (VT < end) { VT += 50; m.tick(VT); } }

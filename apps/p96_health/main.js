@@ -32,6 +32,7 @@ const path = require('path');
 const mgu = require('./kit/mgu');
 const { ScaledCanvas } = require('./kit/canvas');
 const UI = require('./garage_ui');
+const Report = require('./garage_report');
 const M = require('./model');
 const T = require('./texts');
 const VIEW = require('./view');
@@ -48,6 +49,7 @@ const ENGINE_STOPPED_RPM = 400;       // a hybrid's stopped engine leaves its ru
 mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
+        UI.attach(ctx);         // the layout setting, and touch in the Standard layout
         const t0 = Date.now();
 
         /* ---------- what Health keeps (data/health.json) ---------- */
@@ -512,6 +514,8 @@ mgu.run({
 
         /* ---------- where the user is, and what the taps do ---------- */
         const V = { page: 0, mode: 'main', mem: 'fault', unit: null, first: 0, detail: null, histSel: 0, dialog: null, helpSel: 0, values: {} };
+        // Settings, Send a report (lib/report.js): the VIN only when Health read it from the car and the user ticks it
+        V.report = Report.forApp(ctx, { vin: () => (/^[A-HJ-NPR-Z0-9]{17}$/.test(P.carKey || '') ? P.carKey : null) });
         let S = null;
         const openDialog = (d) => { V.dialog = { d: d, open: true }; changed(); };
         const closeDialog = () => { if (V.dialog) V.dialog.open = false; changed(); };

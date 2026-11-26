@@ -224,6 +224,8 @@ function rulesCard(cv, S, V, A, x, w) {
 /** The body of the rule dialog: what, above or below what value, and then what the flap does. */
 function ruleBody(S, V, A) {
     return (cv, x, y, w, h) => {
+        // Cancel and Save clear V.edit while the dialog still fades out for 200 ms: draw nothing then (it threw)
+        if (!V.edit) return;
         const d = V.edit, part = V.editPart === 'and' && d.and ? 'and' : 'when', c = d[part];
         const kinds = M.kindsFor(S.caps), cw = Math.floor((w - 3 * 14) / 4);
         if (d.and) UI.segmented(cv, x + w, y - 30, [['when', 'When'], ['and', 'and ...']], part, A.part, 'rulepart');
@@ -542,6 +544,7 @@ function helpTopics() {
         topicsFor = fname();
         topics = T.TOPICS.map((tp) => Object.assign({}, tp, { title: forEngine(tp.title), text: forEngine(tp.text), draw: ART.artFor(tp.art) }));
         topics.push({ title: 'Which cars', art: 'path', text: T.WORKS_WITH, draw: ART.artFor('path') });
+        topics.push(UI.REPORT_TOPIC);
     }
     return topics;
 }
@@ -565,8 +568,11 @@ function draw(cv, S, V, A, t) {
     ART.setEngine(ENG);
     if (V.mode === 'help') {
         UI.howToUse(cv, helpTopics(), V.helpSel || 0, t, { title: 'EXHAUST', onSelect: A.helpTopic, onBack: A.back, onSettings: A.settings });
+    } else if (V.mode === 'settings' && V.report && V.report.active()) {
+        UI.reportPage(cv, V.report, t, { title: 'EXHAUST', onHelp: () => { V.report.close(); A.help(); } });
     } else if (V.mode === 'settings') {
-        UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'EXHAUST', appLabel: 'Exhaust', onBack: A.back, onHelp: A.help });
+        UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'EXHAUST', appLabel: 'Exhaust', onBack: A.back, onHelp: A.help,
+            onReport: V.report ? () => V.report.open() : null });
     } else {
         if (M.pagesFor(S.caps, S.engine).indexOf(V.page) < 0) V.page = 0;
         frame(cv, S, V, A);

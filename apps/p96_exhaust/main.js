@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const mgu = require('./kit/mgu');
 const UI = require('./garage_ui');
+const Report = require('./garage_report');
 const E = require('./garage_engine');
 const M = require('./model');
 const R = require('./rules');
@@ -44,6 +45,7 @@ const ORD = ['', '1st', '2nd', '3rd'];
 mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
+        UI.attach(ctx);         // the layout setting, and touch in the Standard layout
         const t0 = Date.now();
 
         /* ---------- what Exhaust keeps (data/exhaust.json) ---------- */
@@ -374,6 +376,7 @@ mgu.run({
 
         /* ---------- where the user is, and what the taps do ---------- */
         const V = { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when', values: {} };
+        V.report = Report.forApp(ctx);   // Settings, Send a report (lib/report.js)
         let S = null;
         const openDialog = (d) => { V.dialog = { d: d, open: true }; changed(); };
         const closeDialog = () => { if (V.dialog) V.dialog.open = false; V.edit = null; changed(); };

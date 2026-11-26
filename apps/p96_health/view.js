@@ -686,7 +686,7 @@ function share(cv, S, V, A, t) {
 
 let topics = null;
 function helpTopics() {
-    if (!topics) topics = T.TOPICS.map((tp) => Object.assign({}, tp, { draw: artFor(tp.art, { art: tp.art }) }));
+    if (!topics) topics = T.TOPICS.map((tp) => Object.assign({}, tp, { draw: artFor(tp.art, { art: tp.art }) })).concat([UI.REPORT_TOPIC]);
     return topics;
 }
 
@@ -715,8 +715,11 @@ function draw(cv, S, V, A, t) {
     setEngine(S.engine);
     if (V.mode === 'help') {
         UI.howToUse(cv, helpTopics(), V.helpSel || 0, t, { title: 'HEALTH', onSelect: A.helpTopic, onBack: A.back, onSettings: A.settings });
+    } else if (V.mode === 'settings' && V.report && V.report.active()) {
+        UI.reportPage(cv, V.report, t, { title: 'HEALTH', onHelp: () => { V.report.close(); A.help(); } });
     } else if (V.mode === 'settings') {
-        UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'HEALTH', appLabel: 'Health', onBack: A.back, onHelp: A.help });
+        UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'HEALTH', appLabel: 'Health', onBack: A.back, onHelp: A.help,
+            onReport: V.report ? () => V.report.open() : null });
     } else {
         if (!S.caps) S.caps = M.ALL_CAPS;
         if (!S.cards) S.cards = overviewCards(S);

@@ -27,6 +27,7 @@ installed and updated from the MGU Store.
 - [Install](#install)
 - [The apps](#the-apps)
 - [How every app works](#how-every-app-works)
+- [Send a report](#send-a-report)
 - [Our renderer](#our-renderer)
 - [Building](#building)
 - [Contributing](#contributing)
@@ -180,7 +181,7 @@ Demo car shows each layout.
 | S58, two turbos: the wastegate explained for both | ![](docs/media/cars/datalog-wastegate-s58.png) |
 | Electric: the speed ring in place of the boost | ![](docs/media/cars/datalog-electric.png) |
 
-**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
@@ -281,7 +282,7 @@ Engine page and no engine items in Service. Settings, Demo car shows each layout
 | Six cylinders: rough running | ![](docs/media/cars/health-engine-b58.png) |
 | Diesel: rough running and the rail pressure | ![](docs/media/cars/health-engine-b57-diesel.png) |
 
-**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
@@ -431,7 +432,7 @@ car has no exhaust: the app says so on its one page and reads nothing. Settings,
 | Diesel: DPF, SCR and the AdBlue tank | ![](docs/media/cars/exhaust-b57-diesel.png) |
 | Electric: no exhaust | ![](docs/media/cars/exhaust-electric.png) |
 
-**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
@@ -458,7 +459,48 @@ Every Paget96 Garage app follows the same rules, so once you know one, you know 
 - **Read first.** The apps read what the car already reports. The only things they ever change, and
   only when you tap and confirm: clearing the fault memory and resetting a service item (Health),
   and the exhaust flap (Exhaust).
+- **Full screen or not.** Settings, Full screen: on (the default) the app covers the screen with its own header;
+  off it sits in the car's own frame, under the car's title and clock, with the car's buttons. Full screen needs
+  the GPU renderer, so it is not offered with Software.
+- **Send a report.** Every app has it at the top of its Settings page: see [Send a report](#send-a-report).
 - **Your popups stay on top.** An app must never cover the car's own popups (work in progress).
+
+## Send a report
+
+Something wrong, or a value your car has that an app does not show? Every app can send a report to this
+repository's [issues](https://github.com/Paget96/Paget96-Garage/issues), from Settings, **Send a report**.
+Reports from real cars are what speed up development the most: each one tells us at once what car and setup it is.
+
+**How it works.** The car needs no internet and no account. The app shows a QR code with a GitHub "new issue" link
+whose title and text are already filled in. You scan it with your phone camera, sign in to GitHub on the phone if
+it asks (a free account: an email, a password and a user name at [github.com/signup](https://github.com/signup)),
+check the text, write what happened, and press Submit. The report goes from your own GitHub account; nothing is
+sent until you press Submit, and nothing at all is sent from the car.
+
+**First you see exactly what goes in,** line by line, before the code is made:
+
+| Line | What it is |
+|---|---|
+| App | the app's name and version |
+| iDrive, firmware | iDrive 7 or 8 from the screen the renderer reports, and the head unit's firmware train (e.g. P18_23w44.2-1-3) |
+| Engine | what the app found on your car (fuel, cylinders, engine units, turbos, filter), or "not found yet" |
+| Settings | only the settings you changed from their defaults |
+| Log | how many warnings and errors the app recorded, and the newest few, short (time and the first line) |
+| VIN | only if you tick "Add the VIN" (Health, which reads it from the car) |
+
+**Never sent:** your location, anything about your phone or contacts, names, the full log, or the VIN unless you
+tick it (a VIN in a log line is replaced by `<VIN>`).
+
+**Size.** The code stays at QR version 15 or smaller (77 x 77 modules), which a phone camera reads easily from the
+car's screen. When the log does not fit, the oldest log lines are left out and the text says it was shortened; the
+car facts are never cut. The code is made on the head unit by our own encoder (`lib/qr.js`), checked module by
+module against another encoder and read back with a QR decoder in the tests.
+
+| Settings, Send a report | What will be sent | The code |
+|---|---|---|
+| ![](docs/media/report/settings.png) | ![](docs/media/report/explain.png) | ![](docs/media/report/qr.png) |
+
+You can also open an issue by hand with the [report template](.github/ISSUE_TEMPLATE/report.md).
 
 ## Our renderer
 

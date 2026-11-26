@@ -53,6 +53,7 @@
   "settings": [
     {"key": "renderer", "label": "Renderer", "type": "choice", "default": "auto", "options": [["auto", "GPU"], ["software", "Software"]]},
     {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60, "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
+    {"key": "layout", "label": "Full screen", "type": "choice", "default": "full", "options": [["full", "On"], ["standard", "Off"]]},
     {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
     {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto", "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
     {"key": "demoCar", "label": "Demo car", "type": "choice", "default": "b48", "options": [["b48", "B48"], ["b58", "B58"], ["s58", "S58"], ["s63", "S63 V8"], ["b57", "B57 diesel"], ["phev", "PHEV"], ["ev", "EV"]]},

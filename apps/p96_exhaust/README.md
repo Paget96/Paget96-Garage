@@ -92,7 +92,10 @@ car has no exhaust: the app says so on its one page and reads nothing. Settings,
 
 ## Settings
 
-The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
+
+**Send a report** sits at the top of the Settings page, and How to use explains it: a QR code that your phone opens as
+a filled-in GitHub issue, after a screen that shows every line it carries ([Send a report](../../README.md#send-a-report)).

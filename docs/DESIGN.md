@@ -134,8 +134,18 @@ on the right, with a note in amber and, at the bottom, the credit line "Paget96 
 
 ## Settings
 
-`settingsPage(cv, appRows, values, onChange, { title, appLabel, onBack, onHelp })` draws the whole page:
-a back pill "Settings", the gear lit, the Display card on the left and the app's own card on the right.
+`settingsPage(cv, appRows, values, onChange, { title, appLabel, onBack, onHelp, onReport })` draws the whole page:
+a back pill "Settings", the gear lit, the Display card on the left and the app's own card on the right. With
+`onReport` a "Send a report" button sits in the header where the status pill is on the other pages; it opens
+`reportPage(cv, flow, t, opts)` (a `lib/report.js` Flow): what will be sent, line by line, then the QR code
+(`lib/qr.js`, dark on white, whole pixels, quiet zone of 4 modules). Every app adds `UI.REPORT_TOPIC` to its
+How to use topics.
+
+**Standard layout** (Full screen off): the car's own title strip shows the app name and the car's clock above our
+picture, so `title()` draws nothing and the tabs and back pill start at the page margin. Every app calls
+`UI.attach(ctx)` in `start()`: it follows the setting, hands the kit each target of a Standard frame as a tab so
+taps reach our buttons there, lets a finger swipe the tab bar where the kit runs the screen, and orders the
+targets so a button on a card is pressed before the card (the kit presses the first target under a finger).
 
 The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DISPLAY_SETTINGS`:
 
@@ -143,6 +153,7 @@ The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DI
 |---|---|---|---|
 | `renderer` | Renderer | GPU (`auto`) / Software | GPU |
 | `fps` | Frame rate | 15 / 30 / 60 fps | 60 |
+| `layout` | Full screen | On (`full`) / Off (`standard`), the kit's own setting; not offered with Software | On |
 | `followAmbient` | Follow ambient lighting | switch | on |
 | `demo` | Demo data | Auto / On / Off | Auto |
 

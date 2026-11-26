@@ -28,6 +28,8 @@ fs.readdirSync(APP).filter((f) => /\.js(on)?$/.test(f)).forEach((f) => fs.writeF
 fs.writeFileSync(path.join(dir, 'garage_ui.js'), fs.readFileSync(path.join(ROOT, 'lib', 'ui.js')));
 fs.writeFileSync(path.join(dir, 'garage_engine.js'), fs.readFileSync(path.join(ROOT, 'lib', 'engine.js')));
 fs.writeFileSync(path.join(dir, 'garage_render.js'), fs.readFileSync(path.join(ROOT, 'lib', 'render.js')));
+fs.writeFileSync(path.join(dir, 'garage_qr.js'), fs.readFileSync(path.join(ROOT, 'lib', 'qr.js')));
+fs.writeFileSync(path.join(dir, 'garage_report.js'), fs.readFileSync(path.join(ROOT, 'lib', 'report.js')));
 fs.mkdirSync(path.join(dir, 'kit'));
 fs.readdirSync(RT).forEach((f) => { if (f !== 'mgu.js') fs.symlinkSync(path.join(RT, f), path.join(dir, 'kit', f)); });
 let app = null;
@@ -94,7 +96,15 @@ const drive = (rpm) => {
 };
 async function frame() { lastCv = null; await sleep(20); await renderFn(); return lastCv; }
 async function tap(key) {
-    const cv = await frame();
+    let cv = await frame();
+    // a tab scrolled out of the bar is no target: the bar's right arrow brings it in, as a finger would
+    for (let k = 0; k < 12 && /^p96tab\d/.test(key) && !cv.targets.some((q) => q.key === key); k++) {
+        const shown = cv.targets.filter((q) => /^p96tab\d/.test(q.key)).map((q) => +q.key.slice(6));
+        const left = shown.length && +key.slice(6) < Math.min.apply(null, shown);
+        const arrow = cv.targets.filter((q) => q.key === (left ? 'p96tabsl' : 'p96tabsr'))[0];
+        if (arrow) arrow.run();
+        for (let f = 0; f < 4; f++) cv = await frame();
+    }
     const t = cv.targets.filter((q) => q.key === key)[0];
     assert.ok(t, 'no target ' + key + ' (' + cv.targets.map((q) => q.key).join(',') + ')');
     t.run();
@@ -117,6 +127,24 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     for (let p = 0; p < 10; p++) { await tap('p96tab' + p); await frame(); }
     let cv = await frame();
     assert.ok(cv.targets.some((q) => q.key === 'p96help'));
+    // a finger on each Flap button presses that button, not the card's info under it (owner, 20:18: the kit presses
+    // the first target under a finger; UI.attach puts the buttons first, UI.pressOrder)
+    {
+        const UIx = require(path.join(dir, 'garage_ui.js'));
+        await tap('p96tab1');
+        const fc = await frame();
+        const order = UIx.pressOrder(fc.targets.slice());
+        ['mode|AUTO', 'mode|OPEN', 'mode|CLOSED', 'mode|OEM'].forEach((k) => {
+            const t = fc.targets.filter((q) => q.key === k)[0];
+            assert.ok(t, 'no ' + k + ' (' + fc.targets.map((q) => q.key).join(',') + ')');
+            const x = t.x + t.w / 2, y = t.y + t.h / 2;
+            const hit = order.filter((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h)[0];
+            assert.strictEqual(hit.key, k, 'a tap on ' + k + ' presses ' + hit.key);
+        });
+        const info = fc.targets.filter((q) => /^p96info/.test(q.key))[0];
+        const ix = info.x + info.w - 20, iy = info.y + 20;
+        assert.ok(/^p96info/.test(order.filter((q) => ix >= q.x && ix < q.x + q.w && iy >= q.y && iy < q.y + q.h)[0].key), 'the (i) does not open the info');
+    }
     // simulated: the buttons send nothing
     await tap('p96tab1');
     await tap('mode|AUTO');
@@ -148,6 +176,21 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     await tap('addrule');
     cv = await frame();
     assert.ok(cv.targets.some((q) => q.key === 'kind|gear'));
+    // Settings, Send a report: what goes in first, then the code; nothing goes to the car for it
+    const before = sent.length;
+    await tap('p96dlg|0');
+    for (let i = 0; i < 15; i++) await frame();
+    await tap('p96settings');
+    await tap('p96button|report');
+    cv = await frame();
+    assert.ok(cv.targets.some((q) => q.key === 'p96button|repmake'), 'no Make QR code on the report page');
+    await tap('p96button|repmake');
+    cv = await frame();
+    assert.ok(cv.targets.some((q) => q.key === 'p96button|repdone'), 'no Done on the code page');
+    await tap('p96button|repdone');
+    cv = await frame();
+    assert.ok(cv.targets.some((q) => q.key === 'p96button|report'), 'Done did not go back to Settings');
+    assert.strictEqual(sent.slice(before).filter((s) => !/^12 22 /.test(s)).length, 0, 'the report sent something to the car');
     console.log('ok   smoke: ' + sent.length + ' requests, flap: ' + flapSent().join(' | '));
     process.exit(0);
 })().catch((e) => { console.log('FAIL smoke\n     ' + (e && e.stack || e)); process.exit(1); });

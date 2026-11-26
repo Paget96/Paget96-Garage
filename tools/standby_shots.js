@@ -17,6 +17,8 @@ const RT = path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime');
 const { Recorder, play } = require(path.join(RT, 'record'));
 const { Canvas } = require(path.join(RT, 'canvas'));
 const UI = require('../lib/ui');
+// GARAGE_LAYOUT=standard: the pages as the Standard layout draws them (the car's own title and clock above them)
+if (process.env.GARAGE_LAYOUT) UI.setLayout(process.env.GARAGE_LAYOUT);
 const M = require('../apps/p96_standby/model');
 const P = require('../apps/p96_standby/pages');
 
@@ -36,6 +38,8 @@ function values(t) {
     return v;
 }
 const st = { page: 'main', tab: 0, topic: 0, settings: Object.assign({}, P.DEFAULTS), status: 'DEMO', statusColor: 'info', now: T0, menuA: 1, nightP: 0 };
+// Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
+st.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_standby/app.json'), get: () => undefined }));
 const act = { tab() {}, help() {}, settings() {}, back() {}, topic() {}, set() {}, wake() {} };
 
 function frame(t, popup) {

@@ -22,6 +22,8 @@ const RT = path.join(__dirname, '..', 'upstream-kit', 'kit', 'runtime');
 const { Recorder, play } = require(path.join(RT, 'record'));
 const { Canvas } = require(path.join(RT, 'canvas'));
 const UI = require('../lib/ui');
+// GARAGE_LAYOUT=standard: the pages as the Standard layout draws them (the car's own title and clock above them)
+if (process.env.GARAGE_LAYOUT) UI.setLayout(process.env.GARAGE_LAYOUT);
 const C = UI.C;
 
 /* ---------- illustrations (an app passes its own as info.draw / topic.draw) ---------- */
@@ -157,7 +159,7 @@ const APP_ROWS = [
     { key: 'units', label: 'Units', hint: 'Speed, pressure and temperature', type: 'choice', default: 'metric', options: [['metric', 'Metric'], ['imperial', 'Imperial']] },
 ];
 function settingsPage(cv) {
-    UI.settingsPage(cv, APP_ROWS, {}, () => {}, { title: 'RACE DAY', appLabel: 'Race Day', onBack: () => {}, onHelp: () => {} });
+    UI.settingsPage(cv, APP_ROWS, {}, () => {}, { title: 'RACE DAY', appLabel: 'Race Day', onBack: () => {}, onHelp: () => {}, onReport: () => {} });
 }
 
 function render(draw, file, t) {

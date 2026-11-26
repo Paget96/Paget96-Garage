@@ -64,7 +64,8 @@ broadcasts. On an electric car the range card has no fuel line. Settings, Demo c
 
 ## Settings
 
-- **Renderer, Frame rate, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app.
+- **Renderer, Frame rate, Full screen, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app.
+- **Send a report** (top of the Settings page): see [Send a report](../../README.md#send-a-report).
 - **Clock:** 24 h or 12 h (with AM and PM).
 - **Night dimming:** Auto (the car's own day and night, else 20:00 to 07:00), On or Off.
 - **Hide the menu after:** 5, 10 or 30 seconds, or Never.

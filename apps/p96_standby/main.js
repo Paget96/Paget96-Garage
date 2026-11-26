@@ -28,6 +28,7 @@ const { ReadOnlyDiag } = require('./kit/readonly-diag');
 const { DidReader } = require('./kit/dids');
 const UI = require('./garage_ui');
 const E = require('./garage_engine');
+const Report = require('./garage_report');
 const M = require('./model');
 const P = require('./pages');
 
@@ -38,6 +39,7 @@ const VOLT_MS = 10000;
 mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
+        UI.attach(ctx);         // the layout setting, and touch in the Standard layout
         const cfg = ctx.spec.config || {}, S = cfg.scaling || {};
         const sc = (k, raw) => {
             const c = S[k];
@@ -148,6 +150,7 @@ mgu.run({
 
         /* ---------- the screen state ---------- */
         const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'LIVE', statusColor: 'ok', now: 0, menuA: 1, nightP: 0 };
+        st.report = Report.forApp(ctx);  // Settings, Send a report (lib/report.js)
         let lastTap = now(), shown = false;
         const touch = () => { lastTap = now(); };
 

@@ -96,8 +96,11 @@ Engine page and no engine items in Service. Settings, Demo car shows each layout
 | Six cylinders: rough running | ![](../../docs/media/cars/health-engine-b58.png) |
 | Diesel: rough running and the rail pressure | ![](../../docs/media/cars/health-engine-b57-diesel.png) |
 
-**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
+
+**Send a report** sits at the top of the Settings page, and How to use explains it: a QR code that your phone opens as
+a filled-in GitHub issue, after a screen that shows every line it carries ([Send a report](../../README.md#send-a-report)).

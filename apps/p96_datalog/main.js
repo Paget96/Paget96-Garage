@@ -23,6 +23,8 @@ const fs = require('fs');
 const path = require('path');
 const E = require('./garage_engine');
 const P = require('./pages');
+const UI = require('./garage_ui');
+const Report = require('./garage_report');
 
 const W = 1600, H = 520;
 const SCREEN = 'MAIN';
@@ -30,12 +32,15 @@ const SCREEN = 'MAIN';
 mgu.run({
     async start(ctx) {
         const { ui, settings, log } = ctx;
+        UI.attach(ctx);         // the layout setting, and touch in the Standard layout
         let car = null;
         /* the engine (lib/engine.js): asked once, kept in engine.json; a V8's second engine unit gives bank 2 */
         const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));
         let detector = null, bank2 = null;
         const m = new Model({ settings, dataDir: ctx.dataDir, log, demo: () => !!(car && car.data().demo),
             facts: () => (detector ? detector.facts : engineStore.get() || {}) });
+        // Settings, Send a report (lib/report.js), with the engine as found on this car
+        m.report = Report.forApp(ctx, { engineFacts: () => (detector ? detector.facts : engineStore.get()) });
         const L = m.live;
 
         /* ---------- broadcast signals: only listened to ---------- */

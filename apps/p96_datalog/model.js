@@ -197,6 +197,6 @@ const APP_ROWS = [
 ];
 const DEFAULTS = {};
 APP_ROWS.forEach((r) => { DEFAULTS[r.key] = r.default; });
-Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, followAmbient: true, demo: 'auto', demoCar: 'b48' });
+Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, layout: 'full', followAmbient: true, demo: 'auto', demoCar: 'b48' });
 
 module.exports = { Model, APP_ROWS, DEFAULTS, FIELDS, HIST, demoHas };

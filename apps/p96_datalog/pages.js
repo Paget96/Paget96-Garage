@@ -664,17 +664,19 @@ function draw(cv, m, t) {
     const ui = m.ui;
     ART.setEngine(m.car());
     if (ui.view === 'help') {
-        const topics = TOPICS.filter((tp) => !tp.needs || m.has(tp.needs));
+        const topics = TOPICS.filter((tp) => !tp.needs || m.has(tp.needs)).concat([UI.REPORT_TOPIC]);
         if (ui.topic >= topics.length) ui.topic = 0;
         UI.howToUse(cv, topics, ui.topic, t, { title: NAME, onSelect: (i) => { ui.topic = i; },
             onBack: () => { ui.view = 'main'; }, onSettings: () => { ui.view = 'settings'; } });
+    } else if (ui.view === 'settings' && m.report && m.report.active()) {
+        UI.reportPage(cv, m.report, t, { title: NAME, onHelp: () => { m.report.close(); ui.view = 'help'; } });
     } else if (ui.view === 'settings') {
         const vals = {};
         UI.DISPLAY_SETTINGS.concat(APP_ROWS).forEach((r) => { vals[r.key] = m.setting(r.key); });
         vals.demoCar = m.setting('demoCar');
         const rows = (m.isDemo() ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'boostTarget' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true)));
         UI.settingsPage(cv, rows, vals, (k, val) => { if (m.settings) m.settings.set(k, val); }, { title: NAME, appLabel: 'Datalog',
-            onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; } });
+            onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; }, onReport: m.report ? () => m.report.open() : null });
     } else {
         head(cv, m);
         PAGES[ui.page](cv, m, t);

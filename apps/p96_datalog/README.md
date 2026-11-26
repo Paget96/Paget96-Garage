@@ -90,8 +90,11 @@ Demo car shows each layout.
 | S58, two turbos: the wastegate explained for both | ![](../../docs/media/cars/datalog-wastegate-s58.png) |
 | Electric: the speed ring in place of the boost | ![](../../docs/media/cars/datalog-electric.png) |
 
-**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default),
+**Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
 Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
+
+**Send a report** sits at the top of the Settings page, and How to use explains it: a QR code that your phone opens as
+a filled-in GitHub issue, after a screen that shows every line it carries ([Send a report](../../README.md#send-a-report)).
 
