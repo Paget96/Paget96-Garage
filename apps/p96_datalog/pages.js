@@ -148,11 +148,11 @@ function pageNow(cv, m, t) {
     const target = m.setting('boostTarget'), boost = m.has('boost'), ring = boost || m.has('speed');
     if (!boost && ring) {
         // no boost to show (an electric car, a car without the engine unit's values): the speed ring in its place
-        UI.ring(cv, 196, T + 196, 118, { value: U.speed(v.speed), min: 0, max: U.speed(250), decimals: 0, unit: U.speedU, label: 'Speed', color: 'accent',
+        UI.ring(cv, 196, T + Math.round(UI.hh() / 2), Math.min(170, Math.round(UI.hh() * 0.3)), { value: U.speed(v.speed), min: 0, max: U.speed(250), decimals: 0, unit: U.speedU, label: 'Speed', color: 'accent',
             scale: { step: U.imp ? 50 : 50, decimals: 0 }, info: INFO.run });
     }
     if (boost) {
-        UI.ring(cv, 196, T + 196, 118, {
+        UI.ring(cv, 196, T + Math.round(UI.hh() / 2), Math.min(170, Math.round(UI.hh() * 0.3)), {
             value: U.press(v.boost), min: U.press(-1) < 0 ? U.press(-1) : -1, max: U.press(2), decimals: U.pressD,
             unit: U.pressU + ', target ' + fix(U.press(target), U.pressD), label: 'Boost', color: 'accent',
             scale: U.imp ? { step: 10, decimals: 0 } : { step: 0.5, decimals: 1 }, target: U.press(target), info: INFO.boost,
@@ -193,7 +193,7 @@ function pageNow(cv, m, t) {
     // with the boost ring: 3 x 2 cards beside it; without: 4 x 2 over the whole width
     // (three cards or fewer: one row, each the full height, so the page is not half empty)
     // (four cards beside the ring: two by two, so none is left alone on a row)
-    const cols = ring ? (cards.length === 4 ? 2 : 3) : 4, x0 = ring ? 390 : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), one = cards.length <= cols, gh = one ? 392 : 189;
+    const cols = ring ? (cards.length === 4 ? 2 : 3) : 4, x0 = ring ? 390 : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), one = cards.length <= cols, gh = one ? UI.hh() : Math.floor((UI.hh() - 14) / 2);
     cards.slice(0, cols * 2).forEach((g, i) => UI.stat(cv, x0 + (i % cols) * (w + gap), T + Math.floor(i / cols) * (gh + 14), w, gh, g));
 }
 
@@ -348,7 +348,7 @@ function airChart(cv, m, x, y, w, h, info) {
         minSpan: U.tempSpan, seq: lastRun ? null : m.seq1, slots: lastRun ? null : 60, every: 1000 });
 }
 function pageCorrection(cv, m) {
-    const v = m.v, U = units(m), h = m.h1, ch = 180;
+    const v = m.v, U = units(m), h = m.h1, ch = Math.round(UI.hh() * 0.46);
     const gapOut = isNum(v.intake) && isNum(v.outside) ? v.intake - v.outside : null;
     const gapCh = isNum(v.charge) && isNum(v.outside) ? v.charge - v.outside : null;
     const vs = (g) => (isNum(g) ? ', ' + signed(U.dtemp(g), 0) + ' vs outside' : '');
@@ -423,7 +423,7 @@ function wastegateCard(cv, m, x, y, w, h) {
 
 function pageBoost(cv, m) {
     const v = m.v, U = units(m), h = m.h1, wg = m.has('wastegate'), n = wg ? 5 : 4;
-    const ch = 180, last = m.log().last, gap = 16, cw = Math.floor((CW - (n - 1) * gap) / n);
+    const ch = Math.round(UI.hh() * 0.46), last = m.log().last, gap = 16, cw = Math.floor((CW - (n - 1) * gap) / n);
     const target = m.setting('boostTarget');
     const cards = [
         { label: m.has('boost2') ? 'Boost, bank 1' : 'Boost', value: U.press(v.boost), decimals: U.pressD, unit: U.pressU,
@@ -496,7 +496,7 @@ function pageTyres(cv, m) {
         cv.text((m.has('tyreTemp') ? (isNum(tt[k]) ? Math.round(U.temp(tt[k])) + ' ' + U.tempU : '--') + '  ' : '') + k, tx, wy + 26, 16, C.dim, { align: al, literal: true });
     });
     // right top: cold to hot this session
-    const x = L + lw + 14, w = R - x, ch = 186;
+    const x = L + lw + 14, w = R - x, ch = Math.round(UI.hh() * 0.47);
     UI.card(cv, x, T, w, ch, 'Cold to hot, this session', { info: INFO.coldHot });
     const cold = m.cold || {};
     M.WHEELS.forEach((k, i) => {
@@ -627,7 +627,7 @@ function pageCompare(cv, m) {
         rtext(cv, signed(d, dec), cD, ry, 19, better ? C.green : worse ? C.red : C.dim, 'bold');
     });
     // right: boost of both runs, charge air of both, the air difference
-    const x = L + lw + 14, w = R - x, top = 186;
+    const x = L + lw + 14, w = R - x, top = Math.round(UI.hh() * 0.47);
     const endA = a.trace && a.trace.length ? a.trace[a.trace.length - 1][0] : 12, endB = b.trace && b.trace.length ? b.trace[b.trace.length - 1][0] : 12;
     const rl = runLabels(Math.max(endA, endB));
     const top2 = m.has('boost') ? ['boost', 'Boost', U.press, U.pressU, INFO.cmpBoost] : ['v', 'Speed', U.speed, U.speedU, INFO.compare];

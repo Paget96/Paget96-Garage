@@ -116,12 +116,12 @@ function now(cv, S, V, A, t) {
     const v = S.v || {};
     if (S.engine && S.engine.engine === false) return noExhaust(cv, S, t);
     const two = ART.pipeRows(S.engine, S.setup) === 2;
-    UI.card(cv, X0, TOP, X1 - X0, 196, two ? 'Exhaust now: engine to the two tail pipes' : 'Exhaust now: engine to tail pipe', { info: info('path') });
+    UI.card(cv, X0, TOP, X1 - X0, Math.round(UI.hh() * 0.5), two ? 'Exhaust now: engine to the two tail pipes' : 'Exhaust now: engine to tail pipe', { info: info('path') });
     const fs = flapShown(S), ang = UI.glide('ex|flapangle', fs === 'OPEN' ? 0 : fs === 'CLOSED' ? 90 : 45, null, 10);
     const fs2 = flapShown(S, 1), ang2 = UI.glide('ex|flapangle2', fs2 === 'OPEN' ? 0 : fs2 === 'CLOSED' ? 90 : 45, null, 10);
-    ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 114, { setup: S.setup, engine: S.engine, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
+    ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + Math.round(UI.hh() * 0.29), { setup: S.setup, engine: S.engine, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
         flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, rpm: v.rpm == null ? null : v.rpm, boost: v.boost, key: 'ex|now' });
-    const h = S.hist || {}, y = TOP + 210, ch = UI.hh() - 210 + 0;
+    const h = S.hist || {}, y = TOP + Math.round(UI.hh() * 0.5) + 14, ch = UI.hh() - Math.round(UI.hh() * 0.5) - 14;
     const cards = [];
     if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: 'model from the engine unit',
         color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') }));
@@ -437,9 +437,9 @@ function cold(cv, S, V, A, t) {
         xLabels: xl, fill: false, legend: 'right',
         note: lo != null ? 'Catalyst working after ' + Math.floor(lo / 60) + ' min ' + (lo % 60) + ' s (about ' + M.LIGHT_OFF + ' °C). Until then the engine runs a bit richer and louder.' : 'Waiting for a cold start.' });
     const rx = X0 + lw + 14, rw = X1 - rx, offs = (S.lightOffs || []).map((s) => s / 60);
-    if (has(S, 'egt')) UI.stat(cv, rx, TOP, rw, 190, { label: 'Catalyst ready in', value: lo != null ? Math.floor(lo / 60) + ':' + ('0' + (lo % 60)).slice(-2) : null, unit: 'min',
+    if (has(S, 'egt')) UI.stat(cv, rx, TOP, rw, Math.floor((UI.hh() - 14) / 2), { label: 'Catalyst ready in', value: lo != null ? Math.floor(lo / 60) + ':' + ('0' + (lo % 60)).slice(-2) : null, unit: 'min',
         sub: (S.warmWhen || '').toLowerCase() + (S.warmOutside != null ? ', outside ' + Math.round(S.warmOutside) + ' °C' : ''), color: 'ok', history: offs, minSpan: 1, spanLabel: '-' + offs.length + ' starts', nowLabel: 'last', info: info('ready') });
-    const cw = M.coldWeek(S.starts, S.at), cy = has(S, 'egt') ? TOP + 204 : TOP, chh = has(S, 'egt') ? UI.hh() - 204 : UI.hh();
+    const cw = M.coldWeek(S.starts, S.at), cy = has(S, 'egt') ? TOP + Math.floor((UI.hh() - 14) / 2) + 14 : TOP, chh = has(S, 'egt') ? UI.hh() - Math.floor((UI.hh() - 14) / 2) - 14 : UI.hh();
     UI.card(cv, rx, cy, rw, chh, 'Cold starts', { info: info('coldstarts') });
     const vw = cv.text(String(cw.count), rx + 20, cy + 98, 48, C.text, { font: 'num', literal: true });
     cv.text('this week', rx + 32 + vw, cy + 94, 18, C.dim, { literal: true });

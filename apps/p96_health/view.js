@@ -104,7 +104,7 @@ function overview(cv, S, V, A, t) {
         color: sc.color, scale: [0, 25, 50, 75, 100], info: ringInfo });
     cv.text(sc.word, 200, TOP + 348, 22, col(sc.color), { font: 'bold', align: 'center', spacing: 1, literal: true });
     cv.text(S.checkedText || '', 200, TOP + 376, 15, C.dim, { align: 'center', literal: true });
-    const cw = 380, ch = 186, gx = 14, x = X1 - 3 * cw - 2 * gx;
+    const cw = 380, ch = Math.floor((UI.hh() - 16) / 2), gx = 14, x = X1 - 3 * cw - 2 * gx;
     S.cards.forEach((c, i) => checkCard(cv, x + (i % 3) * (cw + gx), TOP + Math.floor(i / 3) * (ch + 16), cw, ch, c));
 }
 
@@ -428,7 +428,7 @@ function battery(cv, S, V, A, t) {
         UI.wrap(cv, bv.text, 16, w - 40).slice(0, 3).forEach((ln, i) => cv.text(ln, x + 20, TOP + 116 + i * 24, 16, C.dim, { literal: true }));
     });
     const gap = 14, cw = Math.floor((X1 - X0 - gap * (cards.length - 1)) / Math.max(1, cards.length));
-    const ch = volts ? 180 : UI.hh();
+    const ch = volts ? Math.round(UI.hh() * 0.46) : UI.hh();
     cards.forEach((f, i) => f(X0 + i * (cw + gap), i === cards.length - 1 ? X1 - X0 - i * (cw + gap) : cw));
     if (!volts) return;
     const n = Math.max(2, nights.length);
