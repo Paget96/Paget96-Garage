@@ -1,0 +1,37 @@
+name: release
+# A GitHub release for every app version that reaches main: tag <app id>@<version>, the changes to that app since its
+# last release as the notes. The MGU Store installs from main as before; the releases are the history people can read.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag and release new app versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          git fetch --tags --quiet
+          for f in apps/*/app.json; do
+            id=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['id'])" "$f")
+            title=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['title'])" "$f")
+            ver=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version'])" "$f")
+            tag="$id@$ver"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then continue; fi
+            prev=$(git tag -l "$id@*" --sort=-v:refname | head -1)
+            range=${prev:+$prev..}HEAD
+            notes=$(git log --no-merges --format='- %s' $range -- "apps/$id" lib kit renderer | head -40)
+            [ -n "$notes" ] || notes="- First release of $title in Paget96 Garage."
+            printf '%s\n\nInstall or update from the MGU Store: source Paget96/Paget96-Garage.\n' "$notes" > /tmp/notes.md
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$title $ver" --notes-file /tmp/notes.md
+            echo "released $tag"
+          done
