@@ -229,7 +229,7 @@ function runCard(cv, m, x, y, w, h, run, opts) {
     const tw = cv.text(isNum(shown) ? shown.toFixed(2) : '--', x + 20, y + 128, 92, isNum(shown) ? C.text : C.dim, { font: 'num', literal: true });
     cv.text('s', x + 34 + tw, y + 124, 24, C.dim, { literal: true });
     if (running) ltext(cv, 'RUNNING  ' + Math.round(U.speed(m.v.speed) || 0) + ' ' + U.speedU + ', ' + Math.round(log.live().dist) + ' m', x + 20, y + 160, 18, C.orange, 'bold');
-    else if (run && isNum(run.cf)) ltext(cv, 'corrected to standard air: ' + secs(M.correctTime(time, run.cf, true)) + ' s', x + 20, y + 160, 18, C.green);
+    else if (run && isNum(run.cf)) ltext(cv, 'in standard air (25 °C, 99 kPa): ' + secs(M.correctTime(time, run.cf, true)) + ' s, so hot and cold days compare', x + 20, y + 160, 18, C.green);
     else if (run && m.has('intake') && m.has('kPa')) ltext(cv, 'no air data for this run: not corrected', x + 20, y + 160, 18, C.dim);
     else ltext(cv, 'Stop the car, wait for READY, then go.', x + 20, y + 160, 18, C.dim);
     const rows = running ? [] : splitRows(run, U);
@@ -257,7 +257,7 @@ function runTable(cv, m, x, y, w, runs, opts) {
     const cols = [x + 20, x + 78, x + 228, x + 388, x + 548, x + w - 120];
     // columns only for what this car reports: corrected needs the intake air and the outside pressure
     const hasCorr = m.has('intake') && m.has('kPa'), hasAir = m.has('intake') || m.has('charge');
-    [['#', 0, true], [U.dist(len), 1, true], ['corrected', 2, hasCorr], ['trap', 3, true], ['air', 4, hasAir]].forEach((c) => { if (c[2]) ltext(cv, c[0], cols[c[1]], y, 15, C.dim, 'bold'); });
+    [['#', 0, true], [U.dist(len), 1, true], ['std. air', 2, hasCorr], ['trap', 3, true], ['air', 4, hasAir]].forEach((c) => { if (c[2]) ltext(cv, c[0], cols[c[1]], y, 15, C.dim, 'bold'); });
     const shown = runs.slice(-(opts.max || 5));
     const first = runs.length - shown.length;
     shown.forEach((r, i) => {
@@ -283,6 +283,9 @@ function pageRuns(cv, m) {
     UI.card(cv, x, T, w, UI.hh(), 'Runs today', { info: INFO.runsToday });
     if (!runs.length) ltext(cv, 'No runs in this session yet. Stop, wait for READY, go.', x + 20, T + 110, 20, C.dim);
     else runTable(cv, m, x, T + 60, w, runs, { max: 5 });
+    // what "std. air" means, said where the column is (owner, 2026-11-26 23:52: "sta je corrected, nema objasnjenja")
+    const hasCorr = runs.some((r) => isNum(r.cf));
+    if (hasCorr) ltext(cv, 'Std. air: the time this run would take in standard air (25 °C, 99 kPa, SAE J1349): warm air costs power, so runs on hot and cold days compare fairly.', x + 20, UI.bottom() - 44, 15, C.dim);
     const air = m.has('intake') && m.has('charge') ? 'Air: intake after the filter / charge air before the throttle. ' : '';
     ltext(cv, air + 'Times start when the car moves.', x + 20, UI.bottom() - 20, 16, C.dim);
 }

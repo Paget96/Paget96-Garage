@@ -242,24 +242,36 @@ const ART = {
         cv.text('grey: ash, it stays', x + w / 2, y + h - 22, 14, DIM, { align: 'center', literal: true });
     },
     flap(cv, x, y, w, h, t) {
-        const p = loop(t, 4), open = p < 0.5, a = open ? lerp(90, 0, ease(Math.min(1, p / 0.15))) : lerp(0, 90, ease(Math.min(1, (p - 0.5) / 0.15)));
-        const cx = x + w / 2, cy = y + h / 2 - 10;
-        cv.roundRect(cx - 200, cy - 60, 400, 120, 56, '#16181c');
-        cv.strokeRoundRect(cx - 200, cy - 60, 400, 120, 56, 4, GREY);
-        cv.line(cx - 280, cy, cx - 200, cy, 18, PIPE);
-        cv.line(cx + 200, cy, cx + 280, cy, 18, PIPE);
-        flapGlyph(cv, cx + 200, cy, 24, open ? 'OPEN' : 'CLOSED', a);
-        // the gas: straight through when open, round the silencer when closed
-        for (let i = 0; i < 10; i++) {
-            const f = (t * 0.5 + i / 10) % 1;
-            if (open) cv.circle(cx - 280 + f * 560, cy, 5, C.orange);
-            else {
-                const ang = f * Math.PI * 2;
-                cv.circle(cx + Math.cos(ang) * 170, cy + Math.sin(ang) * 40, 5, C.amber);
-            }
-        }
-        if (open) for (let k = 0; k < 3; k++) cv.arc(cx + 300 + k * 18, cy, 20 + k * 10, 23 + k * 10, 60, 120, withA(C.green, 1 - k * 0.3), { round: true });
-        cv.text(open ? 'OPEN: the short way, louder' : 'CLOSED: the long way, quiet', cx, y + h - 40, 20, open ? C.green : C.amber, { font: 'bold', align: 'center', literal: true });
+        // the rear silencer cut open (owner, 2026-11-26 23:51: draw how it really works). The inlet pipe goes on through
+        // the silencer as a perforated tube to the flap and the first tail pipe; around it are chambers with baffle
+        // walls, and a second tail pipe leaves from the last chamber. Flap closed: the tube is shut at its end, the gas
+        // leaves through the holes and winds through the chambers, the sound is damped. Flap open: most of the gas
+        // goes straight through the tube and out, the shortest way, loud.
+        const p = loop(t, 6), open = p < 0.5, a = open ? lerp(90, 0, ease(Math.min(1, p / 0.12))) : lerp(0, 90, ease(Math.min(1, (p - 0.5) / 0.12)));
+        const cx = x + w / 2, cy = y + h / 2 - 20, S = Math.min(1, w / 640), X = (v) => cx + v * S, Y = (v) => cy + v * S;
+        cv.line(X(-300), Y(-34), X(-218), Y(-34), 18 * S, PIPE);
+        cv.line(X(218), Y(-34), X(292), Y(-34), 16 * S, PIPE);
+        cv.line(X(218), Y(48), X(292), Y(48), 16 * S, PIPE);
+        cv.roundRect(X(-220), Y(-80), 440 * S, 170 * S, 30 * S, '#16181c');
+        cv.strokeRoundRect(X(-220), Y(-80), 440 * S, 170 * S, 30 * S, 4, GREY);
+        // the perforated tube, its holes, and the baffle walls of the chambers under it
+        cv.line(X(-218), Y(-34), X(218), Y(-34), 18 * S, '#2b2f36');
+        for (let i = -180; i <= 180; i += 24) cv.circle(X(i), Y(-24), 2.2 * S, '#5a616c');
+        cv.line(X(-80), Y(-14), X(-80), Y(52), 4, GREY);
+        cv.line(X(60), Y(14), X(60), Y(86), 4, GREY);
+        flapGlyph(cv, X(256), Y(-34), 22 * S, open ? 'OPEN' : 'CLOSED', a);
+        cv.text('flap', X(256), Y(-66), 14, DIM, { align: 'center', literal: true });
+        // the gas: a dot moves along the way it takes now
+        const way = open ? [[-300, -34], [300, -34]] : [[-300, -34], [-170, -34], [-150, 10], [-110, 66], [-50, 66], [-10, 30], [40, 0], [90, 0], [140, 40], [218, 48], [300, 48]];
+        const lens = []; let tot = 0;
+        for (let i = 1; i < way.length; i++) { const d = Math.hypot(way[i][0] - way[i - 1][0], way[i][1] - way[i - 1][1]); lens.push(d); tot += d; }
+        const at = (f) => { let d = f * tot; for (let i = 0; i < lens.length; i++) { if (d <= lens[i]) { const k = d / lens[i]; return [lerp(way[i][0], way[i + 1][0], k), lerp(way[i][1], way[i + 1][1], k)]; } d -= lens[i]; } return way[way.length - 1]; };
+        const n = open ? 12 : 16, sp = open ? 0.55 : 0.22;
+        for (let i = 0; i < n; i++) { const q = at((t * sp + i / n) % 1); cv.circle(X(q[0]), Y(q[1]), 5 * S, open ? C.orange : C.amber); }
+        const outY = open ? -34 : 48, waves = open ? 3 : 1;
+        for (let k = 0; k < waves; k++) cv.arc(X(308) + k * 16 * S, Y(outY), (16 + k * 10) * S, (19 + k * 10) * S, 60, 120, withA(open ? C.green : C.amber, open ? 1 - k * 0.3 : 0.5), { round: true });
+        cv.text(open ? 'OPEN: straight through the tube and out, the shortest way: loud' : 'CLOSED: through the chambers of the rear silencer: quiet',
+            cx, y + h - 40, 18, open ? C.green : C.amber, { font: 'bold', align: 'center', literal: true });
     },
     engine(cv, x, y, w, h, t) {
         const cx = x + w / 2, cy = y + h / 2 + 20, r = 120, p = 0.5 + 0.45 * Math.sin(t * 1.3);
