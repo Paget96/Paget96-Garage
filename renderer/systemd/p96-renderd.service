@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+# p96-renderd, the Paget96 Garage renderer, installed from the MGU Store (renderer/prebuilt/component.json).
+# It runs beside the Store's renderer (mgu-render) and idrive7-renderd and takes nothing of theirs: its own socket
+# (/run/p96-renderd/render.sock), its own ivi ids (0x5039...) and its own touch table (p96_render, port 30574).
+# Nothing persistent is written: the socket lives in /run, the touch table only while an app claims touch.
+[Unit]
+Description=Paget96 Garage renderer (p96-renderd)
+After=winston.service
+RequiresMountsFor=/var/opt
+# a renderer that keeps failing stops trying: the apps then draw through the Store's renderer as before
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+# root for the touch divert (nft) and the foreground gate (SOME/IP as root), in the compositor's group
+User=root
+Group=mgu_wayland
+Environment=XDG_RUNTIME_DIR=/run/wayland
+RuntimeDirectory=p96-renderd
+RuntimeDirectoryMode=0755
+ExecStartPre=/bin/sh -c 'i=0; while [ ! -S /run/wayland/wayland-0 ]; do i=$$((i+1)); [ $$i -gt 120 ] && exit 1; sleep 1; done'
+ExecStart=/var/opt/p96-renderd/current/p96-renderd -c /var/opt/p96-renderd/current/p96-renderd.conf
+# a stopped renderer leaves no touch divert behind (only our own table; other renderers' stay theirs)
+ExecStopPost=-/bin/sh -c 'nft delete table ip p96_render 2>/dev/null; true'
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=150
+TimeoutStopSec=5
+
+[Install]
+WantedBy=oapcontroller.service

@@ -9,7 +9,7 @@ Upstream's kit/tools/build.py finds kit/, apps/, dist/ and oap-sdk/ next to itse
 stages a tree it understands in .stage/ and runs it there:
 
     .stage/kit       -> upstream-kit/kit            (symlink, or a copy where links are refused)
-    .stage/apps/<id>    copy of apps/<id> plus lib/ui.js as garage_ui.js
+    .stage/apps/<id>    copy of apps/<id> plus lib/ui.js, engine.js and render.js as garage_*.js
     .stage/oap-sdk   -> oap-sdk                     (the MGU Store places the SDK there)
     .stage/dist      -> dist                        (the .tgz lands in dist/<id>@<version>.tgz)
 
@@ -22,7 +22,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 STAGE = os.path.join(ROOT, '.stage')
-LIB = {'ui.js': 'garage_ui.js', 'engine.js': 'garage_engine.js'}
+LIB = {'ui.js': 'garage_ui.js', 'engine.js': 'garage_engine.js', 'render.js': 'garage_render.js'}
 
 
 def link(src, dst):

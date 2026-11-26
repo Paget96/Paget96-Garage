@@ -1,0 +1,28 @@
+{
+  "id": "p96-renderd",
+  "kind": "tool",
+  "version": "0.1.0",
+  "title": "Paget96 Garage renderer (test)",
+  "description": "Optional GPU renderer for Paget96 Garage apps, beside the Store's renderer (its own socket, layers and touch). Garage apps use it when it runs and the Store's renderer otherwise. Logs which system popups it sees. Not needed by anything; remove it any time.",
+  "mguHmi": ["ID7"],
+  "optional": true,
+  "uninstallable": true,
+  "requires": { "mgu-deploy": "0.6.1" },
+  "files": [
+    { "path": "p96-renderd", "mode": "0755" },
+    { "path": "p96-renderd.conf", "mode": "0644" },
+    { "path": "foreground_gate.js", "mode": "0644" },
+    { "path": "SOURCE_SHA256", "mode": "0644" },
+    { "path": "LICENSE", "mode": "0644" },
+    { "path": "LICENSE.mgu-renderd", "mode": "0644" },
+    { "path": "NOTICE", "mode": "0644" }
+  ],
+  "units": [
+    { "name": "p96-renderd.service" }
+  ],
+  "enable": [
+    { "unit": "p96-renderd.service", "target": "oapcontroller.service" }
+  ],
+  "restart": ["p96-renderd.service"],
+  "keepRunning": true
+}

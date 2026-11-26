@@ -7,7 +7,7 @@ gfx.c as WebAssembly, drawn by Chrome), for docs/media/p96_datalog/.
 Set up once: an idrive7-apps checkout at the vendored commit (upstream-kit/UPSTREAM.json) gives kit/tools/emu.js and
 kit/emu/web. Then:
 
-    python3 tools/datalog_emu_capture.py setup <idrive7-apps checkout> <emu dir>    # copies kit, app, lib/ui.js
+    python3 tools/datalog_emu_capture.py setup <idrive7-apps checkout> <emu dir>    # copies kit, app, lib/
     node <emu dir>/kit/tools/emu.js p96_datalog --port 8099                          # in another shell
     python3 tools/datalog_emu_capture.py shots <out dir>                             # every page and popup
     python3 tools/datalog_emu_capture.py video <out dir> '<plan json>'               # video.webm, ffmpeg makes the GIF
@@ -53,6 +53,7 @@ def setup(upstream, emu):
     shutil.copytree(os.path.join(ROOT, 'apps', 'p96_datalog'), app, ignore=shutil.ignore_patterns('README.md'))
     shutil.copy(os.path.join(ROOT, 'lib', 'ui.js'), os.path.join(app, 'garage_ui.js'))
     shutil.copy(os.path.join(ROOT, 'lib', 'engine.js'), os.path.join(app, 'garage_engine.js'))
+    shutil.copy(os.path.join(ROOT, 'lib', 'render.js'), os.path.join(app, 'garage_render.js'))
     os.makedirs(os.path.join(emu, 'oap-sdk'))
     open(os.path.join(emu, 'oap-sdk', 'index.js'), 'w').write('module.exports = {};\n')
     open(os.path.join(emu, 'oap-sdk', 'package.json'), 'w').write('{"name": "oap-sdk", "version": "0.0.0"}\n')

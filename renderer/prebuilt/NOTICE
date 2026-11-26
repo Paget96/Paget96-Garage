@@ -1,0 +1,64 @@
+Paget96 Garage
+Copyright (c) 2026 Danijel Markov (Paget96). All rights reserved except as granted below.
+
+Paget96 Garage is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License, version 3 only (GPL-3.0-only), as published by the Free Software
+Foundation, with the additional terms below. See LICENSE for the full text.
+
+ADDITIONAL TERMS (GNU GPL version 3, section 7)
+
+1. Attribution (section 7(b)). Every copy and every modified version of this work, and every work
+   that contains any part of it, must keep this NOTICE file and the copyright lines in the source
+   files, and must show the following line, unchanged and readable, in its user interface (on the
+   How to use page or an About or credits page that a user can open from the app) and at the top of
+   its README or other main documentation:
+
+       Based on Paget96 Garage by Danijel Markov (Paget96) - github.com/Paget96/Paget96-Garage
+
+2. Origin (section 7(c)). A modified version must be marked as changed, in its name and in its
+   documentation, and must not be presented as the original Paget96 Garage or as made, endorsed or
+   supported by Paget96.
+
+3. Names and brand (section 7(e)). This license grants no right to use the names "Paget96" or
+   "Paget96 Garage", the Paget96 Garage brand mark (docs/brand/mark.png), the banner
+   (docs/brand/banner.png) or the app icon design, except to describe the origin of the work as
+   term 1 requires and to redistribute an unmodified copy. A modified version must use its own name
+   and its own icons. See TRADEMARKS.md.
+
+Anyone who receives a copy with these terms may not remove them (GPL-3.0 section 7, last
+paragraphs). Questions and other licensing: github.com/Paget96.
+
+Exhaust (apps/p96_exhaust: exlink.js, flap.js, rules.js, main.js) adapts the exhaust flap control of
+idrive7-apps' Engine Config (apps/live_adjustments: controller.js, adapters.js, real_adapters.js,
+diaglink.js, auto.js) and the gear decoding of its kit (kit/runtime/car.js): the flap requests, the
+probe of the engine units, the hold and the safety model. Those parts are used under the MIT license
+below (Copyright (c) 2026 cauliflowermossgrape); the files say which parts they are.
+
+This repository contains a vendored copy of the kit from idrive7-apps, in upstream-kit/:
+  https://github.com/cauliflowermossgrape/idrive7-apps
+Pinned upstream commit: 54f9f74890d6653d0cf9bd5d505fa58901f25073 (2026-11-26T15:10:23+01:00)
+It is refreshed with tools/sync_upstream_kit.py. Its license, as shipped upstream
+(also in upstream-kit/LICENSE):
+
+MIT License
+
+Copyright (c) 2026 cauliflowermossgrape
+Copyright (c) 2026 小白151 (GitHub: JackieZ123430), Chinese translation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

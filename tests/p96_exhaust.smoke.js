@@ -27,6 +27,7 @@ const APP = path.join(ROOT, 'apps', 'p96_exhaust');
 fs.readdirSync(APP).filter((f) => /\.js(on)?$/.test(f)).forEach((f) => fs.writeFileSync(path.join(dir, f), fs.readFileSync(path.join(APP, f))));
 fs.writeFileSync(path.join(dir, 'garage_ui.js'), fs.readFileSync(path.join(ROOT, 'lib', 'ui.js')));
 fs.writeFileSync(path.join(dir, 'garage_engine.js'), fs.readFileSync(path.join(ROOT, 'lib', 'engine.js')));
+fs.writeFileSync(path.join(dir, 'garage_render.js'), fs.readFileSync(path.join(ROOT, 'lib', 'render.js')));
 fs.mkdirSync(path.join(dir, 'kit'));
 fs.readdirSync(RT).forEach((f) => { if (f !== 'mgu.js') fs.symlinkSync(path.join(RT, f), path.join(dir, 'kit', f)); });
 let app = null;

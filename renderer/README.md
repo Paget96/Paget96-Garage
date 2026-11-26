@@ -12,8 +12,35 @@ and IterioDev, built from earlier work by cauliflowermossgrape). It speaks the s
 that runs on that renderer runs on this one unchanged. On top of it we fix what gets in our way and add what
 our apps need. The plan, phases and reasons are kept by the owner; this file says what is here now.
 
-**Status: phase 1, not installed by anything yet.** It builds and its tests pass on a PC. It has never run on a
-head unit, and nothing in the Store or in our apps uses it yet.
+**Status: a test tool in the MGU Store, optional.** It builds and its tests pass on a PC; it has not yet run on a head
+unit. The Store lists it from this repository (`mgu-repo.json`, `tools`) as "Paget96 Garage renderer (test)". Nothing
+requires it: Paget96 Garage apps use it when it runs and the renderer they always used when it does not.
+
+## How the apps find it
+
+`lib/render.js` (shipped in every app as `garage_render.js`) puts our socket first in the kit's list:
+
+1. `p96-renderd` at `/run/p96-renderd/render.sock`, when installed and running;
+2. the kit's own list as before (the Store's `mgu-render`, then the community socket);
+3. software drawing in the HMI's image when no renderer answers.
+
+A socket file nobody listens on (a stopped renderer) passes to the next one. On a car without p96-renderd nothing
+changes. `tests/render.test.js` checks all three cases with real sockets.
+
+## The Store tool
+
+`prebuilt/` is what the head unit installs (`/var/opt/p96-renderd/current/`): the head unit binary, `p96-renderd.conf`,
+the foreground gate, the licences, our systemd unit `p96-renderd.service` (wanted by `oapcontroller.service`) and
+`SOURCE_SHA256`, the fingerprint of the sources the binary was built from. After a change in `src/` (or `docker/`,
+`protocol/`, `Makefile`), build in Docker (below), then `python3 tools/prebuilt.py make`; `python3 tools/prebuilt.py
+check` (run by `tests/renderer_tool.test.js`) fails while the binary is older than its sources.
+
+What installing it does, and what removing it undoes: one unit, its files under `/var/opt/p96-renderd`. No drop-in in
+another program's unit, no install script, no HMI page template (`embed = 0`), no controller gate library (it uses
+the one another tool installed, if any), no community socket. It does not say it "provides a renderer", so the Store
+never lets the Store's own renderer be removed because of it. While it runs it holds a socket in `/run/p96-renderd`
+and, only while one of our apps claims touch, the nft table `p96_render`; the unit removes that table when it stops.
+After five failed starts in ten minutes it stops trying, and the apps draw through the Store's renderer.
 
 ## What is different from the upstream renderer
 
