@@ -484,7 +484,7 @@ mgu.run({
             V.values = values();
             const cv = ctx.canvas(UI.W, UI.H);
             const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
-            if (cv.chrome) cv.chrome.tabs = { tabs: UI.menuTabs(pages.map((i) => names[i])), sel: UI.menuSel(pages, pages.indexOf(V.page), V.mode), badges: [] };
+            if (cv.chrome) cv.chrome.tabs = UI.menu(pages.map((i) => names[i]), pages.indexOf(V.page), V.mode);
             if (V.dialog) {
                 V.dialog.a = UI.anim('p96exhaust|dialog', V.dialog.open ? 1 : 0, 200);
                 if (!V.dialog.open && V.dialog.a <= 0) V.dialog = null;
@@ -496,8 +496,9 @@ mgu.run({
         const step = (dir) => { const p = pagesNow(), i = p.indexOf(V.page); V.page = p[UI.nextTab(Math.max(0, i), p.length, dir)]; V.mode = 'main'; changed(); };
         if (ctx.onTab) ctx.onTab((i) => {
             const p = pagesNow(), pick = UI.menuPick(p, i);
-            if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); }
-            else if (p[i] != null) { V.mode = 'main'; A.tab(p[i]); }
+            if (pick === 'more') changed();
+            else if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); }
+            else if (p[pick] != null) { V.mode = 'main'; A.tab(p[pick]); }
         });
         ui.onClick('BTN_PAGE', () => step(1));
         ui.onClick('BTN_PREV', () => step(-1));

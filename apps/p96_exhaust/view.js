@@ -24,7 +24,7 @@ const F = require('./flap');
 const T = require('./texts');
 const ART = require('./art');
 const E = need('./garage_engine', '../../lib/engine');
-const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN, HH = 392;
+const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN;
 const TEXT2 = '#c8ced6';
 
 const COL = { ok: C.green, warm: C.amber, bad: C.red, info: C.blue, dim: C.dim, accent: C.orange };
@@ -106,7 +106,7 @@ function flapShown(S, i) {
 }
 /** An electric car: no exhaust, nothing to read (owner rule 2026-11-26 19:03: the app says so). */
 function noExhaust(cv, S, t) {
-    UI.card(cv, X0, TOP, X1 - X0, HH, 'This car', { info: info('noEngine') });
+    UI.card(cv, X0, TOP, X1 - X0, UI.hh(), 'This car', { info: info('noEngine') });
     const cx = (X0 + X1) / 2;
     ART.ART.noEngine(cv, X0 + 40, TOP + 40, X1 - X0 - 80, 230, t);
     cv.text('No exhaust on an electric car', cx, TOP + 300, 30, C.text, { font: 'bold', align: 'center', literal: true });
@@ -121,7 +121,7 @@ function now(cv, S, V, A, t) {
     const fs2 = flapShown(S, 1), ang2 = UI.glide('ex|flapangle2', fs2 === 'OPEN' ? 0 : fs2 === 'CLOSED' ? 90 : 45, null, 10);
     ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 114, { setup: S.setup, engine: S.engine, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
         flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, rpm: v.rpm == null ? null : v.rpm, boost: v.boost, key: 'ex|now' });
-    const h = S.hist || {}, y = TOP + 210, ch = HH - 210 + 0;
+    const h = S.hist || {}, y = TOP + 210, ch = UI.hh() - 210 + 0;
     const cards = [];
     if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: 'model from the engine unit',
         color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') }));
@@ -148,7 +148,7 @@ function now(cv, S, V, A, t) {
 function flapPage(cv, S, V, A, t) {
     const f = S.flap, lw = 560, side = f.sides.indexOf(V.side) >= 0 ? V.side : f.sides[0];
     const v = f.views[side], d = f.decided[side] || {};
-    UI.card(cv, X0, TOP, lw, HH, 'Exhaust flap', { info: info('flap') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'Exhaust flap', { info: info('flap') });
     if (v.simulated) pillRight(cv, X0 + lw - 50, TOP + 12, 'SIMULATED', 'warm', false);
     const shown = v.confirmed !== 'UNKNOWN' ? v.confirmed : v.requested;
     const word = shown === 'OPEN' ? 'OPEN' : shown === 'CLOSED' ? 'CLOSED' : 'THE CAR';
@@ -186,12 +186,12 @@ function flapPage(cv, S, V, A, t) {
     const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
     modes.forEach((m, i) => choice(cv, X0 + 20 + i * 130, bTop, 120, 44, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0]));
     cv.text(v.simulated ? 'Simulated: nothing is sent to the car. Arm it in Settings.' : 'AUTO: the rules on the right decide. CAR: the car decides.',
-        X0 + 20, TOP + HH - 14, 14, v.simulated ? C.amber : C.dim, { literal: true });
+        X0 + 20, TOP + UI.hh() - 14, 14, v.simulated ? C.amber : C.dim, { literal: true });
     rulesCard(cv, S, V, A, X0 + lw + 14, X1 - X0 - lw - 14);
 }
 
 function rulesCard(cv, S, V, A, x, w) {
-    UI.card(cv, x, TOP, w, HH, 'Automation (top rule wins)', { info: info('rules') });
+    UI.card(cv, x, TOP, w, UI.hh(), 'Automation (top rule wins)', { info: info('rules') });
     const list = S.rules || [], per = 6, first = Math.max(0, Math.min(V.ruleFirst || 0, list.length - per));
     const active = S.active || {};
     list.slice(first, first + per).forEach((r, k) => {
@@ -214,7 +214,7 @@ function rulesCard(cv, S, V, A, x, w) {
         chev(cv, ax + 26, TOP + 362, 14, 'down', first + per < list.length ? C.accent : '#464a52');
         if (cv.target) { cv.target(ax - 14, TOP + 346, 28, 32, () => A.ruleScroll(-1), 'rup', 12); cv.target(ax + 12, TOP + 346, 28, 32, () => A.ruleScroll(1), 'rdown', 12); }
     }
-    const ay = TOP + HH - 48, aw = 220;
+    const ay = TOP + UI.hh() - 48, aw = 220;
     cv.strokeRoundRect(x + 20, ay, aw, 36, 18, 2, C.accent);
     cv.text('+ Add a rule', x + 20 + aw / 2, ay + 24, 17, C.accent, { font: 'bold', align: 'center', literal: true });
     if (cv.target) cv.target(x + 20, ay, aw, 36, () => A.ruleOpen(null), 'addrule', 18);
@@ -272,7 +272,7 @@ function ruleDialog(S, V, A, index) {
 /* ---------- Flap log ---------- */
 function flapLog(cv, S, V, A, t) {
     const lw = 620, wk = M.flapWeek(S.flapWeekLog || S.flapLog, S.at);
-    UI.card(cv, X0, TOP, lw, HH, 'This week', { info: info('week') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'This week', { info: info('week') });
     const bx = X0 + 20, bw = lw - 40, segs = [['OPEN', C.green, 'Open'], ['CLOSED', C.amber, 'Closed'], ['OEM', '#5a606a', 'Car decides']];
     let xx = bx;
     if (wk.total > 0) segs.forEach((s) => {
@@ -297,7 +297,7 @@ function flapLog(cv, S, V, A, t) {
     });
     if (!top.length) cv.text('No rule held the flap this week.', bx, TOP + 300, 15, C.dim, { literal: true });
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, HH, 'Last changes', { info: info('changes') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'Last changes', { info: info('changes') });
     const ch = (S.flapLog || []).slice(0, 5);
     ch.forEach((c, i) => {
         const yy = TOP + 48 + i * 62;
@@ -313,7 +313,7 @@ function flapLog(cv, S, V, A, t) {
 /* ---------- OPF ---------- */
 function opf(cv, S, V, A, t) {
     const v = S.v || {}, w1 = 430, w2 = 520;
-    UI.card(cv, X0, TOP, w1, HH, ENG && ENG.filter === 'dpf' ? 'Diesel particulate filter' : 'Particulate filter', { info: info('opf') });
+    UI.card(cv, X0, TOP, w1, UI.hh(), ENG && ENG.filter === 'dpf' ? 'Diesel particulate filter' : 'Particulate filter', { info: info('opf') });
     const cx = X0 + w1 / 2;
     if (has(S, 'load')) {
         UI.ring(cv, cx, TOP + 178, 92, { value: v.load, min: 0, max: 100, decimals: 0, unit: '% full', color: v.load != null && v.load >= 80 ? 'warm' : 'ok', scale: [0, 25, 50, 75, 100], target: S.mark || 80 });
@@ -326,7 +326,7 @@ function opf(cv, S, V, A, t) {
     if (has(S, 'load')) cv.text('the mark: the car regenerates near ' + (S.mark || 80) + ' % (an estimate)', cx, TOP + 356, 14, C.amber, { align: 'center', literal: true });
     // the regeneration
     const mx = X0 + w1 + 14;
-    UI.card(cv, mx, TOP, w2, HH, 'Regeneration', { info: info('regen') });
+    UI.card(cv, mx, TOP, w2, UI.hh(), 'Regeneration', { info: info('regen') });
     const rn = S.regen, bx = mx + 20, bw = w2 - 40;
     if (rn) {
         cv.roundRect(bx, TOP + 52, bw, 78, 18, [255, 128, 40, 40]);
@@ -357,7 +357,7 @@ function opf(cv, S, V, A, t) {
     });
     // the last five
     const tx = mx + w2 + 14, tw = X1 - tx;
-    UI.card(cv, tx, TOP, tw, HH, 'Last 5 regenerations', { info: info('regens') });
+    UI.card(cv, tx, TOP, tw, UI.hh(), 'Last 5 regenerations', { info: info('regens') });
     const cols = [tx + 20, tx + 252, tx + 362, tx + 450];
     ['when', 'load', 'time', 'peak'].forEach((h, i) => cv.text(h, cols[i], TOP + 62, 14, C.dim, { font: 'bold', literal: true }));
     (S.regens || []).slice(0, 5).forEach((r, i) => {
@@ -376,7 +376,7 @@ function opf(cv, S, V, A, t) {
 function care(cv, S, V, A, t) {
     const lw = 760, dv = M.drives(S.drives, S.at), withAsh = has(S, 'ash');
     const w = withAsh ? lw : X1 - X0;
-    UI.card(cv, X0, TOP, w, HH, 'Your drives and the filter', { info: info('drives') });
+    UI.card(cv, X0, TOP, w, UI.hh(), 'Your drives and the filter', { info: info('drives') });
     const bx = X0 + 20, bw = w - 40;
     const warn = dv.warn, c = warn ? [255, 186, 70] : [70, 210, 130];
     cv.roundRect(bx, TOP + 52, bw, 80, 18, c.concat([34]));
@@ -391,11 +391,11 @@ function care(cv, S, V, A, t) {
         cv.text(dv.labels[i], x + cw / 2, base + 22, 14, C.dim, { align: 'center', literal: true });
     });
     cv.fillRect(bx, base, bw, 1, '#3c4048');
-    cv.text('Tip: one steady drive of 15 to 20 minutes lets it regenerate. The car does it by itself.', bx, TOP + HH - 16, 15, C.green, { literal: true });
+    cv.text('Tip: one steady drive of 15 to 20 minutes lets it regenerate. The car does it by itself.', bx, TOP + UI.hh() - 16, 15, C.green, { literal: true });
     if (!withAsh) return;
     // ash over km, the line to "about full" (an estimate)
     const rx = X0 + lw + 14, rw = X1 - rx, af = M.ashFuture(S.ash, M.ASH_FULL);
-    UI.card(cv, rx, TOP, rw, HH, 'Filter life (ash)', { info: info('ash') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'Filter life (ash)', { info: info('ash') });
     const px = rx + 70, pw = rw - 330, py = TOP + 60, ph = 196, lo = 0, hi = 60, kmMax = Math.max(1000, S.kmNow || 1000);
     for (let g = 0; g <= 60; g += 15) {
         const yy = py + ph - g / hi * ph;
@@ -433,13 +433,13 @@ function cold(cv, S, V, A, t) {
     if (has(S, 'coolant')) series.push({ name: 'coolant', color: 'info', values: clS.length > 1 ? clS : [null, null] });
     const mins = warm.length ? Math.round(warm[warm.length - 1][0] / 60) : 5;
     const xl = ['start']; for (let k = 1; k <= mins; k++) xl.push(k + ' min');
-    UI.chart(cv, X0, TOP, lw, HH, series, { label: (S.warmWhen || 'Last cold start') + ': catalyst warm-up', info: info('warmup'), min: 0, max: 500, yTicks: 5, yUnit: '°C',
+    UI.chart(cv, X0, TOP, lw, UI.hh(), series, { label: (S.warmWhen || 'Last cold start') + ': catalyst warm-up', info: info('warmup'), min: 0, max: 500, yTicks: 5, yUnit: '°C',
         xLabels: xl, fill: false, legend: 'right',
         note: lo != null ? 'Catalyst working after ' + Math.floor(lo / 60) + ' min ' + (lo % 60) + ' s (about ' + M.LIGHT_OFF + ' °C). Until then the engine runs a bit richer and louder.' : 'Waiting for a cold start.' });
     const rx = X0 + lw + 14, rw = X1 - rx, offs = (S.lightOffs || []).map((s) => s / 60);
     if (has(S, 'egt')) UI.stat(cv, rx, TOP, rw, 190, { label: 'Catalyst ready in', value: lo != null ? Math.floor(lo / 60) + ':' + ('0' + (lo % 60)).slice(-2) : null, unit: 'min',
         sub: (S.warmWhen || '').toLowerCase() + (S.warmOutside != null ? ', outside ' + Math.round(S.warmOutside) + ' °C' : ''), color: 'ok', history: offs, minSpan: 1, spanLabel: '-' + offs.length + ' starts', nowLabel: 'last', info: info('ready') });
-    const cw = M.coldWeek(S.starts, S.at), cy = has(S, 'egt') ? TOP + 204 : TOP, chh = has(S, 'egt') ? HH - 204 : HH;
+    const cw = M.coldWeek(S.starts, S.at), cy = has(S, 'egt') ? TOP + 204 : TOP, chh = has(S, 'egt') ? UI.hh() - 204 : UI.hh();
     UI.card(cv, rx, cy, rw, chh, 'Cold starts', { info: info('coldstarts') });
     const vw = cv.text(String(cw.count), rx + 20, cy + 98, 48, C.text, { font: 'num', literal: true });
     cv.text('this week', rx + 32 + vw, cy + 94, 18, C.dim, { literal: true });
@@ -448,7 +448,7 @@ function cold(cv, S, V, A, t) {
 
 /* ---------- Sound ---------- */
 function soundPage(cv, S, V, A, t) {
-    UI.card(cv, X0, TOP, X1 - X0, HH, 'How the sound is made, and what damps it', { info: info('sound') });
+    UI.card(cv, X0, TOP, X1 - X0, UI.hh(), 'How the sound is made, and what damps it', { info: info('sound') });
     const fs = flapShown(S), lv = M.sound(S.setup, has(S, 'flap') ? fs : 'OEM', S.v && S.v.load != null && S.v.load < 25, S.engine);
     const parts = ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 214, { setup: S.setup, flap: has(S, 'flap') ? fs : 'OEM', t: t, labels: true, numbers: false,
         temps: { cat: S.v && S.v.egt, opf: S.v && S.v.pfTemp }, rpm: S.v && S.v.rpm != null ? S.v.rpm : null, boost: S.v && S.v.boost, key: 'ex|sound' });
@@ -458,8 +458,8 @@ function soundPage(cv, S, V, A, t) {
         cv.text(Math.round(l * 100) + ' %', p.x, TOP + 56, 15, C.text, { font: 'bold', align: 'center', literal: true });
     });
     cv.text('Each cylinder fires a pressure pulse. The turbo and the filters smooth the pulses, the silencers take most of the loudness. An open flap lets more through.',
-        X0 + 20, TOP + HH - 40, 15, C.dim, { literal: true });
-    cv.text('The percentages illustrate each part, following your Setup page: not a measurement.', X0 + 20, TOP + HH - 16, 15, C.dim, { literal: true });
+        X0 + 20, TOP + UI.hh() - 40, 15, C.dim, { literal: true });
+    cv.text('The percentages illustrate each part, following your Setup page: not a measurement.', X0 + 20, TOP + UI.hh() - 16, 15, C.dim, { literal: true });
 }
 
 /* ---------- Better sound ---------- */
@@ -467,7 +467,7 @@ function better(cv, S, V, A, t) {
     const v = S.v || {}, tp = M.tips({ engine: S.engine, hasFlap: has(S, 'flap'), hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
         egt: has(S, 'egt') ? v.egt : null, load: has(S, 'load') ? v.load : null, rpm: has(S, 'rpm') ? v.rpm : null, mode: has(S, 'mode') ? v.mode : null });
     const lw = 960;
-    UI.card(cv, X0, TOP, lw, HH, 'Better sound, no changes to the car', { info: info('tips') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'Better sound, no changes to the car', { info: info('tips') });
     tp.list.forEach((x, i) => {
         const yy = TOP + 72 + i * 64, c = x.ok === true ? C.green : x.ok === false ? C.amber : '#5a606a';
         cv.circle(X0 + 32, yy, 13, c);
@@ -476,21 +476,21 @@ function better(cv, S, V, A, t) {
         cv.text(fit(cv, x.text, 16, lw - 100), X0 + 60, yy + 31, 16, C.dim, { literal: true });
     });
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, HH, 'Sound score now', { info: info('score') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'Sound score now', { info: info('score') });
     UI.ring(cv, rx + rw / 2, TOP + 200, 100, { value: tp.score, min: 0, max: 100, decimals: 0, text: tp.score == null ? '--' : null,
         unit: tp.ready + ' of ' + tp.list.length + ' ready', color: 'accent', scale: [0, 25, 50, 75, 100] });
-    cv.text('An estimate from the conditions on the left, not a measurement.', rx + rw / 2, TOP + HH - 24, 14, C.dim, { align: 'center', literal: true });
+    cv.text('An estimate from the conditions on the left, not a measurement.', rx + rw / 2, TOP + UI.hh() - 24, 14, C.dim, { align: 'center', literal: true });
 }
 
 /* ---------- History ---------- */
 function history(cv, S, V, A, t) {
     const lw = 1000, days = M.loadDays(S.loads, S.at, 56), mark = S.mark || 80;
-    UI.chart(cv, X0, TOP, lw, HH, [
+    UI.chart(cv, X0, TOP, lw, UI.hh(), [
         { name: 'filter load', color: 'ok', values: days.some((x) => x != null) ? days : [null, null] },
         { name: 'regeneration mark (estimate)', color: 'warm', values: [mark, mark] },
     ], { label: 'Filter load, last 8 weeks', info: info('hist'), min: 0, max: 100, yTicks: 4, yUnit: '%', xLabels: ['-8 w', '-6 w', '-4 w', '-2 w', 'now'], fill: false });
     const rx = X0 + lw + 14, rw = X1 - rx, list = (S.regens || []).slice(0, 4);
-    UI.card(cv, rx, TOP, rw, HH, 'Regenerations', { info: info('regenList') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'Regenerations', { info: info('regenList') });
     list.forEach((r, i) => {
         const yy = TOP + 62 + i * 76;
         cv.circle(rx + 26, yy + 8, 6, r.cut ? C.amber : C.green);
@@ -501,12 +501,12 @@ function history(cv, S, V, A, t) {
     if (!list.length) cv.text('None seen yet.', rx + 20, TOP + 80, 17, C.dim, { literal: true });
     const gap = M.averageGap(S.regens), af = M.ashFuture(S.ash);
     const sum = (S.regens || []).length + ' regenerations' + (gap ? ', every ' + Math.round(gap.days) + ' days' : '') + (af && af.per1000 ? '. Ash grows about ' + af.per1000.toFixed(1) + ' g per 1 000 km.' : '.');
-    UI.wrap(cv, sum, 14, rw - 40).slice(0, 2).forEach((ln, i, a) => cv.text(ln, rx + 20, TOP + HH - 18 - (a.length - 1 - i) * 20, 14, C.dim, { literal: true }));
+    UI.wrap(cv, sum, 14, rw - 40).slice(0, 2).forEach((ln, i, a) => cv.text(ln, rx + 20, TOP + UI.hh() - 18 - (a.length - 1 - i) * 20, 14, C.dim, { literal: true }));
 }
 
 /* ---------- Setup ---------- */
 function setupPage(cv, S, V, A, t) {
-    UI.card(cv, X0, TOP, X1 - X0, HH, 'Your exhaust', { info: info('setup') });
+    UI.card(cv, X0, TOP, X1 - X0, UI.hh(), 'Your exhaust', { info: info('setup') });
     const fd = S.setupFound || {}, s = Object.assign({}, M.SETUP_DEFAULT, S.setup || {});
     const foundTxt = [];
     if (fd.opf) foundTxt.push(fname() + ' yes');
@@ -533,7 +533,7 @@ function setupPage(cv, S, V, A, t) {
         const hint = { mid: s.mid !== 'stock' ? 'Sound page and tips count the louder middle part' : '', flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
         if (hint) cv.text(hint, x + 20, y + ch - 18, 14, C.dim, { literal: true });
     });
-    cv.text('The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', X0 + 20, TOP + HH - 12, 14, C.dim, { literal: true });
+    cv.text('The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', X0 + 20, TOP + UI.hh() - 12, 14, C.dim, { literal: true });
 }
 
 /* ---------- How to use, Settings ---------- */
@@ -552,7 +552,7 @@ function helpTopics() {
 const APP_ROWS = [
     { key: 'arm', label: 'Flap control', hint: 'Simulated sends nothing; Armed commands the real flap', type: 'choice', default: 'off', options: [['off', 'Simulated'], ['on', 'Armed']] },
     { key: 'hold', label: 'Hold OPEN and CLOSE', hint: 'Sent again every 15 s; off: the car takes it back after 20 s', type: 'bool', default: true },
-    { key: 'closeLimit', label: 'Close: hand back above', hint: 'Engine speed where CLOSE gives the flap to the car', type: 'choice', default: '4000',
+    { key: 'closeLimit', label: 'Keep CLOSED up to', hint: 'Above this engine speed the car gets the flap back and opens it under load (less back pressure). Never: stays closed', type: 'choice', default: '4000',
         options: [['3000', '3 000'], ['4000', '4 000'], ['5000', '5 000'], ['0', 'Never']] },
     { key: 'leftIs', label: 'Left flap is', hint: 'Which engine unit drives the left flap (check by ear)', type: 'choice', default: '1', options: [['1', 'Bank 1'], ['2', 'Bank 2']] },
 ];

@@ -41,7 +41,7 @@ function tabsFor(m) {
     };
     return TABS.filter((n) => !need[n] || need[n]());
 }
-const T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN, CW = R - L, BOTTOM = 504, CH = BOTTOM - T;
+const T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN, CW = R - L;
 const isNum = (x) => typeof x === 'number' && isFinite(x);
 
 /* ---------- units ---------- */
@@ -276,13 +276,13 @@ function runTable(cv, m, x, y, w, runs, opts) {
 }
 function pageRuns(cv, m) {
     const log = m.log(), runs = m.sessionRuns();
-    runCard(cv, m, L, T, 560, CH, log.last, { live: true });
+    runCard(cv, m, L, T, 560, UI.hh(), log.last, { live: true });
     const x = L + 574, w = R - x;
-    UI.card(cv, x, T, w, CH, 'Runs today', { info: INFO.runsToday });
+    UI.card(cv, x, T, w, UI.hh(), 'Runs today', { info: INFO.runsToday });
     if (!runs.length) ltext(cv, 'No runs in this session yet. Stop, wait for READY, go.', x + 20, T + 110, 20, C.dim);
     else runTable(cv, m, x, T + 60, w, runs, { max: 5 });
     const air = m.has('intake') && m.has('charge') ? 'Air: intake after the filter / charge air before the throttle. ' : '';
-    ltext(cv, air + 'Times start when the car moves.', x + 20, BOTTOM - 20, 16, C.dim);
+    ltext(cv, air + 'Times start when the car moves.', x + 20, UI.bottom() - 20, 16, C.dim);
 }
 
 /* ---------- Dyno ---------- */
@@ -296,7 +296,7 @@ function pageDyno(cv, m) {
     // torque in Nm (lb-ft in imperial), power in hp
     const tq = (nm) => (imp ? nm * 0.737562 : nm), tqU = imp ? 'lb-ft' : 'Nm';
     if (!sh) {
-        UI.card(cv, L, T, lw, CH, 'Dyno sheet', { info: INFO.dyno });
+        UI.card(cv, L, T, lw, UI.hh(), 'Dyno sheet', { info: INFO.dyno });
         UI.wrap(cv, 'No pull yet. In 2nd or 3rd gear, from about 2 000 rpm, go full throttle up to the shift point. Only on a closed road or strip.', 20, lw - 40)
             .forEach((ln, i) => ltext(cv, ln, L + 20, T + 110 + i * 30, 20, C.dim));
     } else {
@@ -305,14 +305,14 @@ function pageDyno(cv, m) {
         for (let k = lo; k <= hi; k++) ticks.push(k);
         const label = 'Dyno sheet: ' + (pull.at > now - 2 * 3600 * 1000 ? 'pull' : 'last pull') + ' in ' + ORD(pull.gear) + ' gear, ' + dayName(pull.at, now).replace('Today', 'today') + ' ' + clock(pull.at);
         const ip = sh.power.indexOf(sh.peakPower.v), it = sh.torque.indexOf(sh.peakTorque.v);
-        UI.dualChart(cv, L, T, lw, CH, xs,
+        UI.dualChart(cv, L, T, lw, UI.hh(), xs,
             { values: sh.power, color: 'accent', unit: 'hp', min: 0 },
             { values: sh.torque.map(tq), color: 'info', unit: tqU, min: 0 },
             { label: label, info: INFO.dyno, xTicks: ticks, xRange: [lo, hi], xUnit: 'x 1 000 rpm',
                 marks: [{ side: 'left', i: ip, text: Math.round(sh.peakPower.v) + ' hp @ ' + rpmText(sh.peakPower.rpm) },
                     { side: 'right', i: it, text: Math.round(tq(sh.peakTorque.v)) + ' ' + tqU + ' @ ' + rpmText(sh.peakTorque.rpm) }] });
     }
-    const x = L + lw + 14, w = R - x, ch = (CH - 14) / 2;
+    const x = L + lw + 14, w = R - x, ch = (UI.hh() - 14) / 2;
     const corr = sh && sh.corrected ? 'weather corrected, ' : '';
     UI.stat(cv, x, T, w, ch, { label: 'Peak power', value: sh ? sh.peakPower.v : null, decimals: 0, unit: 'hp',
         sub: corr + 'at the engine (est.)', color: 'accent', info: INFO.peakPower });
@@ -371,7 +371,7 @@ function pageCorrection(cv, m) {
         ltext(cv, isNum(da) ? 'density alt. ' + (U.imp ? Math.round(da * 3.28084) + ' ft' : Math.round(da) + ' m') : 'density alt. --', x + 20, T + 144, 16, C.dim);
         ltext(cv, M.airWords(cf), x + 20, T + 167, 15, isNum(cf) && Math.abs(cf - 1) > 0.003 ? C.amber : C.green);
     }
-    airChart(cv, m, L, T + ch + 14, CW, CH - ch - 14, INFO.airChart);
+    airChart(cv, m, L, T + ch + 14, CW, UI.hh() - ch - 14, INFO.airChart);
 }
 
 /* ---------- Boost ---------- */
@@ -466,7 +466,7 @@ function pageBoost(cv, m) {
     // two banks: their two boost lines in place of the manifold (its card is above), so the legend keeps four lines
     if (m.has('boost2')) { series = series.filter((q) => q.name !== 'manifold (abs)'); series.forEach((q) => { if (q.name === 'boost') q.name = 'boost bank 1'; }); }
     const withWg = series.some((q) => q.axis === 'right');
-    UI.chart(cv, L, T + ch + 14, CW, CH - ch - 14, series, { label: withWg ? label + ' and the wastegate' : label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
+    UI.chart(cv, L, T + ch + 14, CW, UI.hh() - ch - 14, series, { label: withWg ? label + ' and the wastegate' : label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
         note: withWg ? null : 'boost = manifold minus outside', info: withWg ? INFO.pressureWgChart : INFO.pressureChart, fill: false,
         minSpan: U.pressSpan, seq: lastRun ? null : m.seq1, slots: lastRun ? null : 60, every: 1000,
         right: withWg ? { min: 0, max: 100, unit: '%', color: WG_COL } : null });
@@ -483,7 +483,7 @@ function pageTyres(cv, m) {
     const U = units(m), ty = m.v.tyres || { p: {}, t: {} }, p = ty.p || {}, tt = ty.t || {}, target = m.setting('tyreTarget');
     // left: the car from above, each tyre's pressure and temperature
     const lw = 700;
-    UI.card(cv, L, T, lw, CH, 'Tyres now', { info: INFO.tyresNow });
+    UI.card(cv, L, T, lw, UI.hh(), 'Tyres now', { info: INFO.tyresNow });
     const cx = L + lw / 2, cy = T + 210;
     cv.strokeRoundRect(cx - 79, cy - 150, 158, 300, 70, 3, '#4a4e58');
     cv.strokeRoundRect(cx - 55, cy - 70, 110, 88, 14, 2, '#3a3e48');
@@ -507,7 +507,7 @@ function pageTyres(cv, m) {
     });
     // right bottom: the note
     const ny = T + ch + 14;
-    UI.card(cv, x, ny, w, BOTTOM - ny, 'Note', { info: INFO.tyreNote });
+    UI.card(cv, x, ny, w, UI.bottom() - ny, 'Note', { info: INFO.tyreNote });
     const note = M.tyreNote(p);
     ltext(cv, note.text, x + 20, ny + 72, 21, note.odd ? C.amber : C.green);
     UI.wrap(cv, 'Target from your Settings: ' + fix(U.press(target), U.pressD) + ' ' + U.pressU + ' hot. The car sends ' + (m.has('tyreTemp') ? 'pressure and temperature' : 'the pressure') + ' from its tyre sensors (TPMS), about once a minute.', 17, w - 40)
@@ -518,10 +518,10 @@ function pageTyres(cv, m) {
 
 function pageTemps(cv, m) {
     const v = m.v, U = units(m), lw = 900;
-    UI.card(cv, L, T, lw, CH, 'Temperatures', { info: INFO.temps });
+    UI.card(cv, L, T, lw, UI.hh(), 'Temperatures', { info: INFO.temps });
     const rows = [['Engine oil', 'oil', v.oil], ['Coolant', 'coolant', v.coolant], ['Gearbox oil', 'gearbox', v.gearbox],
         ['Intake air', 'intake', v.intake], ['Charge air', 'charge', v.charge], ['Exhaust gas (EGT)', 'egt', v.egt]].filter((r) => m.has(r[1]));
-    const pitch = Math.min(56, (CH - 90) / Math.max(1, rows.length - 1));
+    const pitch = Math.min(56, (UI.hh() - 90) / Math.max(1, rows.length - 1));
     rows.forEach((r, i) => {
         const ry = T + 72 + i * pitch, z = M.ZONES[r[1]], lo = z.cold != null ? z.cold - 50 : 0;
         ltext(cv, r[0], L + 20, ry, 19, '#c8ced6');
@@ -530,7 +530,7 @@ function pageTemps(cv, m) {
         UI.bar(cv, L + 272, ry + 14, lw - 292, 10, isNum(r[2]) ? (r[2] - lo) / (z.max - lo) : 0, M.zone(r[1], r[2]), 'dltb' + r[1]);
     });
     const h = m.h10;
-    UI.chart(cv, L + lw + 14, T, R - L - lw - 14, CH, [
+    UI.chart(cv, L + lw + 14, T, R - L - lw - 14, UI.hh(), [
         { k: 'oil', name: 'oil', color: 'ok', values: h.oil.map(U.temp) },
         { k: 'gearbox', name: 'gearbox', color: 'info', values: h.gearbox.map(U.temp) },
         { k: 'charge', name: 'charge air', color: 'warm', values: h.charge.map(U.temp) },
@@ -544,7 +544,7 @@ function pageTemps(cv, m) {
 function pageLog(cv, m) {
     const U = units(m), log = m.log(), ses = M.sessions(log.runs), ui = m.ui, now = m.lastT || Date.now();
     const lw = 560;
-    UI.card(cv, L, T, lw, CH, 'Sessions', { info: INFO.logSessions, infoIcon: true });
+    UI.card(cv, L, T, lw, UI.hh(), 'Sessions', { info: INFO.logSessions, infoIcon: true });
     if (!ses.length) ltext(cv, 'No runs saved yet.', L + 20, T + 110, 20, C.dim);
     if (ui.logSession >= ses.length) ui.logSession = 0;
     const per = 4, off = Math.min(ui.logOff, Math.max(0, ses.length - per));
@@ -558,18 +558,18 @@ function pageLog(cv, m) {
         if (cv.target) cv.target(L + 10, ry, lw - 20, 60, () => { ui.logSession = i; ui.logRun = null; }, 'dlses|' + i, 20);
     });
     if (ses.length > per) {
-        const by = BOTTOM - 58;
+        const by = UI.bottom() - 58;
         if (off > 0) UI.button(cv, L + 20, by, 'Newer', () => { ui.logOff = Math.max(0, off - per); }, { key: 'dlnewer' });
         if (off + per < ses.length) UI.button(cv, L + lw - 130, by, 'Older', () => { ui.logOff = off + per; }, { key: 'dlolder' });
     }
     // right: the runs of the session, or the run opened
     const x = L + lw + 14, w = R - x, s = ses[ui.logSession];
     const open = ui.logRun != null ? m.runAt(ui.logRun) : null;
-    if (open) { runDetail(cv, m, x, T, w, CH, open, s); return; }
-    UI.card(cv, x, T, w, CH, s ? 'Runs, ' + dayName(s.start, now) + ' ' + clock(s.start) : 'Runs', { info: INFO.logRuns, infoIcon: true });
+    if (open) { runDetail(cv, m, x, T, w, UI.hh(), open, s); return; }
+    UI.card(cv, x, T, w, UI.hh(), s ? 'Runs, ' + dayName(s.start, now) + ' ' + clock(s.start) : 'Runs', { info: INFO.logRuns, infoIcon: true });
     if (s) {
         runTable(cv, m, x, T + 60, w, s.runs, { max: 5, onPick: (r) => { ui.logRun = r.at; } });
-        ltext(cv, s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + ' runs. Tap a run to open it.' : 'Tap a run to open it.', x + 20, BOTTOM - 22, 16, C.dim);
+        ltext(cv, s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + ' runs. Tap a run to open it.' : 'Tap a run to open it.', x + 20, UI.bottom() - 22, 16, C.dim);
     }
 }
 function runDetail(cv, m, x, y, w, h, run, s) {
@@ -597,7 +597,7 @@ function runDetail(cv, m, x, y, w, h, run, s) {
 function pageCompare(cv, m) {
     const U = units(m), pair = m.comparePair(), a = pair[0], b = pair[1], now = m.lastT || Date.now();
     const lw = 560;
-    UI.card(cv, L, T, lw, CH, 'Run A vs run B', { info: INFO.compare });
+    UI.card(cv, L, T, lw, UI.hh(), 'Run A vs run B', { info: INFO.compare });
     if (!a || !b || a === b) {
         ltext(cv, 'Two runs are needed. Make a run or pick two on the Log page.', L + 20, T + 110, 18, C.dim);
         return;
@@ -616,7 +616,7 @@ function pageCompare(cv, m) {
     M.splitsFor(Math.min(a.length, b.length)).forEach((sp) => { if (sp.key !== fa && sp.key !== fb) rows.push([sp.label, a.result[sp.key], b.result[sp.key], 1]); });
     rows.push(['trap ' + U.speedU, U.speed(a.trap && a.trap[fa]), U.speed(b.trap && b.trap[fb]), -1]);
     rows.push(['reaction', a.reaction, b.reaction, 1]);
-    const pitch = Math.min(40, (CH - 110) / rows.length);
+    const pitch = Math.min(40, (UI.hh() - 110) / rows.length);
     rows.forEach((r, i) => {
         const ry = T + 118 + i * pitch, d = isNum(r[1]) && isNum(r[2]) ? r[2] - r[1] : null;
         ltext(cv, r[0], L + 20, ry, 17, C.dim);
@@ -635,7 +635,7 @@ function pageCompare(cv, m) {
         { name: 'A', color: 'info', values: traceOver(a, top2[0], rl.end).map(top2[2]) },
         { name: 'B', color: 'accent', values: traceOver(b, top2[0], rl.end).map(top2[2]) },
     ], { label: top2[1], yTicks: 3, yUnit: top2[3], xLabels: rl.labels, legend: 'right', info: top2[4], fill: false });
-    const y2 = T + top + 14, h2 = BOTTOM - y2, airCard = m.has('intake') || m.has('kPa'), cw2 = airCard ? 560 : w;
+    const y2 = T + top + 14, h2 = UI.bottom() - y2, airCard = m.has('intake') || m.has('kPa'), cw2 = airCard ? 560 : w;
     if (m.has('charge')) {
         UI.chart(cv, x, y2, airCard ? cw2 : w, h2, [
             { name: 'A', color: 'info', values: traceOver(a, 'charge', rl.end).map(U.temp) },

@@ -230,13 +230,13 @@ function glanceCards(v) {
 function pageGlance(cv, v) {
     const cards = glanceCards(v);
     if (!cards.length) {
-        UI.card(cv, L, T, CW, 392);
+        UI.card(cv, L, T, CW, UI.hh());
         cv.text('Waiting for the car', UI.W / 2, T + 190, 30, C.dim, { font: 'bold', align: 'center', literal: true });
         cv.text('Cards appear as the car sends their values.', UI.W / 2, T + 228, 16, C.dim, { align: 'center', literal: true });
         return;
     }
     const cols = Math.min(3, cards.length), rows = Math.ceil(cards.length / 3), gap = 14;
-    const cw = Math.floor((CW - (cols - 1) * gap) / cols), ch = rows === 1 ? 189 : Math.floor((392 - gap) / 2);
+    const cw = Math.floor((CW - (cols - 1) * gap) / cols), ch = rows === 1 ? Math.floor(UI.hh() / 2) - 7 : Math.floor((UI.hh() - gap) / 2);
     cards.forEach((c, i) => {
         const x = L + (i % cols) * (cw + gap), y = T + Math.floor(i / cols) * (ch + gap);
         if (c.kind === 'stat') UI.stat(cv, x, y, cw, ch, c.g);
@@ -249,7 +249,7 @@ function pageGlance(cv, v) {
 function pageDrive(cv, v, st) {
     const d = v.drives, now = st.now, s = d ? d.summary(now) : null, day = d ? d.day(now) : null;
     const lw = 760;
-    UI.card(cv, L, T, lw, 392, s && s.live ? 'This drive' : 'Last drive', { info: INFO.drive });
+    UI.card(cv, L, T, lw, UI.hh(), s && s.live ? 'This drive' : 'Last drive', { info: INFO.drive });
     if (!s) {
         cv.text('No drive yet today', L + lw / 2, T + 190, 30, C.dim, { font: 'bold', align: 'center', literal: true });
         cv.text('It starts by itself when the car moves.', L + lw / 2, T + 226, 16, C.dim, { align: 'center', literal: true });
@@ -268,7 +268,7 @@ function pageDrive(cv, v, st) {
     }
     const rx = L + lw + 14, rw = R - rx;
     if (!day || !day.n) {
-        UI.card(cv, rx, T, rw, 392, 'Today', { info: INFO.today });
+        UI.card(cv, rx, T, rw, UI.hh(), 'Today', { info: INFO.today });
         cv.text('Nothing driven today', rx + rw / 2, T + 200, 22, C.dim, { font: 'bold', align: 'center', literal: true });
         return;
     }
@@ -287,7 +287,7 @@ function pageDrive(cv, v, st) {
     }
     const nl = 5, xl = [];
     for (let i = 0; i < nl; i++) xl.push(M.shortTime(t0 + (t1 - t0) * i / (nl - 1), st.settings.clock));
-    UI.chart(cv, rx, T, rw, 392 - 40, [{ values: vals, color: 'accent' }], { label: 'Today', info: INFO.today, min: 0, max: Math.max(5, day.km * 1.15), yUnit: 'km', xLabels: xl });
+    UI.chart(cv, rx, T, rw, UI.hh() - 40, [{ values: vals, color: 'accent' }], { label: 'Today', info: INFO.today, min: 0, max: Math.max(5, day.km * 1.15), yUnit: 'km', xLabels: xl });
     cv.text(day.n + (day.n === 1 ? ' drive, ' : ' drives, ') + f(day.km, 1) + ' km, ' + hm(day.min), rx + 20, T + 380, 17, C.text, lit);
 }
 

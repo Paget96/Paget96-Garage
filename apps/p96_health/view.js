@@ -156,7 +156,7 @@ function faults(cv, S, V, A, t) {
     if (V.mem === 'history') return faultHistory(cv, S, V, A, t);
     // by unit
     const lw = 420;
-    UI.card(cv, X0, TOP, lw, 392, 'By unit', { info: info('byUnit') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'By unit', { info: info('byUnit') });
     const rows = M.byUnit(S.units).slice(0, 6);
     rows.forEach((r, i) => {
         const yy = TOP + 50 + i * 52, sel = V.unit === r.addr;
@@ -169,7 +169,7 @@ function faults(cv, S, V, A, t) {
     if (!rows.length) cv.text(S.units ? 'No unit answered' : 'Scanning when the page opens', X0 + 20, TOP + 80, 17, C.dim, { literal: true });
     // the list
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, 392, '', { info: info(V.mem === 'ready' ? 'readiness' : 'memories') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), '', { info: info(V.mem === 'ready' ? 'readiness' : 'memories') });
     if (V.detail) return faultDetail(cv, S, V, A, t, rx, rw);
     memTabs(cv, rx + 20, TOP + 34, S, V, A);
     if (V.mem === 'ready') return readinessView(cv, S, V, A, t, rx, rw);
@@ -255,7 +255,7 @@ function faultDetail(cv, S, V, A, t, rx, rw) {
 /** Faults, History tab: one row per fault with bars between its events over 8 weeks, the selected fault's timeline. */
 function faultHistory(cv, S, V, A, t) {
     const lw = 1100, now = S.at;
-    UI.card(cv, X0, TOP, lw, 392, '', { info: info('timeline') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), '', { info: info('timeline') });
     memTabs(cv, X0 + 20, TOP + 34, S, V, A);
     const rows = M.historyRows(S.log, 4);
     const px = X0 + 300, pw = lw - 330, span = 8 * M.WEEK;
@@ -297,7 +297,7 @@ function faultHistory(cv, S, V, A, t) {
     });
     // the selected one's timeline
     const rx = X0 + lw + 14, rw = X1 - rx, f = rows[sel];
-    UI.card(cv, rx, TOP, rw, 392, f ? f.code + ' timeline' : 'Timeline', { info: info('timeline') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), f ? f.code + ' timeline' : 'Timeline', { info: info('timeline') });
     if (f) {
         const evs = f.events.slice(-4);
         evs.forEach((e, i) => {
@@ -428,11 +428,11 @@ function battery(cv, S, V, A, t) {
         UI.wrap(cv, bv.text, 16, w - 40).slice(0, 3).forEach((ln, i) => cv.text(ln, x + 20, TOP + 116 + i * 24, 16, C.dim, { literal: true }));
     });
     const gap = 14, cw = Math.floor((X1 - X0 - gap * (cards.length - 1)) / Math.max(1, cards.length));
-    const ch = volts ? 180 : 392;
+    const ch = volts ? 180 : UI.hh();
     cards.forEach((f, i) => f(X0 + i * (cw + gap), i === cards.length - 1 ? X1 - X0 - i * (cw + gap) : cw));
     if (!volts) return;
     const n = Math.max(2, nights.length);
-    UI.chart(cv, X0, TOP + ch + 14, X1 - X0, 392 - ch - 14, [
+    UI.chart(cv, X0, TOP + ch + 14, X1 - X0, UI.hh() - ch - 14, [
         { name: 'resting voltage', color: 'ok', values: nights.length ? nights : [null, null] },
         { name: warn.toFixed(1) + ' V: charge it', color: 'warm', values: new Array(n).fill(warn) },
     ], { label: 'Resting voltage, last 14 nights', info: info('nights'), min: 12.0, max: 12.8, yTicks: 4, yUnit: 'V', legend: 'right', fill: false,
@@ -452,7 +452,7 @@ function service(cv, S, V, A, t) {
 }
 function serviceCar(cv, S, A, X0, w1) {
     // the car's
-    UI.card(cv, X0, TOP, w1, 392, 'The car recommends', { info: info('cbs') });
+    UI.card(cv, X0, TOP, w1, UI.hh(), 'The car recommends', { info: info('cbs') });
     const items = (S.service || []).slice(0, 5);
     items.forEach((it, i) => {
         const yy = TOP + 50 + i * 58;
@@ -466,7 +466,7 @@ function serviceCar(cv, S, A, X0, w1) {
     cv.text(S.serviceMsg || (canReset ? 'From the car (CBS). Tap an item to reset it after the work.' : 'From the car (CBS).'), X0 + 20, TOP + 374, 14, S.serviceMsgColor ? col(S.serviceMsgColor) : C.dim, { literal: true });
 }
 function serviceOurs(cv, S, A, ox, w2) {
-    UI.card(cv, ox, TOP, w2, 392, 'Our intervals', { info: info('ours') });
+    UI.card(cv, ox, TOP, w2, UI.hh(), 'Our intervals', { info: info('ours') });
     (S.ours || []).forEach((o, i) => {
         const yy = TOP + 50 + i * 58;
         cv.text(o.name, ox + 20, yy + 24, 19, C.text, { font: 'bold', literal: true });
@@ -478,7 +478,7 @@ function serviceOurs(cv, S, A, ox, w2) {
     cv.text('Ours: stricter, for harder driving. Change any in Settings.', ox + 20, TOP + 374, 14, C.dim, { literal: true });
 }
 function serviceParts(cv, S, A, px, w3) {
-    UI.card(cv, px, TOP, w3, 392, 'Next service: parts', { info: info('parts') });
+    UI.card(cv, px, TOP, w3, UI.hh(), 'Next service: parts', { info: info('parts') });
     const parts = (S.parts || []).map((p) => [p, true]).concat((S.partsOff || []).map((p) => [p, false])).slice(0, 5);
     parts.forEach((p, i) => {
         const yy = TOP + 50 + i * 52;
@@ -516,7 +516,7 @@ function addPartBody(S, V, A) {
 
 function tyres(cv, S, V, A, t) {
     const lw = 700, pr = S.pressures || {}, ty = S.tyres || {};
-    UI.card(cv, X0, TOP, lw, 392, 'Pressure now' + (S.coldNow ? ' (cold)' : ''), { info: info('pressure') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'Pressure now' + (S.coldNow ? ' (cold)' : ''), { info: info('pressure') });
     const cx = X0 + lw / 2, cy = TOP + 214;
     cv.strokeRoundRect(cx - 78, cy - 148, 156, 296, 70, 3, '#3c4048');
     [['FL', -1, -1], ['FR', 1, -1], ['RL', -1, 1], ['RR', 1, 1]].forEach((q) => {
@@ -561,7 +561,7 @@ function fluids(cv, S, V, A, t) {
     const warmCol = M.has(cp, 'oilTemp') || M.has(cp, 'coolantTemp');
     if (!shownRows.length) lw = X1 - X0;
     if (!warmCol) lw = X1 - X0;
-    if (shownRows.length) UI.card(cv, X0, TOP, lw, 392, 'Levels', { info: info('levels') });
+    if (shownRows.length) UI.card(cv, X0, TOP, lw, UI.hh(), 'Levels', { info: info('levels') });
     shownRows.forEach((r, i) => {
         const yy = TOP + 52 + i * 76;
         cv.text(r[0], X0 + 20, yy + 26, 20, C.text, { font: 'bold', literal: true });
@@ -572,7 +572,7 @@ function fluids(cv, S, V, A, t) {
     const wx = shownRows.length ? X0 + lw + 14 : X0;
     const wu = S.warm || {}, n = Math.max(2, (wu.oil || []).length), mins = wu.minutes || 10;
     const xl = []; for (let k = 0; k <= 5; k++) xl.push(k === 5 ? Math.round(mins) + ' min' : String(Math.round(mins * k / 5)));
-    UI.chart(cv, wx, TOP, X1 - wx, 392, [
+    UI.chart(cv, wx, TOP, X1 - wx, UI.hh(), [
         M.has(cp, 'oilTemp') && { name: 'oil', color: 'ok', values: wu.oil && wu.oil.length > 1 ? wu.oil : new Array(n).fill(null) },
         M.has(cp, 'coolantTemp') && { name: 'coolant', color: 'info', values: wu.coolant && wu.coolant.length > 1 ? wu.coolant : new Array(n).fill(null) },
     ].filter(Boolean), { label: 'Warm-up, ' + (wu.when || 'today'), info: info('warmup'), min: 0, max: 120, yTicks: 6, yUnit: '°C', xLabels: xl, fill: false });
@@ -600,7 +600,7 @@ function engine(cv, S, V, A, t) {
     const lw = views.length ? (hasRight ? 1000 : X1 - X0) : 0, rx = X0 + (lw ? lw + 14 : 0), rw = X1 - rx;
     if (views.length) {
         const pick = views.some((k) => k[0] === V.cyl) ? V.cyl : views[0][0], f = CYL_FMT[pick];
-        UI.cylinders(cv, X0, TOP, lw, 392, { label: f.label, banks: E.cylinderBanks(p), values: cyl[pick] || {}, lo: f.lo, hi: f.hi, mid: f.mid,
+        UI.cylinders(cv, X0, TOP, lw, UI.hh(), { label: f.label, banks: E.cylinderBanks(p), values: cyl[pick] || {}, lo: f.lo, hi: f.hi, mid: f.mid,
             unit: f.unit, decimals: f.decimals, status: (v) => M.cylStatus(pick, v, cyl[pick]), info: info(f.info),
             sub: p.banks === 2 && pick === 'ignition' ? 'bank 2 from the second engine unit' : p.cylinders ? E.describe(p) : 'the cylinder count comes from the engine unit' });
         if (views.length > 1) {
@@ -609,7 +609,7 @@ function engine(cv, S, V, A, t) {
         }
     }
     if (railOnly) {
-        UI.card(cv, rx, TOP, rw, 392, 'Fuel rail pressure', { info: info('rail') });
+        UI.card(cv, rx, TOP, rw, UI.hh(), 'Fuel rail pressure', { info: info('rail') });
         UI.ring(cv, rx + rw / 2, TOP + 210, 110, { value: ev.rail, min: 0, max: p.rail[1], decimals: 0, unit: 'bar', color: 'ok',
             scale: { step: p.diesel ? 500 : 50 } });
         cv.text(p.diesel ? 'common rail: up to about ' + p.rail[1] + ' bar' : 'direct injection: up to about ' + p.rail[1] + ' bar', rx + rw / 2, TOP + 378, 15, C.dim, { align: 'center', literal: true });
@@ -617,7 +617,7 @@ function engine(cv, S, V, A, t) {
     }
     if (!right.length) return;
     const rows = Math.ceil(right.length / (right.length > 2 ? 2 : 1)), cols = right.length > 2 ? 2 : 1, gap = 14;
-    const cw = (rw - gap * (cols - 1)) / cols, ch = (392 - gap * (rows - 1)) / rows;
+    const cw = (rw - gap * (cols - 1)) / cols, ch = (UI.hh() - gap * (rows - 1)) / rows;
     right.forEach((c, i) => {
         const x = rx + (i % cols) * (cw + gap), y = TOP + Math.floor(i / cols) * (ch + gap);
         UI.stat(cv, x, y, cw, ch, { label: c.label, value: c.value, decimals: c.decimals, unit: c.unit, sub: c.sub, color: c.color, info: info(c.info) });
@@ -628,10 +628,10 @@ function engine(cv, S, V, A, t) {
 
 function history(cv, S, V, A, t) {
     const lw = 1000, wk = M.weekly(S.scores || [], S.at, 12);
-    UI.chart(cv, X0, TOP, lw, 392, [{ name: '', color: 'ok', values: wk.some((v) => v != null) ? wk : [null, null] }],
+    UI.chart(cv, X0, TOP, lw, UI.hh(), [{ name: '', color: 'ok', values: wk.some((v) => v != null) ? wk : [null, null] }],
         { label: 'Health score, last 12 weeks', info: info('hist'), min: 60, max: 100, yTicks: 4, yUnit: 'pts', xLabels: ['-12 w', '-9 w', '-6 w', '-3 w', 'now'] });
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, 392, 'What changed', { info: info('changes') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'What changed', { info: info('changes') });
     const ch = (S.changes || []).slice(0, 4);
     ch.forEach((c, i) => {
         const yy = TOP + 62 + i * 74;
@@ -654,7 +654,7 @@ function history(cv, S, V, A, t) {
 let qrCache = { text: null, q: null };
 function share(cv, S, V, A, t) {
     const lw = 560;
-    UI.card(cv, X0, TOP, lw, 392, 'Scan with your phone', { info: info('qr') });
+    UI.card(cv, X0, TOP, lw, UI.hh(), 'Scan with your phone', { info: info('qr') });
     const text = S.report || '';
     if (qrCache.text !== text) {
         let q = null;
@@ -676,7 +676,7 @@ function share(cv, S, V, A, t) {
         }
     }
     const rx = X0 + lw + 14, rw = X1 - rx;
-    UI.card(cv, rx, TOP, rw, 392, 'What the report says', { info: info('qr') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), 'What the report says', { info: info('qr') });
     const lines = text.split('\n').slice(1);
     lines.slice(0, 9).forEach((ln, i) => cv.text(fit(cv, ln, 17, rw - 40), rx + 20, TOP + 66 + i * 30, 17, C.text, { literal: true }));
     cv.text(S.savedText || 'Plain text: any phone camera reads it, no app needed. Show it to your mechanic.', rx + 20, TOP + 370, 16, C.dim, { literal: true });

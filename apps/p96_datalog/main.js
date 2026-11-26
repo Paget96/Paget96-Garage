@@ -158,7 +158,7 @@ mgu.run({
             if (cv.chrome) {
                 // the header menu: every page, then How to use and Settings (owner 2026-11-26 20:41)
                 const pages = P.tabsFor(m);
-                cv.chrome.tabs = { tabs: UI.menuTabs(pages), sel: UI.menuSel(pages, pages.indexOf(m.ui.page), m.ui.view), badges: [] };
+                cv.chrome.tabs = UI.menu(pages, pages.indexOf(m.ui.page), m.ui.view);
             }
             P.draw(cv, m, (now - t0) / 1000);
             return ui.image(SCREEN + '_GFX', cv);
@@ -166,8 +166,9 @@ mgu.run({
         // a tab of the kit's header (tapped, or the iDrive knob turned onto it and pressed)
         ctx.onTab((i) => {
             const tabs = P.tabsFor(m), pick = UI.menuPick(tabs, i);
+            if (pick === 'more') return;
             if (pick === 'help' || pick === 'settings') m.ui.view = pick;
-            else if (i >= 0 && i < tabs.length) { m.ui.view = 'main'; m.ui.page = tabs[i]; }
+            else if (pick >= 0 && pick < tabs.length) { m.ui.view = 'main'; m.ui.page = tabs[pick]; }
         });
         ctx.loop(SCREEN, 30, render);
         log.info('Datalog started (' + (ctx.spec.version || '') + ')');
