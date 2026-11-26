@@ -524,7 +524,9 @@ function setupPage(cv, S, V, A, t) {
     if (fd.opf) foundTxt.push(fname() + ' yes');
     if (fd.cat) foundTxt.push('catalyst yes');
     if (fd.flaps != null) foundTxt.push('flaps ' + fd.flaps + (fd.flaps === 2 ? ' (left and right)' : ''));
-    if (foundTxt.length) cv.text('found on this car: ' + foundTxt.join(', '), X1 - 56, TOP + 34, 15, C.green, { align: 'right', literal: true });
+    // what the engine unit reports, shown as such: a part can still answer after it was taken out, so the driver's
+    // choice always wins (owner, 2026-11-26 23:43); left of the card's own DEMO pill and info button
+    if (foundTxt.length) cv.text('the engine unit reports: ' + foundTxt.join(', '), X0 + 200, TOP + 34, 15, C.green, { literal: true });
     const cw = Math.floor((X1 - X0 - 40 - 2 * 14) / 3), ch = 146;
     M.SETUP.forEach((p, i) => {
         const x = X0 + 20 + (i % 3) * (cw + 14), y = TOP + 56 + Math.floor(i / 3) * (ch + 12);
@@ -532,19 +534,19 @@ function setupPage(cv, S, V, A, t) {
         cv.strokeRoundRect(x, y, cw, ch, 18, 1.5, [255, 255, 255, 22]);
         cv.text(p.name, x + 20, y + 36, 21, C.text, { font: 'bold', literal: true });
         const auto = p.key === 'opf' ? fd.opf : p.key === 'cat' ? fd.cat : p.key === 'flaps' ? fd.flaps != null : false;
-        const tag = auto ? (p.key === 'flaps' ? 'auto: ' + fd.flaps + ' answer' + (fd.flaps === 1 ? 's' : '') : p.key === 'opf' ? 'auto: found (soot read)' : 'auto: found') : 'you set';
+        const tag = auto ? (p.key === 'flaps' ? 'engine unit: ' + fd.flaps + ' answer' + (fd.flaps === 1 ? 's' : '') : p.key === 'opf' ? 'engine unit reports soot' : 'engine unit reports it') : 'you set';
         cv.text(tag, x + cw - 20, y + 34, 14, auto ? C.green : C.blue, { align: 'right', literal: true });
         let cx = x + 20, cy = y + 60, wrapped = false;
         p.choices.forEach((c) => {
-            // what the car found is fixed; what contradicts it can not be picked
-            const lock = auto && (p.key === 'flaps' ? c[0] !== String(fd.flaps) : p.key === 'opf' ? c[0] === 'none' : c[0] === 'none');
+            // nothing is locked: what the engine unit reports is a hint, the driver knows what is under the car
+            const lock = false;
             const ww = Math.ceil(cv.textWidth(c[1], 16, { font: 'bold' })) + 34;
             // a part with many choices takes a second row rather than running out of its card
             if (cx + ww > x + cw - 20) { cx = x + 20; cy += 46; wrapped = true; }
             choice(cv, cx, cy, ww, 38, c[1], s[p.key] === c[0], C.accent, lock ? null : () => A.setup(p.key, c[0]), 'setup|' + p.key + '|' + c[0], 16);
             cx += ww + 10;
         });
-        const hint = wrapped ? '' : { mid: s.mid === 'resdelete' || s.mid === 'straight' ? 'Sound page and tips count the louder middle part' : '', flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
+        const hint = wrapped ? '' : { flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
         if (hint) cv.text(hint, x + 20, y + ch - 18, 14, C.dim, { literal: true });
     });
     cv.text('The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', X0 + 20, TOP + UI.hh() - 12, 14, C.dim, { literal: true });

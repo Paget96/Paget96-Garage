@@ -54,6 +54,7 @@ mgu.run({
         try { P = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { /* first start */ }
         P = Object.assign({ rules: R.defaults(), modes: {}, flapLog: [], regens: [], loads: [], loadsKm: [], drives: [], ash: [], km: 0,
             warm: null, warmWhen: null, warmOutside: null, lightOffs: [], starts: [], setup: Object.assign({}, M.SETUP_DEFAULT), caps: {}, carKey: 'car' }, P);
+        P.setup = M.migrateSetup(P.setup);
         const caps = () => (P.caps[P.carKey] = P.caps[P.carKey] || {});
         let saveTimer = null;
         const save = () => {
@@ -276,7 +277,8 @@ mgu.run({
                 found('flap', units.length > 0);
                 found('flap2', units.length > 1);
                 P.setupFound = Object.assign(P.setupFound || {}, { flaps: units.length });
-                if (units.length) P.setup.flaps = String(Math.min(2, units.length));
+                // what the engine unit reports fills in only what the driver has not set: a removed flap still answers
+                if (units.length && !(P.setupUser || {}).flaps) P.setup.flaps = String(Math.min(2, units.length));
                 control.setUnits(units, Number(settings.get('leftIs')) || 1);
                 save(); changed();
             } catch (e) { probed = false; log.warn('flap probe: ' + e); }
@@ -455,7 +457,7 @@ mgu.run({
             ruleUp: () => { const rs = curRules(), i = editIndex(); if (i > 0) { const x = rs.list[i]; rs.list[i] = rs.list[i - 1]; rs.list[i - 1] = x; rs.set(rs.list); } saveRules(); closeDialog(); },
             setup: (k, x) => {
                 if (useDemo()) demoSetup = Object.assign({}, demoSetup || (demoS ? demoS.setup : M.SETUP_DEFAULT), { [k]: x });
-                else { P.setup[k] = x; save(); }
+                else { P.setup[k] = x; P.setupUser = Object.assign(P.setupUser || {}, { [k]: true }); save(); }
                 changed();
             },
         };

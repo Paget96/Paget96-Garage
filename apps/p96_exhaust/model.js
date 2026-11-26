@@ -215,16 +215,29 @@ function coldWeek(starts, now) {
 
 /** The Setup page: each part and its choices; found by itself where the car reports it. */
 const SETUP = [
-    { key: 'downpipe', name: 'Downpipe', choices: [['stock', 'Stock'], ['catted', 'Catted'], ['decat', 'Decat']] },
-    { key: 'cat', name: 'Catalyst', choices: [['stock', 'Stock'], ['highflow', 'High flow'], ['none', 'None']] },
+    // one part, not two (owner, 2026-11-26 23:41): on these engines the catalyst sits in the downpipe, so a catted
+    // downpipe is the high flow catalyst and a decat downpipe has none
+    { key: 'cat', name: 'Downpipe and catalyst', choices: [['stock', 'Stock'], ['highflow', 'Catted (high flow)'], ['none', 'Decat']] },
     { key: 'opf', name: 'OPF', choices: [['stock', 'Stock'], ['none', 'None']] },
-    // none: many cars have no middle silencer at all (the owner's G20 B48: the OPF sits in the middle of the car)
-    { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['none', 'None'], ['resdelete', 'Resonator delete'], ['straight', 'Straight pipe']] },
+    // there or not: many cars have none (the owner's G20 B48: the OPF sits in the middle of the car), and a resonator
+    // delete or a straight pipe in its place is the same thing, a pipe (owner, 2026-11-26 23:42)
+    { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['none', 'None']] },
     { key: 'rear', name: 'Rear silencer', choices: [['stock', 'Stock'], ['aftermarket', 'Aftermarket'], ['valved', 'Valved aftermarket']] },
     // removed: some take the flap out and leave the rear silencer open for good (owner, 2026-11-26)
     { key: 'flaps', name: 'Flaps', choices: [['0', 'None'], ['1', 'One'], ['2', 'Two'], ['removed', 'Removed, always open']] },
 ];
-const SETUP_DEFAULT = { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'stock', rear: 'stock', flaps: '1' };
+const SETUP_DEFAULT = { cat: 'stock', opf: 'stock', mid: 'stock', rear: 'stock', flaps: '1' };
+/** A saved setup from before the parts were merged: the downpipe's answer moves onto the catalyst, a resonator delete or
+ * straight pipe becomes no middle silencer. */
+function migrateSetup(s) {
+    if (!s || (!s.downpipe && s.mid !== 'resdelete' && s.mid !== 'straight')) return s;
+    const out = Object.assign({}, s);
+    if (out.mid === 'resdelete' || out.mid === 'straight') out.mid = 'none';
+    if (out.downpipe === 'decat') out.cat = 'none';
+    else if (out.downpipe === 'catted' && out.cat === 'stock') out.cat = 'highflow';
+    delete out.downpipe;
+    return out;
+}
 
 /**
  * How much of the engine's sound is left after each part (1 = all of it), for the drawing on the Sound page. An
@@ -238,11 +251,11 @@ function sound(setup, flap, fresh, eng) {
     let level = 1;
     const add = (key, name, keep) => { level = Math.min(1, level * keep); parts.push({ key: key, name: name, level: level }); };
     parts.push({ key: 'engine', name: 'Engine', level: 1 });
-    add('turbo', 'Turbo', s.downpipe === 'decat' ? 0.74 : s.downpipe === 'catted' ? 0.72 : 0.7);
+    add('turbo', 'Turbo', 0.7);
     if (s.cat !== 'none') add('cat', 'Catalyst', s.cat === 'highflow' ? 0.95 : 0.886);
     if (s.opf !== 'none' && !(eng && eng.fuel && !eng.filter)) add('opf', E.filterName(eng && eng.fuel ? eng : { filter: 'opf' }), fresh ? 0.86 : 0.806);
     if (eng && eng.scr) add('scr', 'SCR (AdBlue)', 0.95);
-    if (s.mid !== 'none') add('mid', 'Middle silencer', s.mid === 'straight' ? 1 : s.mid === 'resdelete' ? 0.85 : 0.6);
+    if (s.mid !== 'none') add('mid', 'Middle silencer', 0.6);
     // the flap sits in the rear silencer (owner, 2026-11-26 23:30): closed, the gas goes through the silencer and is
     // damped; open (or removed), it takes the shortest way out past it. So it changes the rear silencer's share,
     // it is not a damper of its own.
@@ -395,6 +408,6 @@ function kindsFor(caps) {
 }
 
 module.exports = {
-    levelAt, CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
+    levelAt, migrateSetup, CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
     LIGHT_OFF, COLD_COOLANT, coldWeek, SETUP, SETUP_DEFAULT, sound, tips, flapWeek, hm, ago, clock, fmtThousands, loadDays,
     CAPS, ALL_CAPS, has, found, TABS, tabsFor, pagesFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };

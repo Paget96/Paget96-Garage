@@ -51,7 +51,7 @@ function pipeRows(p, setup) {
 }
 /**
  * The parts of this setup along the pipe from x0 to x1: [{ key, name, x, w }]. Parts the setup does not have (a car with no middle silencer, no OPF) are left
- * out; a straight pipe in place of the middle silencer is drawn as pipe only. The filter is named for the engine
+ * out. The filter is named for the engine
  * (OPF on a petrol, DPF on a diesel), a diesel with AdBlue gets its SCR catalyst after it.
  */
 function layout(setup, x0, x1, sc, p) {
@@ -63,12 +63,12 @@ function layout(setup, x0, x1, sc, p) {
     if (s.cat !== 'none') parts.push(['cat', two ? 'Catalysts' : 'Catalyst']);
     if (s.opf !== 'none' && !(p && p.filter === null && p.fuel)) parts.push(['opf', E.filterName(p && p.fuel ? p : { filter: 'opf' })]);
     if (p && p.scr) parts.push(['scr', 'SCR (AdBlue)']);
-    if (s.mid !== 'none') parts.push(['mid', s.mid === 'straight' ? 'Straight pipe' : 'Middle silencer']);
+    if (s.mid !== 'none') parts.push(['mid', 'Middle silencer']);
     // the flap is in the rear silencer's way out: closed, the gas goes through the silencer; open, the short way out
     parts.push(['rear', two ? 'Rear silencers' : 'Rear silencer']);
     if (s.flaps !== '0' && s.flaps !== 'removed' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
     const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = 120 * sc;
-    return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0]] * sc, pipeOnly: q[0] === 'mid' && s.mid === 'straight' }));
+    return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0]] * sc }));
 }
 /** The temperature along the pipe (0 engine .. 1 tail pipe), from the two the engine unit reports (cat, opf), for
  * the gas colour only; no number is drawn where there is no sensor. */
@@ -392,7 +392,7 @@ const ART = {
         ['-8 w', '-4 w', 'now'].forEach((s, i) => cv.text(s, px + pw * i / 2, py + ph + 22, 13, DIM, { align: 'center', literal: true }));
     },
     setup(cv, x, y, w, h, t) {
-        const steps = [M.SETUP_DEFAULT, Object.assign({}, M.SETUP_DEFAULT, { mid: 'resdelete' }), Object.assign({}, M.SETUP_DEFAULT, { flaps: '2' })];
+        const steps = [M.SETUP_DEFAULT, Object.assign({}, M.SETUP_DEFAULT, { mid: 'none' }), Object.assign({}, M.SETUP_DEFAULT, { flaps: '2' })];
         const s = steps[Math.floor(loop(t, 9) * 3)];
         exhaustPath(cv, x + 10, x + w - 10, y + h / 2, { t: t, setup: s, flap: 'OPEN', labels: true, numbers: false, temps: { cat: 600, opf: 520 } });
         cv.text('the drawing follows your setup', x + w / 2, y + 44, 18, C.text, { font: 'bold', align: 'center', literal: true });

@@ -27,7 +27,7 @@ function values(t, car) {
 }
 /** The demo car's exhaust on the Setup page: its flaps, no filter where it has none. */
 function setupFor(car) {
-    const s = { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'resdelete', rear: 'stock', flaps: '1' };
+    const s = { cat: 'stock', opf: 'stock', mid: 'none', rear: 'stock', flaps: '1' };
     if (!car) return s;
     s.flaps = String(car.flaps || 0);
     if (!car.filter) s.opf = 'none';
@@ -105,7 +105,7 @@ function state(now, car) {
         regens: regens, regen: null, loads: loads, loadsKm: loadsKm, drives: drives, ash: ash, kmNow: 5200 * 9.2,
         warm: warm, warmWhen: 'This morning', warmOutside: 4, lightOffs: [190, 175, 182, 168, 170, 165, 172, 160, 162, 160],
         starts: starts, flapLog: flapLog, flapWeekLog: flapLog.slice().reverse().concat(week),
-        setup: { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'resdelete', rear: 'stock', flaps: '1' },
+        setup: { cat: 'stock', opf: 'stock', mid: 'none', rear: 'stock', flaps: '1' },
         setupFound: { cat: true, opf: true, flaps: 1 },
     };
 }
