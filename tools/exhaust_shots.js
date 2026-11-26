@@ -80,6 +80,7 @@ const A = new Proxy({}, { get: () => noop });
 
 const t0 = clock;
 function frame() {
+    if (global.CF && !global.CF.tabs) global.CF.tabs = () => { const S = state(), pg = M.pagesFor(S.caps, S.engine), nm = M.tabsFor(S.engine); return [pg.map((i) => nm[i]), pg.indexOf(V.page), V.mode]; };
     const rec = new Recorder(UI.W, UI.H);
     VIEW.draw(rec, state(), V, A, (clock - t0) / 1000);
     return rec;

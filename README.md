@@ -1,3 +1,5 @@
+<h1 align="center">Paget96 Garage: BMW iDrive 7 (MGU) apps</h1>
+
 <p align="center">
   <img src="docs/brand/banner.png" alt="Paget96 Garage">
 </p>

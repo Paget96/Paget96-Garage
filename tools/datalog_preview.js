@@ -43,6 +43,8 @@ fs.mkdirSync(media, { recursive: true });
 const values = { demo: 'on', demoCar: CAR || 'b48' };
 const settings = { get: (k) => values[k], set: (k, v) => { values[k] = v; } };
 const m = new Model({ settings, demo: () => true });
+// the side menu in the car frame (tools/carframe.js preloaded)
+if (global.CF) global.CF.tabs = () => { const t = P.tabsFor(m); return [t, t.indexOf(m.ui.page), m.ui.view]; };
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
 m.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_datalog/app.json'), get: () => undefined }));
 

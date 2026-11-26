@@ -44,6 +44,7 @@ st.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/
 const act = { tab() {}, help() {}, settings() {}, back() {}, topic() {}, set() {}, wake() {}, demoOff() {} };
 
 function frame(t, popup) {
+    if (global.CF) global.CF.tabs = () => [P.TABS, st.tab, st.page];
     const rec = new Recorder(UI.W, UI.H);
     P.draw(rec, values(st.now), st, t, act);
     if (popup) UI.infoPopup(rec, popup, t);
@@ -57,7 +58,7 @@ function shot(name, set, t, popup) {
     Object.assign(st, { page: 'main', tab: 0, menuA: 1, nightP: 0, now: T0 + 60000 }, set);
     const r = frame(t || 0, popup);
     fs.writeFileSync(path.join(out, name + '.png'), r.png);
-    if (!popup && st.page === 'main' && st.menuA > 0.5 && !r.rec.targets.some((q) => q.key === 'p96tab0')) throw new Error(name + ': no tab targets');
+    if (!popup && st.page === 'main' && st.menuA > 0.5 && !r.rec.targets.some((q) => q.key === 'p96tab0' || q.key === 'p96rail|0')) throw new Error(name + ': no tab targets');
     return r;
 }
 

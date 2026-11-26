@@ -56,7 +56,7 @@ function shot(name, page) {
     return rec;
 }
 const keys = (rec) => rec.targets.map((q) => q.key);
-const need = (rec, list, what) => list.forEach((k) => { if (keys(rec).indexOf(k) < 0) throw new Error(what + ': no target ' + k); });
+const need = (rec, list, what) => (global.CF ? list.filter((k) => k !== 'p96back') : list).forEach((k) => { if (keys(rec).indexOf(k) < 0) throw new Error(what + ': no target ' + k); });
 
 const APP_ROWS = [{ key: 'units', label: 'Units', hint: 'Pressure and temperature', type: 'choice', default: 'metric', options: [['metric', 'Metric'], ['imperial', 'Imperial']] }];
 const s = shot('settings', (cv) => UI.settingsPage(cv, APP_ROWS, { units: 'imperial', fps: 30 }, () => {}, {

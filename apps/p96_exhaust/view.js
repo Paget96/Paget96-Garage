@@ -149,38 +149,49 @@ function flapPage(cv, S, V, A, t) {
     const f = S.flap, lw = 560, side = f.sides.indexOf(V.side) >= 0 ? V.side : f.sides[0];
     const v = f.views[side], d = f.decided[side] || {};
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Exhaust flap', { info: info('flap') });
-    if (v.simulated) pillRight(cv, X0 + lw - 50, TOP + 12, 'SIMULATED', 'warm', false);
+    if (v.simulated) pillRight(cv, X0 + lw - 150, TOP + 12, 'SIMULATED', 'warm', false);
     const shown = v.confirmed !== 'UNKNOWN' ? v.confirmed : v.requested;
     const word = shown === 'OPEN' ? 'OPEN' : shown === 'CLOSED' ? 'CLOSED' : 'THE CAR';
     const cx = X0 + lw / 2;
-    cv.text(word, cx, TOP + 82, 34, shown === 'OPEN' ? C.green : shown === 'CLOSED' ? C.amber : C.text, { font: 'bold', align: 'center', literal: true });
-    // the silencer and its tail pipes, the flap at the right one (both with two flaps)
-    const cy = TOP + 150, two = f.sides.length > 1;
-    cv.roundRect(cx - 170, cy - 40, 340, 80, 40, '#16181c');
-    cv.strokeRoundRect(cx - 170, cy - 40, 340, 80, 40, 4, '#969ea8');
+    cv.text(word, cx, TOP + 76, 34, shown === 'OPEN' ? C.green : shown === 'CLOSED' ? C.amber : C.text, { font: 'bold', align: 'center', literal: true });
+    // the rear silencer from behind and its two tail pipes (owner, 2026-11-26 22:21: the old drawing looked like a robot
+    // with antennas): a butterfly flap sits in the right pipe (both with two flaps), seen end on, so a shut flap fills
+    // the pipe and an open one is a thin edge
+    const cy = TOP + 182, two = f.sides.length > 1;
     const ang = (s) => { const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested; return UI.glide('ex|flap|' + s, sh === 'OPEN' ? 0 : sh === 'CLOSED' ? 90 : 45, null, 10); };
+    // the car's rear: bumper, tail lights, plate, the diffuser with the two tips in it
+    cv.roundRect(cx - 240, cy - 70, 480, 124, 44, '#23262c');
+    cv.strokeRoundRect(cx - 240, cy - 70, 480, 124, 44, 3, '#7d858f');
+    cv.roundRect(cx - 200, cy - 68, 400, 10, 5, '#30343b');
+    [-1, 1].forEach((k) => cv.fill([[cx + k * 236, cy - 58], [cx + k * 150, cy - 58], [cx + k * 150, cy - 48], [cx + k * 222, cy - 48], [cx + k * 226, cy - 30], [cx + k * 236, cy - 34]].map((q) => q), '#d0302c'));
+    cv.roundRect(cx - 62, cy - 40, 124, 32, 5, '#3a3f49');
+    cv.roundRect(cx - 58, cy - 36, 116, 24, 3, '#c9d0d8');
+    cv.fill([[cx - 210, cy + 14], [cx + 210, cy + 14], [cx + 186, cy + 52], [cx - 186, cy + 52]], '#121418');
     [-1, 1].forEach((k) => {
-        const tx = cx + k * 210;
-        cv.line(cx + k * 166, cy + 14, tx, cy + 42, 14, '#5a606a');
-        cv.arc(tx, cy + 52, 22, 26, 0, 360, '#969ea8');
-        const s = two ? (k < 0 ? 'left' : 'right') : 'both';
-        if (two || k > 0) {
-            const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested;
-            cv.circle(cx + k * 166, cy + 14, 17, '#16181c');
-            ART.flapGlyph(cv, cx + k * 166, cy + 14, 17, sh, ang(s));
-            if (sh === 'OPEN') for (let q = 0; q < 3; q++) {
-                const p = (t * 1.2 + q / 3) % 1;
-                cv.arc(tx + k * (6 + p * 10), cy + 52, 26 + p * 16, 29 + p * 16, k > 0 ? 55 : 235, k > 0 ? 125 : 305, [70, 210, 130, Math.round(200 * (1 - p))], { round: true });
-            }
+        const tx = cx + k * 150, ty = cy + 32, s = two ? (k < 0 ? 'left' : 'right') : 'both', hasFlap = two || k > 0;
+        cv.arc(tx, ty, 22, 29, 0, 360, '#c9d0d8');
+        cv.arc(tx, ty, 27, 29, 0, 360, '#8e969f');
+        cv.circle(tx, ty, 22, '#0b0c0e');
+        if (!hasFlap) return;
+        const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested, a = ang(s) * Math.PI / 180;
+        const col = sh === 'OPEN' ? C.green : sh === 'CLOSED' ? C.amber : '#9aa1ad', ry = Math.max(2, 20 * Math.sin(a));
+        const disc = [];
+        for (let q = 0; q < 28; q++) { const th = q / 28 * Math.PI * 2; disc.push([tx + Math.cos(th) * 20, ty + Math.sin(th) * ry]); }
+        cv.fill(disc, col);
+        cv.line(tx - 25, ty, tx + 25, ty, 2.5, '#5c636f');
+        // gas leaving an open pipe
+        if (sh === 'OPEN') for (let q = 0; q < 3; q++) {
+            const p = (t * 1.2 + q / 3) % 1, al = Math.round(180 * (1 - p));
+            cv.arc(tx, ty + 6 + p * 30, 18 + p * 14, 21 + p * 14, 120, 240, [70, 210, 130, al], { round: true });
         }
     });
     const by = f.mode === 'AUTO' ? (d.rule ? 'by rule: ' + d.rule.name : d.reason || '') : d.reason || '';
-    cv.text(fit(cv, by + '   .   ' + F.stateWords(v), 15, lw - 40), cx, TOP + 248, 15, v.error ? C.red : C.dim, { align: 'center', literal: true });
+    cv.text(fit(cv, by + '   .   ' + F.stateWords(v), 15, lw - 40), cx, TOP + 296, 15, v.error ? C.red : C.dim, { align: 'center', literal: true });
     // with two flaps: which one the buttons set
-    let bTop = TOP + 296;
+    let bTop = TOP + 334;
     if (two) {
-        UI.segmented(cv, cx + 150, TOP + 278, [['both', 'Both'], ['left', 'Left'], ['right', 'Right']], V.side || 'both', A.flapSide, 'flapside');
-        bTop = TOP + 312;
+        UI.segmented(cv, cx + 150, TOP + 322, [['both', 'Both'], ['left', 'Left'], ['right', 'Right']], V.side || 'both', A.flapSide, 'flapside');
+        bTop = TOP + 358;
     }
     const modes = [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']];
     const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;

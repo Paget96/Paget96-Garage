@@ -54,6 +54,8 @@ const V = { page: 0, mode: 'main', mem: 'fault', unit: null, first: 0, detail: n
     values: { demo: 'on', demoCar: (CAR || E.demoCar('b48')).id } };
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
 V.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_health/app.json'), get: () => undefined }));
+// the side menu in the car frame (tools/carframe.js preloaded): the pages, the one shown
+if (global.CF) global.CF.tabs = () => [VIEW.TABS, V.page, V.mode];
 const noop = () => {};
 const A = new Proxy({}, { get: (o, k) => (k === 'pick' ? (p) => { const d = V.dialog.d; const i = d.pick.indexOf(p); if (i >= 0) d.pick.splice(i, 1); else d.pick.push(p); } : noop) });
 
