@@ -34,9 +34,9 @@
     {
       "id": "p96-renderd",
       "path": "renderer/prebuilt",
-      "title": "Paget96 Garage renderer (test)",
-      "description": "Optional GPU renderer for Paget96 Garage apps, beside the Store's renderer. Garage apps use it when it runs and the Store's renderer otherwise. Nothing needs it; remove it any time.",
-      "optional": true,
+      "title": "Paget96 Garage renderer",
+      "description": "The GPU renderer of Paget96 Garage. Needed for every Garage app to work well: full screen, touch on every button, smooth 60 fps. Installed with any Garage app.",
+      "optional": false,
       "uninstallable": true,
       "mguHmi": [
         "ID7"

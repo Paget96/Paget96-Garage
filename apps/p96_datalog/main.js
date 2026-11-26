@@ -25,7 +25,6 @@ const E = require('./garage_engine');
 const CT = require('./garage_time');   // the car's time (the head unit keeps UTC)
 const UI = require('./garage_ui');
 const P = require('./pages');
-const UI = require('./garage_ui');
 const Report = require('./garage_report');
 
 const W = 1600, H = 520;
@@ -157,14 +156,19 @@ mgu.run({
             const cv = ctx.canvas(W, H);
             // where the kit runs the screen, it draws the tabs in its header too and routes their taps to ctx.onTab
             if (cv.chrome) {
-                const tabs = m.ui.view === 'main' ? P.tabsFor(m) : [];
-                cv.chrome.tabs = { tabs: tabs, sel: tabs.indexOf(m.ui.page), badges: [] };
+                // the header menu: every page, then How to use and Settings (owner 2026-11-26 20:41)
+                const pages = P.tabsFor(m);
+                cv.chrome.tabs = { tabs: UI.menuTabs(pages), sel: UI.menuSel(pages, pages.indexOf(m.ui.page), m.ui.view), badges: [] };
             }
             P.draw(cv, m, (now - t0) / 1000);
             return ui.image(SCREEN + '_GFX', cv);
         }
         // a tab of the kit's header (tapped, or the iDrive knob turned onto it and pressed)
-        ctx.onTab((i) => { const tabs = P.tabsFor(m); if (i >= 0 && i < tabs.length) { m.ui.view = 'main'; m.ui.page = tabs[i]; } });
+        ctx.onTab((i) => {
+            const tabs = P.tabsFor(m), pick = UI.menuPick(tabs, i);
+            if (pick === 'help' || pick === 'settings') m.ui.view = pick;
+            else if (i >= 0 && i < tabs.length) { m.ui.view = 'main'; m.ui.page = tabs[i]; }
+        });
         ctx.loop(SCREEN, 30, render);
         log.info('Datalog started (' + (ctx.spec.version || '') + ')');
     },

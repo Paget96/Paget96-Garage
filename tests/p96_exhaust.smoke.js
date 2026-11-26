@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
+process.env.GARAGE_MENU = 'off';   // these tests check the page's own tab bar and buttons (the header menu is off)
 /**
  * Exhaust run whole, on a pretend car: main.js started with the kit's own modules and a fake head unit (signals and a
  * diagnostic link with an engine unit that answers like a B48 with a filter and an electric flap). Checks the safety

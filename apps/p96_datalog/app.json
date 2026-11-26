@@ -11,6 +11,7 @@
     "ID7"
   ],
   "requires": {
+    "p96-renderd": "0.2.0",
     "idrive7-renderd": "2.1.18"
   },
   "signals": {
@@ -59,6 +60,7 @@
     {
       "name": "MAIN",
       "kind": "canvas",
+      "settings": true,
       "title": "Datalog",
       "buttons": []
     }

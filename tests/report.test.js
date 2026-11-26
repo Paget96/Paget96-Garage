@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
+process.env.GARAGE_MENU = 'off';   // these tests check the page's own tab bar and buttons (the header menu is off)
 /**
  * Send a report (lib/report.js, lib/ui.js reportPage) and the Full screen setting (lib/ui.js setLayout, attach) in every
  * Paget96 Garage app: what a report carries and never carries, the link and its code size, the flow, the pages' targets,

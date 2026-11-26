@@ -3,7 +3,7 @@
 'use strict';
 /**
  * The Store tool p96-renderd (renderer/prebuilt, listed in mgu-repo.json): it installs beside the Store's renderer
- * and idrive7-renderd without taking anything of theirs, nothing requires it, and the committed binary is the one
+ * and idrive7-renderd without taking anything of theirs, every Garage app requires it, and the committed binary is the one
  * the sources build (renderer/tools/prebuilt.py check).
  *   node tests/renderer_tool.test.js
  */
@@ -31,11 +31,11 @@ const unit = fs.readFileSync(path.join(PRE, 'p96-renderd.service'), 'utf8');
 check('the binary and the copies match their sources (prebuilt.py check)', () => {
     cp.execFileSync('python3', [path.join(ROOT, 'renderer', 'tools', 'prebuilt.py'), 'check'], { stdio: 'pipe' });
 });
-check('component.json: an optional, removable tool for iDrive 7, every file it names is there', () => {
+check('component.json: a needed, removable tool for iDrive 7 (owner 2026-11-26 20:43), every file it names is there', () => {
     assert.strictEqual(comp.id, 'p96-renderd');
     assert.strictEqual(comp.kind, 'tool');
     assert.ok(/^\d+\.\d+\.\d+$/.test(comp.version));
-    assert.strictEqual(comp.optional, true);
+    assert.strictEqual(comp.optional, false);
     assert.strictEqual(comp.uninstallable, true);
     assert.deepStrictEqual(comp.mguHmi, ['ID7']);
     comp.files.forEach((f) => assert.ok(fs.existsSync(path.join(PRE, f.path)), f.path));
@@ -54,14 +54,13 @@ check('it does not claim to be "a renderer": the Store\'s renderer can never be 
     assert.ok(t, 'listed in mgu-repo.json');
     assert.ok(!t.provides && !t.mguProvides);
     assert.strictEqual(t.path, 'renderer/prebuilt');
-    assert.strictEqual(t.optional, true);
+    assert.strictEqual(t.optional, false);
 });
-check('nothing requires it: no app names it', () => {
+check('every Garage app requires it at the tool\'s version, so the Store installs it with any app (owner 2026-11-26 20:44)', () => {
     fs.readdirSync(path.join(ROOT, 'apps')).forEach((id) => {
         const p = path.join(ROOT, 'apps', id, 'app.json');
-        if (fs.existsSync(p)) assert.ok(fs.readFileSync(p, 'utf8').indexOf('p96-renderd') < 0, id);
+        if (fs.existsSync(p)) assert.strictEqual((JSON.parse(fs.readFileSync(p, 'utf8')).requires || {})['p96-renderd'], comp.version, id);
     });
-    assert.ok(JSON.stringify(repo.apps).indexOf('p96-renderd') < 0);
 });
 check('its own socket, ivi ids and touch table, none of the other renderers\'', () => {
     assert.strictEqual(ours.socket_path, '/run/p96-renderd/render.sock');

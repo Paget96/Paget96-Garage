@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
+process.env.GARAGE_MENU = 'off';   // these tests check the page's own tab bar and buttons (the header menu is off)
 /**
  * The tab bar of lib/ui.js when the tabs are wider than the bar (owner, 2026-11-26 20:14: "nije scrollable ovaj nas"):
  * the arrows move it, a finger swipe moves it (attach's touch), a tap without moving presses the tab under it, a tab

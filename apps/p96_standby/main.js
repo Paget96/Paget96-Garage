@@ -224,7 +224,10 @@ mgu.run({
         ui.onClick('BTN_PAGE', () => go(st.tab + 1));
         ui.onClick('BTN_PREV', () => go(st.tab - 1));
         ui.onClick('BTN_SETTINGS', () => { st.page = st.page === 'settings' ? 'main' : 'settings'; touch(); });
-        ctx.onTab((i) => go(i));
+        ctx.onTab((i) => {
+            const pick = UI.menuPick(P.TABS, i);
+            if (pick === 'help' || pick === 'settings') { st.page = pick; touch(); } else go(i);
+        });
         ui.onVisible((name, on) => { if (name === 'MAIN') { shown = on; if (on) touch(); else save(); } });
         if (ui.isVisible('MAIN')) { shown = true; touch(); }
 
@@ -242,7 +245,7 @@ mgu.run({
             st.nightP = UI.anim('sbnight', M.isNight(String(st.settings.night), d ? null : live.carNight, UI.T.carTime(t)) ? 1 : 0, 1500);
             const cv = ctx.canvas(W, H);
             // where the kit runs the screen, it draws the tabs and routes their taps to ctx.onTab (F10)
-            if (cv.chrome) cv.chrome.tabs = { tabs: st.page === 'main' ? P.TABS : [], sel: st.tab, badges: [] };
+            if (cv.chrome) cv.chrome.tabs = { tabs: UI.menuTabs(P.TABS), sel: UI.menuSel(P.TABS, st.tab, st.page), badges: [] };
             P.draw(cv, values(t), st, (t - t0) / 1000, act);
             await ui.image('MAIN_GFX', cv);
         }

@@ -10,7 +10,7 @@
   "iconGlyph": "exhaust",
   "autostart": true,
   "mguHmi": ["ID7"],
-  "requires": { "idrive7-renderd": "2.1.18" },
+  "requires": { "p96-renderd": "0.2.0", "idrive7-renderd": "2.1.18" },
   "signals": {
     "de.bmw.infotainment.vehicle.CDS": {
       "statusEngineSpeed2": "rs",
@@ -42,6 +42,7 @@
     {
       "name": "MAIN",
       "kind": "canvas",
+      "settings": true,
       "title": "Exhaust",
       "buttons": [
         ["BTN_PAGE", "Next page"],

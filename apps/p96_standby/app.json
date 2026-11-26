@@ -7,7 +7,7 @@
   "loggingId": "PGS1",
   "iconGlyph": "clock",
   "mguHmi": ["ID7"],
-  "requires": { "idrive7-renderd": "2.1.18", "mgu-inputgate": "1.1.0" },
+  "requires": { "p96-renderd": "0.2.0", "idrive7-renderd": "2.1.18", "mgu-inputgate": "1.1.0" },
   "signals": {
     "de.bmw.infrastructure.EnvironmentalInformation": {
       "_optional": "the outside temperature and the ice warning",
@@ -71,6 +71,7 @@
     {
       "name": "MAIN",
       "kind": "canvas",
+      "settings": true,
       "title": "Standby",
       "buttons": [
         ["BTN_PAGE", "Next page"],

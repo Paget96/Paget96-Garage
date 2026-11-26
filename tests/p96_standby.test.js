@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage. See NOTICE.
 'use strict';
+process.env.GARAGE_MENU = 'off';   // these tests check the page's own tab bar and buttons (the header menu is off)
 /**
  * Standby's tests: the clock's fixed digit slots, night dimming, the ice warning, the menu fade, the door panel,
  * drives, and that the pages draw every page with demo values and with a car that reports nothing. Plain node,

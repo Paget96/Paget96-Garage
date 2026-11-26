@@ -772,7 +772,7 @@ mgu.run({
             S = build();
             V.values = S.values;
             const cv = ctx.canvas(UI.W, UI.H);
-            if (cv.chrome) cv.chrome.tabs = { tabs: V.mode === 'main' ? VIEW.TABS : [], sel: V.page, badges: [] };
+            if (cv.chrome) cv.chrome.tabs = { tabs: UI.menuTabs(VIEW.TABS), sel: UI.menuSel(VIEW.TABS, V.page, V.mode), badges: [] };
             if (V.dialog) {
                 V.dialog.a = UI.anim('p96health|dialog', V.dialog.open ? 1 : 0, 200);
                 if (!V.dialog.open && V.dialog.a <= 0) V.dialog = null;
@@ -781,7 +781,10 @@ mgu.run({
             drawnVersion = version;
             await ui.image('MAIN_GFX', cv);
         }
-        if (ctx.onTab) ctx.onTab((i) => A.tab(i));
+        if (ctx.onTab) ctx.onTab((i) => {
+            const pick = UI.menuPick(VIEW.TABS, i);
+            if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); } else { V.mode = 'main'; A.tab(i); }
+        });
         ui.onClick('BTN_PAGE', () => A.tab(UI.nextTab(V.page, VIEW.TABS.length, 1)));
         ui.onClick('BTN_SCAN', () => { scan(); });
         if (ctx.hideButton) { ctx.hideButton('BTN_PAGE'); ctx.hideButton('BTN_SCAN'); }

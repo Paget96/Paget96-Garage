@@ -2,10 +2,10 @@
   "id": "p96-renderd",
   "kind": "tool",
   "version": "0.2.0",
-  "title": "Paget96 Garage renderer (test)",
-  "description": "Optional GPU renderer for Paget96 Garage apps, beside the Store's renderer (its own socket, layers and touch). Garage apps use it when it runs and the Store's renderer otherwise. Logs which system popups it sees. Not needed by anything; remove it any time.",
+  "title": "Paget96 Garage renderer",
+  "description": "The GPU renderer of Paget96 Garage. Needed for every Garage app to work well: full screen, touch on every button, smooth 60 fps. Installed with any Garage app. It runs beside the Store's renderer and idrive7-renderd and takes nothing of theirs (its own socket, layers and touch).",
   "mguHmi": ["ID7"],
-  "optional": true,
+  "optional": false,
   "uninstallable": true,
   "requires": { "mgu-deploy": "0.6.1" },
   "files": [
