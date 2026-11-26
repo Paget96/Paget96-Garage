@@ -148,6 +148,8 @@ mgu.run({
             const d = usingDemo();
             st.status = d ? 'DEMO' : 'LIVE'; st.statusColor = d ? 'info' : 'ok'; st.now = t;
             const cv = ctx.canvas(W, H);
+            // where the kit runs the screen, it draws the tabs and routes their taps to ctx.onTab (as Health does)
+            if (cv.chrome) cv.chrome.tabs = { tabs: st.page === 'main' ? P.TABS : [], sel: st.tab, badges: [] };
             P.draw(cv, m, st, (t - t0) / 1000, act);
             await ui.image('MAIN_GFX', cv);
         }
