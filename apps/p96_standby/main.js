@@ -27,6 +27,7 @@ const mgu = require('./kit/mgu');
 const { ReadOnlyDiag } = require('./kit/readonly-diag');
 const { DidReader } = require('./kit/dids');
 const UI = require('./garage_ui');
+const E = require('./garage_engine');
 const M = require('./model');
 const P = require('./pages');
 
@@ -171,12 +172,13 @@ mgu.run({
 
         /* ---------- the clock: drives, histories, saving ---------- */
         let demoDrives = null, histAt = 0;
+        const demoCar = () => E.demoCar(val('demoCar'));
         setInterval(() => {
             const t = now();
             if (!usingDemo()) drives.feed(t, live.speed, live.outside, live.fuelAvg);
             if (t - histAt >= HIST_MS) {
                 histAt = t;
-                const d = usingDemo() ? M.Demo.values(t) : live;
+                const d = usingDemo() ? M.Demo.values(t, demoCar()) : live;
                 ['outside', 'volts'].forEach((k) => { hist[k].push(M.isNum(d[k]) ? d[k] : null); if (hist[k].length > HIST_N) hist[k].shift(); });
             }
             readVolts();
@@ -186,12 +188,12 @@ mgu.run({
         /* ---------- the values the pages draw ---------- */
         function values(t) {
             if (usingDemo()) {
-                const d = M.Demo.values(t);
+                const d = M.Demo.values(t, demoCar());
                 if (!demoDrives) demoDrives = M.Demo.drives(t);
                 d.outsideHist = hist.outside.length > 1 ? hist.outside : [d.outside + 1.5, d.outside];
                 d.voltsHist = hist.volts.length > 1 ? hist.volts : [d.volts, d.volts];
                 d.drives = demoDrives;
-                d.has = () => true;
+                d.has = (k) => d[k] !== undefined && d[k] !== null;
                 return d;
             }
             const v = Object.assign({}, live);

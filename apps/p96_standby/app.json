@@ -87,6 +87,8 @@
     {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
     {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto",
      "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "demoCar", "label": "Demo car", "type": "choice", "default": "b48",
+     "options": [["b48", "B48"], ["b58", "B58"], ["s58", "S58"], ["s63", "S63 V8"], ["b57", "B57 diesel"], ["phev", "PHEV"], ["ev", "EV"]]},
     {"key": "clock", "label": "Clock", "type": "choice", "default": "24",
      "options": [["24", "24 h"], ["12", "12 h"]]},
     {"key": "night", "label": "Night dimming", "type": "choice", "default": "auto",

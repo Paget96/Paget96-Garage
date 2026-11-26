@@ -20,7 +20,10 @@ const UI = require('../lib/ui');
 const M = require('../apps/p96_standby/model');
 const P = require('../apps/p96_standby/pages');
 
-const out = process.argv[2] || path.join(__dirname, '..', 'docs', 'media', 'p96_standby');
+// --car <id>: the Glance of one demo car of lib/engine.js (the compatibility gallery), nothing else
+let argv = process.argv.slice(2), CAR = null;
+if (argv[0] === '--car') { CAR = require('../lib/engine').demoCar(argv[1]); argv = argv.slice(2); }
+const out = argv[0] || path.join(__dirname, '..', 'docs', 'media', 'p96_standby');
 if (!fs.existsSync(out)) fs.mkdirSync(out, { recursive: true });   // Node 8 throws EEXIST despite recursive
 
 const T0 = new Date(2026, 10, 26, 21, 46, 50).getTime();
@@ -28,8 +31,8 @@ const drives = M.Demo.drives(T0);
 const hist = { outside: [], volts: [] };
 for (let k = 59; k >= 0; k--) { const d = M.Demo.values(T0 - k * 10000); hist.outside.push(M.Demo.values(T0).outside + k * 0.03); hist.volts.push(d.volts); }
 function values(t) {
-    const v = M.Demo.values(t);
-    v.outsideHist = hist.outside; v.voltsHist = hist.volts; v.drives = drives; v.has = () => true;
+    const v = M.Demo.values(t, CAR);
+    v.outsideHist = hist.outside; v.voltsHist = hist.volts; v.drives = drives; v.has = (k) => v[k] !== undefined && v[k] !== null;
     return v;
 }
 const st = { page: 'main', tab: 0, topic: 0, settings: Object.assign({}, P.DEFAULTS), status: 'DEMO', statusColor: 'info', now: T0, menuA: 1, nightP: 0 };
@@ -53,6 +56,7 @@ function shot(name, set, t, popup) {
     return r;
 }
 
+if (CAR) { shot('glance', { tab: 1 }); console.log(CAR.id + ': glance in ' + out); process.exit(0); }
 const files = [
     shot('clock', {}),
     shot('clock-quiet', { menuA: 0 }),

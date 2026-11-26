@@ -27,6 +27,7 @@ const UI = ui();
 const G = kit('gauges');
 const A = require('./art');
 const M = require('./model');
+const E = (function () { try { return require('./garage_engine'); } catch (e) { return require('../../lib/engine'); } })();
 const C = UI.C, T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN, CW = R - L;
 const isNum = M.isNum;
 const lit = { literal: true };
@@ -172,7 +173,7 @@ function glanceCards(v) {
     } else if (v.has('charge')) {
         out.push({ kind: 'stat', g: { label: '12 V battery', value: v.charge, unit: '%', sub: 'the car\'s own charge figure', color: v.charge >= 70 ? 'ok' : 'warm', info: INFO.battery } });
     }
-    if (v.has('range')) out.push({ kind: 'stat', g: { label: 'Range', value: v.range, unit: 'km', sub: v.has('fuelL') ? 'fuel ' + f(v.fuelL) + ' l' : '', color: v.range < 60 ? 'warm' : 'ok', info: INFO.range } });
+    if (v.has('range')) out.push({ kind: 'stat', g: { label: 'Range', value: v.range, unit: 'km', sub: v.has('fuelL') ? 'fuel ' + f(v.fuelL) + ' l' : 'the car\'s own estimate', color: v.range < 60 ? 'warm' : 'ok', info: INFO.range } });
     if (v.has('doors')) {
         const open = (v.doors || []).slice();
         if (v.windows && v.windows.open) open.push(v.windows.open === 1 ? 'a window' : v.windows.open + ' windows');
@@ -290,7 +291,7 @@ function draw(cv, v, st, t, act) {
     if (st.page === 'help') {
         UI.howToUse(cv, TOPICS, st.topic || 0, t, { title: TITLE, onSelect: act.topic, onBack: act.back, onSettings: act.settings });
     } else if (st.page === 'settings') {
-        UI.settingsPage(cv, APP_ROWS, st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help });
+        UI.settingsPage(cv, (st.status === 'DEMO' ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help });
     } else {
         head(cv, st, act);
         PAGES[st.tab || 0](cv, v, st, act);
@@ -300,6 +301,6 @@ function draw(cv, v, st, t, act) {
 
 /** Every setting's default: the Display block and Standby's own rows. */
 const DEFAULTS = {};
-UI.DISPLAY_SETTINGS.concat(APP_ROWS).forEach((r) => { DEFAULTS[r.key] = r.default; });
+UI.DISPLAY_SETTINGS.concat(APP_ROWS, [E.DEMO_ROW]).forEach((r) => { DEFAULTS[r.key] = r.default; });
 
 module.exports = { draw, TABS, TOPICS, APP_ROWS, INFO, PAGES, DEFAULTS, glanceCards, TITLE };

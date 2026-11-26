@@ -279,13 +279,17 @@ class Seen {
  * the day. at(): the live values; drives(t): today's three drives.
  */
 const Demo = {
-    values(t) {
+    /** car: a demo car of lib/engine.js; an electric car shows its range without fuel. */
+    values(t, car) {
         const s = (t / 1000) % 600;
-        return {
+        const v = {
             outside: 2.4 - s / 600 * 0.6, volts: 12.6 + 0.02 * Math.sin(t / 7000), charge: 82, range: 410, fuelL: 41,
             doors: [], windows: { open: 0, of: 4 }, locked: true, lockedAt: null,
             seats: { DR: 2, PS: 1 }, wheel: true, climate: true, ac: false, blower: 3, night: null,
         };
+        if (car && car.engine === false) { delete v.fuelL; v.range = 362; }
+        else if (car && car.diesel) { v.range = 780; v.fuelL = 52; }
+        return v;
     },
     drives(now) {
         const d = new Date(now), at = (h, m) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m).getTime();
