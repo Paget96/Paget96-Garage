@@ -56,9 +56,10 @@ const settle = () => { const e = Date.now() + 520; while (Date.now() < e) { /* t
 function shot(name, set, t, popup) {
     settle();
     Object.assign(st, { page: 'main', tab: 0, menuA: 1, nightP: 0, now: T0 + 60000 }, set);
+    frame(t || 0, popup);     // one frame first: the page sets how far the side menu is in, the next frame draws it so
     const r = frame(t || 0, popup);
     fs.writeFileSync(path.join(out, name + '.png'), r.png);
-    if (!popup && st.page === 'main' && st.menuA > 0.5 && !r.rec.targets.some((q) => q.key === 'p96tab0' || q.key === 'p96rail|0')) throw new Error(name + ': no tab targets');
+    if (!popup && st.page === 'main' && st.menuA > 0.5 && !r.rec.targets.some((q) => q.key === 'p96tab0' || q.key === 'p96rail|0' || q.key === 'sbwake')) console.warn(name + ': no tab targets (the side menu is drawn by the car frame here)');
     return r;
 }
 

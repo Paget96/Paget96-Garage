@@ -206,10 +206,15 @@ function glanceCards(v) {
     if (v.has('range')) out.push({ kind: 'stat', g: { label: 'Range', value: v.range, unit: 'km', sub: v.has('fuelL') ? 'fuel ' + f(v.fuelL) + ' l' : 'the car\'s own estimate', color: v.range < 60 ? 'warm' : 'ok', info: INFO.range } });
     if (v.has('doors')) {
         const open = (v.doors || []).slice();
+        if (v.has('hood') && v.hood) open.push('bonnet');
+        if (v.has('trunk') && v.trunk) open.push('boot');
         if (v.windows && v.windows.open) open.push(v.windows.open === 1 ? 'a window' : v.windows.open + ' windows');
         const big = !open.length ? 'all closed' : open.length === 1 ? open[0] + ' open' : open.length + ' open';
         const sub = open.length > 1 ? open.join(', ') : v.locked === true ? 'locked' : v.locked === false ? 'unlocked' : '';
-        out.push({ kind: 'word', label: v.windows ? 'Doors and windows' : 'Doors', big: big, sub: sub, color: open.length ? 'warm' : v.locked === false ? 'warm' : 'ok', info: INFO.doors });
+        out.push({ kind: 'word', label: v.windows ? 'Doors and windows' : 'Doors', big: big, sub: sub, color: open.length ? 'warm' : v.locked === false ? 'warm' : 'ok', info: INFO.doors,
+            // the car from above, as in the help: open doors, bonnet and boot swung out in amber (owner, 2026-11-27 00:00)
+            extra: (cv, x, y, w, h) => { const hh = (h || 180) - 64, k = Math.min(0.62, hh / 310); A.carState(cv, x + w - 40 - 64 * k, y + 54 + hh / 2, k,
+                { doors: v.doors || [], hood: v.has('hood') ? v.hood : null, trunk: v.has('trunk') ? v.trunk : null }); } });
     }
     if (v.has('seats') || v.has('wheel')) {
         const s = v.seats || {}, parts = [];

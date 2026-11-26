@@ -169,6 +169,17 @@ function lockOf(v) {
     return out;
 }
 
+/* The bonnet and the boot lid: found by name in the same struct (Motorhaube / hood / bonnet, Heckklappe / trunk / boot /
+ * tailgate), as the windows are (unsure: their field names were not seen on a car yet). Open (true), shut (false), or
+ * null when the struct has no such field. */
+function lidOf(v, re) {
+    if (!v || typeof v !== 'object') return null;
+    const k = Object.keys(v).filter((n) => re.test(n) && (typeof v[n] === 'number' || typeof v[n] === 'string' || typeof v[n] === 'boolean'))[0];
+    return k ? isOpen(v[k]) : null;
+}
+const hoodOf = (v) => lidOf(v, /hood|bonnet|motorhaube|frontlid/i);
+const trunkOf = (v) => lidOf(v, /trunk|tailgate|heckklappe|boot|rearlid|luggage/i);
+
 /** Seat heating level 0..3 from the car's number (as upstream eDrive reads it), or null. */
 const seatLevel = (v) => (typeof v === 'number' && v >= 0 && v < 15 ? Math.min(3, v) : null);
 /** The first value under key anywhere in a struct (the climate structs are lists, one entry per zone). */
@@ -285,7 +296,7 @@ const Demo = {
         const s = (t / 1000) % 600;
         const v = {
             outside: 2.4 - s / 600 * 0.6, volts: 12.6 + 0.02 * Math.sin(t / 7000), charge: 82, range: 410, fuelL: 41,
-            doors: [], windows: { open: 0, of: 4 }, locked: true, lockedAt: null,
+            doors: [], hood: false, trunk: false, windows: { open: 0, of: 4 }, locked: true, lockedAt: null,
             seats: { DR: 2, PS: 1 }, wheel: true, climate: true, ac: false, blower: 3, night: null,
         };
         if (car && car.engine === false) { delete v.fuelL; v.range = 362; }
@@ -310,6 +321,6 @@ module.exports = {
     isNum, timeText, dateText, shortTime, digitSlots,
     NIGHT_TEXT, NIGHT_DIM, isNight, nightOf, mixColour,
     MENU_FADE_MS, menuAlpha, ICE_BELOW, iceRisk,
-    doorsOf, windowsOf, lockOf, seatLevel, one,
+    doorsOf, windowsOf, lockOf, hoodOf, trunkOf, seatLevel, one,
     Drives, Seen, Demo, dayKey,
 };

@@ -137,6 +137,30 @@ function doorsArt(cv, x, y, w, h, t) {
     cv.text(locked ? 'all closed, locked' : 'driver door open', cx, y + h - 26, 16, locked ? C.green : C.amber, { font: 'bold', align: 'center', literal: true });
 }
 
+/**
+ * The car from above with what is open now (owner, 2026-11-27 00:00: the Glance card draws it, as the help does):
+ * st = { doors: ['driver', ...] open ones, hood, trunk: true open / false shut / null not reported }. Shut is green,
+ * open amber and swung out; a part the car does not report is not drawn in colour.
+ */
+function carState(cv, cx, cy, k, st) {
+    st = st || {};
+    const side = 63 * 0.84 * k, open = st.doors || [];
+    UI.carTop(cv, cx, cy, k);
+    [['driver', -1, -52], ['passenger', 1, -52], ['rear left', -1, 8], ['rear right', 1, 8]].forEach((d) => {
+        const o = open.indexOf(d[0]) >= 0, ang = o ? 0.9 : 0, hx = cx + d[1] * side, hy = cy + d[2] * k, L = 56 * k;
+        cv.line(hx, hy, hx + d[1] * L * Math.sin(ang), hy + L * Math.cos(ang), 5, o ? C.amber : C.green);
+    });
+    // the bonnet seam at the front and the boot lid at the back, lifted when open
+    const lid = (y0, dir, isOpen) => {
+        if (isOpen == null) return;
+        const w = 44 * 0.84 * k;
+        if (isOpen) cv.stroke([[cx - w, cy + y0 * k], [cx - w * 0.8, cy + (y0 + dir * 26) * k], [cx + w * 0.8, cy + (y0 + dir * 26) * k], [cx + w, cy + y0 * k]], 4, C.amber);
+        else cv.line(cx - w, cy + y0 * k, cx + w, cy + y0 * k, 4, C.green);
+    };
+    lid(-92, -1, st.hood);
+    lid(112, 1, st.trunk);
+}
+
 /** A seat and a steering wheel with heat rising, its level bars filling. */
 function heatArt(cv, x, y, w, h, t) {
     const sx = x + 170, sy = y + h / 2 + 40;
@@ -201,4 +225,4 @@ function driveArt(cv, x, y, w, h, t) {
     cv.text('from the moment the car moves until it stood for 3 minutes', x + w / 2, y + h - 26, 15, C.dim, lit);
 }
 
-module.exports = { slotsArt, nightArt, menuArt, iceArt, batteryArt, rangeArt, doorsArt, heatArt, climateArt, dayArt, driveArt };
+module.exports = { carState, slotsArt, nightArt, menuArt, iceArt, batteryArt, rangeArt, doorsArt, heatArt, climateArt, dayArt, driveArt };

@@ -113,6 +113,9 @@ mgu.run({
             ['de.bmw.body.DoorsWindowsRoofMirrors', { CentralLockingSystemAndPanelStatus: (v) => {
                 const d = M.doorsOf(v), w = M.windowsOf(v), l = M.lockOf(v);
                 if (d) put('doors', d);
+                const hd = M.hoodOf(v), tk = M.trunkOf(v);
+                if (hd !== null) put('hood', hd);
+                if (tk !== null) put('trunk', tk);
                 if (w) live.windows = w;
                 if (l !== null) live.locked = l;
             } }],
