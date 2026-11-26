@@ -15,7 +15,7 @@
  * A run (saved as JSON):
  *   { at, length, result: { '0-100': s, 'd201': s, ... }, trap: { d201: km/h, ... }, reaction,
  *     intake, charge, outside, kPa, cf, da, boostPeak, boostTarget, trace: [[t, v, boost, manifold, ambient,
- *     intake, charge, outside]] }
+ *     intake, charge, outside, wastegate]] } (wastegate % open, null when the car does not report it; older runs lack it)
  * the air (intake, charge, outside in °C, kPa) as it was at the launch; trace every 0.2 s of the run.
  */
 const fs = require('fs');
@@ -28,7 +28,7 @@ const { RunTimer } = kit('run_timer');
 
 const KEEP = 300;            // runs kept in the file
 const TRACE_S = 0.2;         // trace step
-const TRACE = ['t', 'v', 'boost', 'manifold', 'ambient', 'intake', 'charge', 'outside'];
+const TRACE = ['t', 'v', 'boost', 'manifold', 'ambient', 'intake', 'charge', 'outside', 'wastegate'];
 
 class RunLog {
     /**
@@ -82,7 +82,7 @@ class RunLog {
     _row(rt, v) {
         const a = this.o.air ? this.o.air() || {} : {};
         const r = (x, k) => (typeof x === 'number' && isFinite(x) ? Math.round(x * k) / k : null);
-        return [r(rt, 100), r(v, 10), r(a.boost, 1000), r(a.manifold, 1000), r(a.ambient, 1000), r(a.intake, 10), r(a.charge, 10), r(a.outside, 10)];
+        return [r(rt, 100), r(v, 10), r(a.boost, 1000), r(a.manifold, 1000), r(a.ambient, 1000), r(a.intake, 10), r(a.charge, 10), r(a.outside, 10), r(a.wastegate, 10)];
     }
 
     _launch() {

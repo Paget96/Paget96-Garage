@@ -129,6 +129,94 @@ function boostArt(cv, x, y, w, h, t) {
     lbl(cv, 'Throttle: ' + st, x + w / 2, y + h - 14, C.amber, 15, true);
 }
 
+/* ---------- the wastegate ---------- */
+
+/** A point at fraction u along a polyline pts ([[x, y], ...]). */
+function along(pts, u) {
+    let total = 0;
+    const seg = [];
+    for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); total += d; }
+    let left = clamp(u, 0, 1) * total;
+    for (let i = 0; i < seg.length; i++) {
+        if (left <= seg[i] || i === seg.length - 1) {
+            const f = seg[i] ? left / seg[i] : 0;
+            return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f];
+        }
+        left -= seg[i];
+    }
+    return pts[pts.length - 1];
+}
+
+/**
+ * The wastegate explained: exhaust gas from the engine either spins the turbine (and so makes boost) or goes past it
+ * through the wastegate flap. A 9 s cycle: idle (open), full throttle (shut, the boost climbs), at the target (opens
+ * part way to hold it), lifting off (open again). Below: the boost needle with the target marked, and the position.
+ */
+function wastegateArt(cv, x, y, w, h, t) {
+    const ph = t % 9;
+    // boost and position over the cycle
+    let boost, wg, words;
+    if (ph < 1.5) { boost = -0.5; wg = 100; words = 'Idle: open, nothing to hold back'; }
+    else if (ph < 4) {
+        const f = ease(clamp((ph - 1.5) / 2.4, 0, 1));
+        boost = -0.5 + f * 1.92; wg = 100 * (1 - ease(clamp((ph - 1.5) / 0.35, 0, 1)));
+        words = 'Full throttle: shut, all the gas drives the turbine';
+    } else if (ph < 6.8) {
+        boost = 1.45 + 0.01 * Math.sin(ph * 9); wg = 45 * ease(clamp((ph - 4) / 0.6, 0, 1)) + 4 * Math.sin(ph * 3);
+        words = 'At the target: opens part way to hold the boost';
+    } else if (ph < 7.6) {
+        const f = ease(clamp((ph - 6.8) / 0.8, 0, 1));
+        boost = 1.45 - f * 1.95; wg = 45 + 55 * ease(clamp((ph - 6.8) / 0.3, 0, 1));
+        words = 'Lift off: open again';
+    } else { boost = -0.5; wg = 100; words = 'Idle: open, nothing to hold back'; }
+    wg = clamp(wg, 0, 100);
+    const share = wg / 100 * 0.75, flow = boost > 0 || (ph > 1.5 && ph < 6.8) ? 1 : 0.35;
+
+    // the path: engine, pipe, turbine, pipe out; the bypass over the turbine with the flap at its foot
+    const py = y + 132, ex = x + 120, out = x + w - 26, tx = x + w * 0.56, tr = 42;
+    const bx0 = tx - 104, bx1 = tx + 104, by = y + 54;
+    cv.strokeRoundRect(x + 24, py - 52, 96, 104, 16, 3, GREY);
+    for (let k = 0; k < 3; k++) cv.circle(x + 50 + k * 22, py - 14, 8, DIMLINE);
+    lbl(cv, 'engine', x + 72, py + 30, C.dim, 13);
+    cv.line(ex, py, out, py, 26, TRACK);
+    cv.line(bx0, py, bx0, by, 22, TRACK); cv.line(bx0, by, bx1, by, 22, TRACK); cv.line(bx1, by, bx1, py, 22, TRACK);
+    // the gas: hot until it gives its energy to the turbine; through the flap it stays hot
+    const A = [[ex, py], [out, py]], B = [[ex, py], [bx0, py], [bx0, by], [bx1, by], [bx1, py], [out, py]];
+    for (let i = 0; i < 22; i++) {
+        const bypass = ((i * 0.618034) % 1) < share;
+        const u = (t * (0.18 + 0.22 * flow) + i / 22) % 1;
+        const p = along(bypass ? B : A, u);
+        const past = bypass ? false : p[0] > tx;
+        cv.circle(p[0], p[1], 5, past ? '#c8a078' : '#ff6e3c');
+    }
+    // the turbine, faster with more gas through it
+    cv.circle(tx, py, tr, '#1a1c22');
+    cv.arc(tx, py, tr - 2, tr + 1, 0, 360, GREY);
+    const spin = t * (2 + 16 * flow * (1 - share));
+    for (let k = 0; k < 6; k++) { const a = spin + k * 1.0472; cv.line(tx, py, tx + 30 * Math.cos(a), py + 30 * Math.sin(a), 3, GREY); }
+    lbl(cv, 'turbine', tx, py + tr + 20, C.dim, 13);
+    // the flap: hinged at the left of the bypass foot, flat when shut, standing up when open
+    const fy = py - 15, fx = bx0 - 12, a = (wg / 100) * 75 * Math.PI / 180;
+    cv.line(fx, fy, fx + 26 * Math.cos(a), fy - 26 * Math.sin(a), 7, C.green);
+    cv.circle(fx, fy, 5, C.text);
+    lbl(cv, 'wastegate flap', bx0, py + 30, C.green, 13, true);
+    lbl(cv, 'past the turbine', (bx0 + bx1) / 2, by - 20, C.dim, 13);
+    lbl(cv, 'to the exhaust', out - 50, py + 30, C.dim, 13);
+
+    // below: the boost needle with the target, the position bar, what happens now
+    const gy = y + h - 132, gx = x + w * 0.27;
+    miniGauge(cv, gx, gy, 48, boost, -1, 2, C.orange, 'boost', [-1, 0.5, 2]);
+    const ta = (-135 + 270 * (1.45 + 1) / 3) * Math.PI / 180;
+    cv.line(gx + Math.sin(ta) * 36, gy - Math.cos(ta) * 36, gx + Math.sin(ta) * 60, gy - Math.cos(ta) * 60, 3, C.amber);
+    const bx = x + w * 0.52, bw = w * 0.42, bry = gy - 6;
+    lbl(cv, 'wastegate ' + Math.round(wg) + ' % open', bx + bw / 2, bry - 22, C.green, 16, true);
+    cv.roundRect(bx, bry, bw, 14, 7, TRACK);
+    if (wg > 1) cv.roundRect(bx, bry, Math.max(14, bw * wg / 100), 14, 7, C.green);
+    cv.text('closed', bx, bry + 34, 12, C.dim, { literal: true });
+    cv.text('open', bx + bw, bry + 34, 12, C.dim, { align: 'right', literal: true });
+    lbl(cv, words, x + w / 2, y + h - 14, C.amber, 15, true);
+}
+
 /* ---------- a run on the strip ---------- */
 
 function runArt(cv, x, y, w, h, t) {
@@ -312,4 +400,4 @@ function compareArt(cv, x, y, w, h, t) {
     if (k >= 1) lbl(cv, 'B: 0.14 s slower, 6 °C warmer charge air', x + w / 2, y + 30, C.amber, 16, true);
 }
 
-module.exports = { airPath, boostArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };
+module.exports = { airPath, boostArt, wastegateArt, runArt, splitsArt, correctionArt, pressureArt, tyreArt, thermoArt, logArt, compareArt, dynoArt, miniGauge };

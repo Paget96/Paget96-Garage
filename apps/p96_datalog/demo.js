@@ -39,6 +39,8 @@ function rng(seed) {
     return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
 }
 
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+
 class Demo {
     /** air: the day's weather { intake (°C after the filter), kPa } (default 20.5 °C, 97.9 kPa, about 300 m up). */
     constructor(seed, t0, air) {
@@ -47,7 +49,7 @@ class Demo {
         this.last = null;
         this.v = 0; this.d = 0; this.phase = 'idle'; this.phaseT = 0; this.runNo = 0;
         this.air = air || { intake: 20.5, kPa: 97.9 };
-        this.boostNow = -0.55; this.charge = 27 + this.air.intake - 20.5; this.intake = this.air.intake; this.oil = 96; this.coolant = 92; this.gearbox = 66;
+        this.boostNow = -0.55; this.wg = 100; this.charge = 27 + this.air.intake - 20.5; this.intake = this.air.intake; this.oil = 96; this.coolant = 92; this.gearbox = 66;
         this.tyreP = { FL: 2.2, FR: 2.2, RL: 2.12, RR: 2.2 }; this.tyreT = { FL: 19, FR: 19, RL: 18, RR: 19 };
         this.kPaBase = this.air.kPa;
         this.power = P_M; this.grip = TRACTION;
@@ -127,6 +129,11 @@ class Demo {
         this.boostNow += (want - this.boostNow) * Math.min(1, dt * (throttle ? 1.3 : 3));
         const ambientBar = (this.kPaBase + 0.05 * Math.sin(t / 60000)) / 100;
         const manifold = ambientBar + this.boostNow;
+        // the electric wastegate: open at idle and when lifting (no exhaust held back), shut while the boost builds,
+        // then opening as the boost reaches the target to hold it there (more as the rpm and the exhaust flow rise)
+        const near = this.boostNow >= want - 0.04;
+        const wgWant = !throttle ? 100 : near ? clampN(28 + 30 * (rpm - 3500) / 3500, 22, 62) : 0;
+        this.wg += (wgWant - this.wg) * Math.min(1, dt * (throttle && !near ? 9 : 4));
 
         // air: the charge air climbs under boost and cools at idle; the intake after the filter warms a little
         const soak = Math.min(4, this.runNo);              // the intercooler soaks heat over the first runs
@@ -149,6 +156,7 @@ class Demo {
             oil: this.oil, coolant: this.coolant, gearbox: this.gearbox, outside: this.air.intake - 2.5 + 0.3 * Math.sin(t / 90000),
             intake: this.intake, charge: this.charge, manifold: manifold, ambient: ambientBar, kPa: ambientBar * 100,
             boost: M.boost(manifold, ambientBar), boostTarget: throttle ? 1.45 : null, egt: this.egtNow(throttle, dt),
+            wastegate: this.wg, wgDuty: throttle ? 18 + 0.55 * (100 - this.wg) : 6,
             tyres: {
                 p: { FL: r(this.tyreP.FL, 100), FR: r(this.tyreP.FR, 100), RL: r(this.tyreP.RL, 100), RR: r(this.tyreP.RR, 100) },
                 t: { FL: Math.round(this.tyreT.FL), FR: Math.round(this.tyreT.FR), RL: Math.round(this.tyreT.RL), RR: Math.round(this.tyreT.RR) },

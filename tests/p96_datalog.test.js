@@ -171,8 +171,9 @@ function fakeLink(multi) {
         const out = [0x62];
         dids.forEach((did) => {
             const k = ('000' + did.toString(16).toUpperCase()).slice(-4), d = DIDS[k];
+            const raw = Object.assign({ '580F': 0x5C, '59D4': 0x3000, '4A2D': 0x7980, '4201': 0x61A8, '4AB0': 0x9500, '5891': 0x0300, '5814': 0x1F40, '5896': 0x2710, '5927': 0x80, '4AAB': 0x5000 }, L.raw || {})[k];
+            if (raw === null) return;                 // this car does not have it: left out of the reply
             out.push(did >> 8, did & 0xFF);
-            const raw = { '580F': 0x5C, '59D4': 0x3000, '4A2D': 0x7980, '4201': 0x61A8, '4AB0': 0x9500, '5891': 0x0300, '5814': 0x1F40, '5896': 0x2710 }[k];
             for (let i = d.bytes - 1; i >= 0; i--) out.push((raw >> (8 * i)) & 0xFF);
         });
         return out;
@@ -187,7 +188,8 @@ function fakeLink(multi) {
     L.read = (target, did) => {
         check(target, 0x22, [did >> 8, did & 0xFF], false);
         L.sent.push([target, 0x22, did >> 8, did & 0xFF]);
-        return Promise.resolve(reply([did]));
+        const r = reply([did]);
+        return Promise.resolve(r.length > 1 ? r : [0x7F, 0x22, 0x31]);
     };
     L.physical = (target, sid, data) => { check(target, sid, data, false); L.sent.push([target, sid].concat(data)); return Promise.resolve(null); };
     L.cancel = () => { L.cancelled++; };
@@ -207,12 +209,90 @@ test('engine unit: reads only, values scaled, nothing after stop()', async () =>
     assert.strictEqual(link.sent.length, n, 'nothing sent after stop()');
     assert(link.cancelled >= 1, 'the queue was dropped');
     assert(link.sent.every((q) => q[1] === 0x22 || q[1] === 0x01), 'only 22 and OBD reads');
-    const v = got[got.length - 1];
+    const v = Object.assign.apply(null, [{}].concat(got));    // the two requests in turn: everything seen
+    assert(link.sent.some((q) => q.length === 2 + 2 * 8) && link.sent.some((q) => q.length === 2 + 2 * 3), 'both requests went out, 8 identifiers at most');
     near(v.intake, 21, 1e-9, 'intake °C');
     near(v.manifold, 2.43, 0.01, 'manifold bar abs');
     near(v.kPa, 97.66, 0.01, 'outside kPa');
     near(v.torque, 384, 1e-9, 'torque Nm');
     near(v.pedal, 0x1F40 * 0.01220703, 1e-6, 'pedal %');
+    near(v.wastegate, 0x80 * 0.390625, 1e-9, 'wastegate % open');
+    near(v.wgDuty, 0x5000 * 0.001525878906, 1e-6, 'wastegate actuator duty %');
+});
+
+test('engine unit: a car without the wastegate is not asked for it again and again', async () => {
+    const link = fakeLink(true), got = [];
+    link.raw = { '5927': null, '4AAB': null };
+    const dme = new DmeReader(link, { gapMs: 1, onValues: (v) => got.push(v) });
+    const realNow = Date.now;
+    let fake = realNow();
+    Date.now = () => fake;                           // every loop is 4 s later: a single read is due each time
+    const tick = setInterval(() => { fake += 4000; }, 1);
+    dme.start();
+    await wait(120);
+    dme.stop();
+    clearInterval(tick); Date.now = realNow;
+    const asked = link.sent.filter((q) => q.length === 4 && q[2] === 0x59 && q[3] === 0x27).length;
+    assert(asked === 3, 'asked on its own 3 times, then not any more (' + asked + ')');
+    const many = link.sent.filter((q) => q.length > 4), lastWg = many.map((q) => q.length === 2 + 2 * 3).lastIndexOf(true);
+    assert(lastWg >= 0 && lastWg < many.length - 3, 'the wastegate request stopped (' + lastWg + ' of ' + many.length + ')');
+    assert(got.every((v) => !('wastegate' in v)), 'no wastegate value made up');
+    assert(got.some((v) => typeof v.manifold === 'number'), 'the rest still arrives');
+});
+
+test('wastegate: when it opens and closes, in words', () => {
+    // idle open, shut while the boost climbs, opens at 1.4 bar, holds part open, open again after lifting
+    const run = [[-0.5, 100], [-0.5, 99], [0.3, 0], [0.8, 0], [1.2, 2], [1.4, 30], [1.45, 45], [1.45, 40], [0.2, 95], [-0.5, 100]];
+    const s = M.wastegateStory(run, 1.45);
+    near(s.idle, 299 / 3, 1e-9, 'idle');
+    near(s.build, 0, 1e-9, 'while it builds');
+    near(s.opensAt, 1.4, 1e-9, 'opens at');
+    near(s.peak, 1.45, 1e-9, 'peak');
+    assert(s.over === null && s.under === null, 'on target');
+    const fmt = (b) => b.toFixed(2) + ' bar';
+    assert.deepStrictEqual(M.wastegateWords(s, fmt), { text: 'Closed while boost builds, opens at 1.40 bar to hold the target, fully open at idle', level: 'ok' });
+    // stuck shut: never opens and the boost shoots past the target
+    const shut = M.wastegateStory([[-0.5, 0], [0.5, 0], [1.2, 0], [1.8, 0], [1.75, 0]], 1.45);
+    assert.strictEqual(shut.opensAt, null, 'never opened');
+    near(shut.over, 0.35, 1e-9, 'past the target');
+    const w = M.wastegateWords(shut, fmt);
+    assert.strictEqual(w.level, 'warm');
+    assert.strictEqual(w.text, 'Boost went 0.35 bar past the target, closed while boost builds, closed at idle');
+    // stuck open: the boost stays short
+    const open = M.wastegateStory([[-0.5, 100], [0.3, 70], [0.7, 70], [0.9, 72]], 1.45);
+    near(open.under, 0.55, 1e-9, 'short of the target');
+    assert.strictEqual(M.wastegateWords(open, fmt).text, 'Boost stayed 0.55 bar short of the target, still 70 % open while boost builds, fully open at idle');
+    // only idle seen: asks for a full throttle; nothing at all: still a sentence
+    assert.strictEqual(M.wastegateWords(M.wastegateStory([[-0.5, 100], [-0.4, 100]], 1.45), fmt).text, 'Fully open at idle, full throttle once to see when it opens');
+    const none = M.wastegateWords(M.wastegateStory([], 1.45), fmt);
+    assert.strictEqual(none.level, 'dim');
+    assert.strictEqual(M.wastegateStory([[null, 3], [0.5, null]]).peak, null, 'samples with a gap are skipped');
+    assert.deepStrictEqual([0, 50, 100, null].map(M.wastegateState), ['closed', 'partly open', 'open', '--']);
+});
+
+test('wastegate: in the run trace, on the Boost page only when the car reports it', () => {
+    const { Model } = require(path.join(APP, 'model'));
+    const P = require(path.join(APP, 'pages'));
+    const { Recorder } = require(path.join(ROOT, 'upstream-kit', 'kit', 'runtime', 'record'));
+    let air = { boost: 1, manifold: 2, ambient: 1, wastegate: 37.25 };
+    const log = new RunLog({ file: null, air: () => air });
+    launch(log, { acc: 6 });
+    assert(column(log.last, 'wastegate').every((x) => x === 37.3), 'the position is in the trace, to 0.1 %');
+    air = { boost: 1 };
+    const log2 = new RunLog({ file: null, air: () => air });
+    launch(log2, { acc: 6 });
+    assert(column(log2.last, 'wastegate').every((x) => x === null), 'null when the car does not report it');
+    const vals = { demo: 'off' }, settings = { get: (k) => vals[k], set: (k, v) => { vals[k] = v; } };
+    const draw = (m) => { const r = new Recorder(1600, 520); m.ui.page = 'Boost'; P.draw(r, m, 1); return r.targets.map((q) => q.key).join(' '); };
+    const m = new Model({ settings, demo: () => false });
+    m.live.manifold = 1.2; m.live.ambient = 0.99;
+    m.tick(1000);
+    const without = draw(m);
+    m.live.wastegate = 0;
+    m.tick(2000);
+    assert(m.has('wastegate'), 'seen');
+    const withWg = draw(m);
+    assert(withWg.split(' ').length > without.split(' ').length, 'one more card with its (i): ' + without + ' / ' + withWg);
 });
 
 test('engine unit: one identifier a request when several are refused', async () => {

@@ -20,10 +20,10 @@ const { RunLog } = require('./runs');
 const { Demo, seedRuns } = require('./demo');
 const { PullLog } = require('./dyno');
 
-/** The values the pages use. Temperatures °C, pressures bar absolute (kPa for the air), speed km/h. */
+/** The values the pages use. Temperatures °C, pressures bar absolute (kPa for the air), speed km/h, wastegate % open. */
 const FIELDS = ['speed', 'rpm', 'torque', 'gear', 'oil', 'coolant', 'gearbox', 'outside', 'intake', 'charge', 'manifold',
-    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal'];
-const HIST = ['kPa', 'intake', 'outside', 'charge', 'boost', 'manifold', 'ambient', 'oil', 'coolant', 'gearbox', 'speed'];
+    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal', 'wastegate', 'wgDuty'];
+const HIST = ['kPa', 'intake', 'outside', 'charge', 'boost', 'manifold', 'ambient', 'oil', 'coolant', 'gearbox', 'speed', 'wastegate'];
 const N1 = 60, N10 = 120;            // 60 s at 1 a second, 10 min at one every 5 s
 
 class Model {

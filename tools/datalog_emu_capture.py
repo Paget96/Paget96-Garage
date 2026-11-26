@@ -20,7 +20,7 @@ import asyncio, json, os, shutil, subprocess, sys
 from playwright.async_api import async_playwright
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-PORT = 8099
+PORT = int(os.environ.get('EMU_PORT', '8099'))   # another port when 8099 is taken (EMU_PORT=8111)
 # where each tab is, per selected page, from the app's own drawing (the tab bar scrolls with the selection)
 TABMAP_JS = r"""
 let VT = Date.now(); Date.now = () => VT;
@@ -94,6 +94,11 @@ if __name__ == '__main__':
                         await tap(1070, 480, 1200)
                     if page == 'Boost':
                         await tap(*TM['Boost']['info'][0][1:], 2600); await shot('popup-boost')
+                        await tap(1410, 80, 900)
+                        # the wastegate card (the fifth card): its animation, caught while the flap is part open
+                        await tap(*TM['Boost']['info'][4][1:], 1200)
+                        for k in range(12):
+                            await shot('popup-wastegate-%d' % k); await pg.wait_for_timeout(750)
                         await tap(1410, 80, 900)
                     if page == 'Correction':
                         await tap(*TM['Correction']['info'][2][1:], 1800); await shot('popup-charge')

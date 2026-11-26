@@ -99,6 +99,21 @@ const INFO = {
             'knock) or a boost leak.',
         note: 'Normal: the target within 2 to 3 s of a full throttle launch.',
     },
+    wastegate: {
+        label: 'Wastegate', title: 'The door that holds the boost', draw: A.wastegateArt,
+        text: 'A flap in the exhaust beside the turbine. Shut, all the gas spins the turbine and the boost climbs. Open, ' +
+            'part of the gas goes past it, so the turbo cannot push harder. The engine unit moves it to hold the boost target ' +
+            'and opens it fully at idle.\n\n' +
+            'Stuck or slow shut: the boost shoots past the target. Stuck or slow open: the boost never reaches it, or late.',
+        note: 'Normal: open at idle, shut while the boost builds, part open (about 20 to 60 %) at the target.',
+    },
+    pressureWgChart: {
+        label: 'Pressure', title: 'Pressures and the wastegate', draw: A.wastegateArt,
+        text: 'Manifold, outside and boost against the left axis; the wastegate position, 0 (shut) to 100 % (open), ' +
+            'against the right one.\n\n' +
+            'Its line drops as you go full throttle, stays down while the boost climbs and rises as the boost reaches the target.',
+        note: 'boost = manifold minus outside.',
+    },
     pressureChart: {
         label: 'Pressure', title: 'Pressures over the last run', draw: A.boostArt,
         text: 'Manifold pressure (absolute), the outside pressure and the boost (the gap between them), second by second over the last run.',
@@ -207,7 +222,7 @@ const TOPICS = [
     { title: 'Boost', needs: 'boost', draw: A.boostArt, note: 'Boost = manifold pressure minus outside pressure.',
         text: 'Boost is how much the turbo pushes the air in. Datalog reads the manifold pressure and the outside pressure ' +
             'from the engine unit and shows both, and the boost between them.\n\n' +
-            'Set your boost target in Settings; Boost shows when the run reached it.' },
+            'Set your boost target in Settings; Boost shows when the run reached it, and the wastegate when your engine has one.' },
     { title: 'Tyres and temps', needs: 'oil', draw: A.tyreArt, note: 'Set pressures cold, check them hot.',
         text: 'Tyres shows each tyre\'s pressure and temperature from the car\'s tyre sensors, and how much each grew from ' +
             'cold to hot this session.\n\n' +

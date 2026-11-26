@@ -353,8 +353,50 @@ function pageCorrection(cv, m) {
 
 /* ---------- Boost ---------- */
 
+/** The wastegate's colour in the card and the chart (a fixed data colour, never the accent). */
+const WG_COL = C.green;
+
+/**
+ * The samples the wastegate story is told from: the last run's trace when it has the wastegate, else the last minute.
+ * { pairs: [[boost, wastegate], ...], from: 'last run' | 'last minute', target }
+ */
+function wastegateSamples(m) {
+    const last = m.log().last, h = m.h1;
+    const wg = column(last, 'wastegate');
+    if (wg.some(isNum)) {
+        const b = column(last, 'boost');
+        return { pairs: b.map((x, i) => [x, wg[i]]), from: 'last run', target: isNum(last.boostTarget) ? last.boostTarget : m.setting('boostTarget') };
+    }
+    return { pairs: h.boost.map((x, i) => [x, h.wastegate[i]]), from: 'last minute', target: isNum(m.v.boostTarget) ? m.v.boostTarget : m.setting('boostTarget') };
+}
+
+/** The Wastegate card: the position now, closed / open in words, and when it opens and closes from the live data. */
+function wastegateCard(cv, m, x, y, w, h) {
+    const v = m.v, U = units(m);
+    UI.card(cv, x, y, w, h, 'Wastegate', { info: INFO.wastegate });
+    const pos = isNum(v.wastegate) ? UI.glide('dlwg', v.wastegate) : null;
+    const vw = cv.text(isNum(pos) ? String(Math.round(pos)) : '--', x + 20, y + 80, 48, isNum(pos) ? C.text : C.dim, { font: 'num', literal: true });
+    ltext(cv, '% open', x + 28 + vw, y + 76, 18, C.dim);
+    cv.text(M.wastegateState(v.wastegate), x + w - 20, y + 76, 17, isNum(v.wastegate) ? WG_COL : C.dim, { font: 'bold', align: 'right', literal: true });
+    UI.bar(cv, x + 20, y + 94, w - 40, 10, isNum(v.wastegate) ? v.wastegate / 100 : 0, WG_COL, 'dlwg' + Math.round(x));
+    const sm = wastegateSamples(m);
+    ltext(cv, 'closed', x + 20, y + 122, 12, C.dim);
+    cv.text(isNum(v.wgDuty) ? 'actuator ' + Math.round(v.wgDuty) + ' %' : sm.from, x + w / 2, y + 122, 12, C.dim, { align: 'center', literal: true });
+    cv.text('open', x + w - 20, y + 122, 12, C.dim, { align: 'right', literal: true });
+    const story = M.wastegateStory(sm.pairs, sm.target);
+    // a run starts at the launch: how it sits at idle comes from the last minute
+    if (story.idle === null && sm.from === 'last run') story.idle = M.wastegateStory(m.h1.boost.map((b, i) => [b, m.h1.wastegate[i]])).idle;
+    const st = M.wastegateWords(story, (b) => fix(U.press(b), U.pressD) + ' ' + U.pressU);
+    const col = st.level === 'warm' ? C.amber : st.level === 'dim' ? C.dim : '#c8ced6';
+    let size = 15, step = 21, lines = UI.wrap(cv, st.text, size, w - 40, 'label');
+    if (lines.length > 2) { size = 13; step = 17; lines = UI.wrap(cv, st.text, size, w - 40, 'label').slice(0, 3); }
+    const y0 = lines.length > 2 ? y + 142 : y + 148;
+    lines.forEach((ln, i) => ltext(cv, ln, x + 20, y0 + i * step, size, col));
+}
+
 function pageBoost(cv, m) {
-    const v = m.v, U = units(m), h = m.h1, cw = 374, gap = (CW - 4 * cw) / 3, ch = 180, last = m.log().last;
+    const v = m.v, U = units(m), h = m.h1, wg = m.has('wastegate'), n = wg ? 5 : 4;
+    const ch = 180, last = m.log().last, gap = 16, cw = Math.floor((CW - (n - 1) * gap) / n);
     const target = m.setting('boostTarget');
     const cards = [
         { label: 'Boost', value: U.press(v.boost), decimals: U.pressD, unit: U.pressU, sub: 'manifold minus outside', color: 'accent', history: h.boost.map(U.press), minSpan: 0.5, info: INFO.boost },
@@ -362,14 +404,15 @@ function pageBoost(cv, m) {
         { label: 'Outside pressure', value: U.press(v.ambient), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'weather and altitude', color: 'info', history: h.ambient.map(U.press), minSpan: 0.5, info: INFO.ambient },
     ];
     cards.forEach((g, i) => UI.stat(cv, L + i * (cw + gap), T, cw, ch, Object.assign({ seq: m.seq1 }, g)));
-    const x = L + 3 * (cw + gap);
-    UI.card(cv, x, T, R - x, ch, 'Target and peak', { info: INFO.targetPeak });
+    const x = L + 3 * (cw + gap), tpw = wg ? cw : R - x;
+    UI.card(cv, x, T, tpw, ch, 'Target and peak', { info: INFO.targetPeak });
     const tw = cv.text(fix(U.press(target), U.pressD), x + 20, T + 92, 46, C.text, { font: 'num', literal: true });
     ltext(cv, U.pressU + ' target', x + 40 + tw, T + 88, 18, C.dim);
     const peak = last ? last.boostPeak : null, reach = last ? M.timeToTarget(last.trace, target, 2) : null;
     ltext(cv, 'peak last run ' + (isNum(peak) ? fix(U.press(peak), U.pressD) + ' ' + U.pressU : '--'), x + 20, T + 130, 18, C.text);
     ltext(cv, !last ? 'no run yet' : isNum(reach) ? 'reached target in ' + reach.toFixed(1) + ' s' : 'did not reach the target', x + 20, T + 158, 17, !last ? C.dim : isNum(reach) ? C.green : C.amber);
-    // pressure over the last run, else the last minute
+    if (wg) wastegateCard(cv, m, L + 4 * (cw + gap), T, R - (L + 4 * (cw + gap)), ch);
+    // pressure over the last run, else the last minute; the wastegate on its own axis on the right (0 to 100 %)
     let series, xl, label;
     if (last && last.trace && last.trace.length > 2) {
         const rl = runLabels(last.trace[last.trace.length - 1][0]);
@@ -378,6 +421,7 @@ function pageBoost(cv, m) {
             { name: 'outside (abs)', color: 'info', values: traceOver(last, 'ambient', rl.end).map(U.press) },
             { name: 'boost', color: 'accent', values: traceOver(last, 'boost', rl.end).map(U.press) },
         ];
+        if (wg && column(last, 'wastegate').some(isNum)) series.push({ name: 'wastegate (%)', color: WG_COL, axis: 'right', values: traceOver(last, 'wastegate', rl.end) });
         xl = rl.labels; label = 'Pressure over the last run';
     } else {
         series = [
@@ -385,10 +429,13 @@ function pageBoost(cv, m) {
             { name: 'outside (abs)', color: 'info', values: h.ambient.map(U.press) },
             { name: 'boost', color: 'accent', values: h.boost.map(U.press) },
         ];
+        if (wg) series.push({ name: 'wastegate (%)', color: WG_COL, axis: 'right', values: h.wastegate });
         xl = ['-60 s', '-45 s', '-30 s', '-15 s', 'now']; label = 'Pressure, last minute';
     }
-    UI.chart(cv, L, T + ch + 14, CW, CH - ch - 14, series, { label: label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
-        note: 'boost = manifold minus outside', info: INFO.pressureChart, fill: false });
+    const withWg = series.length > 3;
+    UI.chart(cv, L, T + ch + 14, CW, CH - ch - 14, series, { label: withWg ? label + ' and the wastegate' : label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
+        note: withWg ? null : 'boost = manifold minus outside', info: withWg ? INFO.pressureWgChart : INFO.pressureChart, fill: false,
+        right: withWg ? { min: 0, max: 100, unit: '%', color: WG_COL } : null });
 }
 
 /* ---------- Tyres ---------- */

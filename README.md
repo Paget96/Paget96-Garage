@@ -83,7 +83,7 @@ tools/check_docs.py fails the build when an app has no section, no GIF or no scr
 
 Your car's strip day in one app. Datalog times 201 m, 402 m and 1/2 mile runs from a standstill, with 0 to 100 km/h,
 60 to 100 km/h, 201 m, the trap speed and your reaction, and corrects every time to standard air (SAE J1349) so runs
-on different days compare fairly. Next to that: a dyno sheet from a full throttle pull, the boost, the three air
+on different days compare fairly. Next to that: a dyno sheet from a full throttle pull, the boost and the wastegate, the three air
 temperatures from the mirror to the throttle, the tyres from cold to hot, the fluids, a log of every run and two runs
 side by side.
 
@@ -101,7 +101,7 @@ value (remembered for this car). Demo data shows everything.
 | Dyno: power and torque over the rev range | ![](docs/media/p96_datalog/dyno.png) |
 | Correction: three air temperatures, pressure, the SAE factor | ![](docs/media/p96_datalog/correction.png) |
 | Tyres: pressure and temperature, cold to hot | ![](docs/media/p96_datalog/tyres.png) |
-| Boost: manifold minus outside, target and peak | ![](docs/media/p96_datalog/boost.png) |
+| Boost: manifold minus outside, target and peak, the wastegate | ![](docs/media/p96_datalog/boost.png) |
 | Temps: oil, coolant, gearbox, air, exhaust, 10 minutes | ![](docs/media/p96_datalog/temps.png) |
 | Log: sessions and their runs | ![](docs/media/p96_datalog/log.png) |
 | Log: a run opened | ![](docs/media/p96_datalog/log-run.png) |
@@ -109,6 +109,7 @@ value (remembered for this car). Demo data shows everything.
 | Info popup: boost, animated | ![](docs/media/p96_datalog/popup-boost.png) |
 | Info popup: charge air, the air path | ![](docs/media/p96_datalog/popup-charge.png) |
 | Info popup: the dyno sheet | ![](docs/media/p96_datalog/popup-dyno.png) |
+| Info popup: the wastegate, gas through the turbine or past it | ![](docs/media/p96_datalog/popup-wastegate.png) |
 | How to use | ![](docs/media/p96_datalog/help.png) |
 | Settings | ![](docs/media/p96_datalog/settings.png) |
 
@@ -119,7 +120,8 @@ torque, the gear, oil and coolant temperature, the gearbox oil temperature, the 
 the tyre pressures and temperatures (TPMS). From the engine unit, with read requests only (UDS 22, through the kit's
 read only diagnostic link) and only while Datalog's screen is shown: the intake air after the filter, the charge air
 before the throttle, the intake manifold pressure, the outside air pressure, the boost target, the engine's own torque
-figure, the accelerator pedal and the exhaust gas temperature model. When Datalog is not on the screen nothing goes on
+figure, the accelerator pedal, the exhaust gas temperature model and, on engines with an electric wastegate, its
+position and the duty cycle at its actuator. When Datalog is not on the screen nothing goes on
 the bus; runs are still timed from the broadcasts.
 
 **How it works out the numbers.**
@@ -130,6 +132,11 @@ the bus; runs are still timed from the broadcasts.
   Distances are corrected by the cube root of the factor, speed windows by the factor, the trap speed the other way.
   The raw time is always shown next to the corrected one.
 - Boost = intake manifold pressure minus the outside pressure, so it is below zero (vacuum) at idle.
+- Wastegate: its position, 0 % shut to 100 % open, on the Boost page and as its own line on the right axis of the
+  pressure chart. The card says in words when it opened and closed in the last run (shut while the boost builds,
+  the boost at which it opened to hold the target, how it sits at idle), and warns when the boost went 0.15 bar or
+  more past the target or stayed that much short of it (a wastegate stuck or slow shut, or open). Shown only when
+  the engine reports it.
 - Dyno: a pull is full throttle in one gear (2nd or higher) with the rpm climbing over at least 1 500 rpm. Torque is
   the engine unit's own figure; power = torque x rpm / 7 121 (hp). Both corrected to standard air.
 
@@ -142,6 +149,8 @@ the bus; runs are still timed from the broadcasts.
 - The engine unit values are read only while the screen is shown, so a run timed with Datalog in the background has
   no boost or air trace.
 - The exhaust gas temperature is the engine unit's model, not a sensor, and not every engine has it.
+- The wastegate position is the engine unit's own reading of its electric actuator; engines with a vacuum wastegate
+  do not report one, and the engine unit gives no wastegate target to compare with.
 - The identifiers are those of the B38, B48 and B58 engine units (G series); another engine may answer some of them
   or none. Not tried on a car yet: tested with demo data in the PC preview and the emulator. ID7 head units only.
 

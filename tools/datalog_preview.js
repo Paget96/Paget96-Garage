@@ -95,8 +95,10 @@ shot('log-run');
 m.ui.logRun = null;
 // the info popups
 [['boost', 'boost', 'popup-boost', 3200], ['charge', 'correction', 'popup-charge', 900], ['correction', 'correction', 'popup-correction', 2200],
-    ['tyresNow', 'tyres', 'popup-tyres', 2600], ['run', 'now', 'popup-run', 2500], ['dyno', 'dyno', 'popup-dyno', 4800]].forEach((p) => {
-    m.ui.page = page(p[1]); UI.openInfo(INFO[p[0]]); shot(p[2], p[3]); UI.closeInfo(); run(400);
+    ['tyresNow', 'tyres', 'popup-tyres', 2600], ['run', 'now', 'popup-run', 2500], ['dyno', 'dyno', 'popup-dyno', 4800], ['wastegate', 'boost', 'popup-wastegate', 4700]].forEach((p) => {
+    // (the wastegate popup is caught at the target, its flap part open: 5.5 s into its 9 s cycle)
+    const settle = p[0] === 'wastegate' ? ((5.5 - ((VT - START) / 1000) % 9) + 18) % 9 * 1000 : p[3];
+    m.ui.page = page(p[1]); UI.openInfo(INFO[p[0]]); shot(p[2], settle); UI.closeInfo(); run(400);
 });
 // How to use and Settings
 m.ui.view = 'help'; m.ui.topic = 0; shot('help', 2600);
@@ -137,4 +139,4 @@ UI.closeInfo(); run(400);
 m.ui.view = 'help'; m.ui.topic = 0;
 const nHelp = frames('help', 12, 10000, (ms) => { m.ui.topic = Math.min(7, Math.floor(ms / 1250)); });
 m.ui.view = 'main';
-console.log('%s: %d screenshots; frames in %s (demo %d, popup-boost %d, help %d)', media, pages.length + 9, framesDir, nDemo, nPop, nHelp);
+console.log('%s: %d screenshots; frames in %s (demo %d, popup-boost %d, help %d)', media, pages.length + 10, framesDir, nDemo, nPop, nHelp);

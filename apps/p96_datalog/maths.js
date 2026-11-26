@@ -12,6 +12,8 @@
  *   correctTime / correctTrap    a time or trap speed to standard air
  *   boost(manifoldBar, ambientBar)
  *   parseMulti(uds, defs)        the values in one 22 reply that asked for several identifiers
+ *   wastegateStory(pairs, target) when the wastegate opened and closed, from [boost, position] samples
+ *   wastegateWords(story, fmt)   that in one plain sentence
  *   zone(kind, value)            ok / warm / bad for a temperature
  *   tyreNote(p)                  the plain words under the tyres
  *
@@ -153,6 +155,69 @@ function timeToTarget(trace, target, col) {
     return null;
 }
 
+/* ---------- the wastegate ---------- */
+
+/** Below this the wastegate counts as closed, above WG_OPEN as fully open (% open). */
+const WG_CLOSED = 15, WG_OPEN = 85;
+
+/**
+ * When the wastegate opened and closed, from samples in time order: pairs = [[boost bar, wastegate % open], ...]
+ * (a run's trace or the last minute; a sample with a missing value is skipped). target: the boost target (bar).
+ *   idle     mean position with the throttle closed (boost under -0.2 bar)
+ *   build    mean position while boost climbs (from 0.1 bar to 80 % of the peak)
+ *   opensAt  the boost when it first opened (20 % or more) after it was closed under boost
+ *   hold     mean position at the top (90 % of the peak or more)
+ *   peak     the most boost; over / under: how far the peak went past or stayed short of the target (0.15 bar or more)
+ * Every field is null when the samples do not show it (no full throttle in them: build, opensAt, hold are null).
+ */
+function wastegateStory(pairs, target) {
+    const ps = (pairs || []).filter((p) => p && typeof p[0] === 'number' && isFinite(p[0]) && typeof p[1] === 'number' && isFinite(p[1]));
+    const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    const out = { idle: null, build: null, opensAt: null, hold: null, peak: null, over: null, under: null };
+    if (!ps.length) return out;
+    out.idle = mean(ps.filter((p) => p[0] <= -0.2).map((p) => p[1]));
+    const peak = Math.max.apply(null, ps.map((p) => p[0]));
+    out.peak = peak;
+    if (peak < 0.4) return out;
+    const build = [];
+    let armed = false;
+    for (let i = 1; i < ps.length; i++) {
+        const b = ps[i][0], w = ps[i][1];
+        if (b >= 0.1 && b <= peak * 0.8 && b > ps[i - 1][0]) build.push(w);
+        if (b >= 0.3 && w <= WG_CLOSED) armed = true;
+        else if (armed && out.opensAt === null && b >= 0.3 && w >= 20) out.opensAt = b;
+    }
+    out.build = mean(build);
+    out.hold = mean(ps.filter((p) => p[0] >= peak * 0.9).map((p) => p[1]));
+    if (target > 0 && peak >= target + 0.15) out.over = peak - target;
+    if (target > 0 && peak <= target - 0.15) out.under = target - peak;
+    return out;
+}
+
+/**
+ * The story in one plain sentence, and whether it looks right: { text, level: 'ok' | 'warm' | 'dim' }.
+ * fmt(bar) writes a pressure with its unit ("1.42 bar").
+ *   "Closed while boost builds, opens at 1.42 bar to hold the target, fully open at idle"
+ */
+function wastegateWords(s, fmt) {
+    const parts = [];
+    let level = 'ok';
+    if (s.over !== null) { parts.push('boost went ' + fmt(s.over) + ' past the target'); level = 'warm'; }
+    if (s.under !== null) { parts.push('boost stayed ' + fmt(s.under) + ' short of the target'); level = 'warm'; }
+    if (s.build !== null) parts.push(s.build <= WG_CLOSED ? 'closed while boost builds' : 'still ' + Math.round(s.build) + ' % open while boost builds');
+    if (s.opensAt !== null && s.over === null) parts.push('opens at ' + fmt(s.opensAt) + ' to hold the target');
+    if (s.idle !== null) parts.push(s.idle >= WG_OPEN ? 'fully open at idle' : s.idle <= WG_CLOSED ? 'closed at idle' : Math.round(s.idle) + ' % open at idle');
+    if (s.build === null && s.over === null && s.under === null) {
+        parts.push('full throttle once to see when it opens');
+        if (parts.length === 1) level = 'dim';
+    }
+    const text = parts.join(', ');
+    return { text: text.charAt(0).toUpperCase() + text.slice(1), level: level };
+}
+
+/** The position in a word: closed, partly open or open. */
+const wastegateState = (w) => (typeof w !== 'number' || !isFinite(w) ? '--' : w <= WG_CLOSED ? 'closed' : w >= WG_OPEN ? 'open' : 'partly open');
+
 /* ---------- reading several identifiers at once ---------- */
 
 /**
@@ -264,5 +329,6 @@ function heatSoaked(r) { return !!(r && typeof r.charge === 'number' && typeof r
 module.exports = {
     MILE_8, MILE_4, MILE_2, LENGTHS, LENGTH_NAME, splitsFor, finalKey, isDist, Reaction,
     sae, densityAltitude, correctTime, correctTrap, airWords, boost, timeToTarget, parseMulti,
+    WG_CLOSED, WG_OPEN, wastegateStory, wastegateWords, wastegateState,
     ZONES, zone, zoneWords, WHEELS, WHEEL_NAME, tyreNote, bestRun, sessions, heatSoaked,
 };
