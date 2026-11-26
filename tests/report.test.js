@@ -60,7 +60,7 @@ test('the body: the car facts always, the VIN only when ticked, nothing else', (
     const off = R.bodyLines(f, {}), on = R.bodyLines(f, { vin: true });
     assert.ok(off.every((l) => l.indexOf(VIN) < 0), 'VIN sent without the tick');
     assert.ok(on.some((l) => l === 'VIN: ' + VIN));
-    ['App: Health 1.1.0', 'iDrive 7, firmware P18_23w44.2-1-3', 'Engine: petrol, 6 cylinders, one turbo, OPF', 'Settings: fps=30']
+    ['App: Health ' + spec('p96_health').version, 'iDrive 7, firmware P18_23w44.2-1-3', 'Engine: petrol, 6 cylinders, one turbo, OPF', 'Settings: fps=30']
         .forEach((x) => assert.ok(off.indexOf(x) >= 0, 'missing ' + x));
     const unknown = R.bodyLines(R.collect({ spec: spec('p96_standby'), get: () => undefined }), {});
     assert.ok(unknown.indexOf('iDrive not known, firmware not known') >= 0);
@@ -79,7 +79,7 @@ test('the link: GitHub new issue with title and body, decoded back exactly, vers
     const b = R.build(facts(), {});
     assert.ok(b.url.indexOf('https://github.com/Paget96/Paget96-Garage/issues/new?') === 0);
     const d = decode(b.url);
-    assert.strictEqual(d.title, 'Report from Health 1.1.0');
+    assert.strictEqual(d.title, 'Report from Health ' + spec('p96_health').version);
     assert.strictEqual(d.body, b.lines.join('\n'));
     assert.ok(b.qr.version <= R.MAX_VERSION, 'version ' + b.qr.version);
     assert.ok(Buffer.byteLength(b.url) <= QR.capacity(b.qr.version, b.ecl));
