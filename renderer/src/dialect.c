@@ -69,6 +69,30 @@ int hello_parse(const uint8_t *p, uint32_t len, char *app, size_t appsz)
     return version;
 }
 
+int hello_p96(const uint8_t *p, uint32_t len)
+{
+    size_t at = 0;
+    while (at < len && p[at])
+        at++;
+    const size_t tl = sizeof P96_TOKEN - 1;
+    int version = 0;
+    for (at++; at < len;) {
+        size_t end = at;
+        while (end < len && p[end])
+            end++;
+        if (end - at > tl && end - at < tl + 6 && !memcmp(p + at, P96_TOKEN, tl)) {
+            char num[8] = { 0 };
+            memcpy(num, p + at + tl, end - at - tl);
+            char *e;
+            long v = strtol(num, &e, 10);
+            if (*e == 0 && v > 0 && v < 1000)
+                version = (int)v;
+        }
+        at = end + 1;
+    }
+    return version;
+}
+
 const char *dialect_name(int d)
 {
     switch (d) {

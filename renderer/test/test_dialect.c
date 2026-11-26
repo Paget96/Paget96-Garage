@@ -94,6 +94,15 @@ int main(void) {
     memset(longid, 'z', sizeof longid);
     CHECK(hello_parse((const uint8_t *)longid, sizeof longid, app, sizeof app) == 0 && strlen(app) == 63, "long id truncated");
 
+    /* P9 (proto.h): "p96=<n>" beside the native field; other renderers ignore it, so the HELLO stays valid for them */
+    static const char p9[] = "p96_datalog\0proto=mgu-render/1\0p96=1";
+    CHECK(hello_parse((const uint8_t *)p9, sizeof p9 - 1, app, sizeof app) == 1 && !strcmp(app, "p96_datalog"), "P9 hello: still native");
+    CHECK(hello_p96((const uint8_t *)p9, sizeof p9 - 1) == 1, "P9 hello: version 1");
+    CHECK(hello_p96((const uint8_t *)nat, sizeof nat - 1) == 0, "no P9 field");
+    CHECK(hello_p96((const uint8_t *)"p96=1", 5) == 0, "P9 token in the id does not count");
+    static const char p9bad[] = "x\0p96=1x";
+    CHECK(hello_p96((const uint8_t *)p9bad, sizeof p9bad - 1) == 0, "P9 bad version");
+
     printf("%s: %d checks, %d failed\n", fails ? "FAIL" : "ok  ", checks, fails);
     return fails != 0;
 }

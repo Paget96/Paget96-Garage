@@ -65,6 +65,8 @@
 #include "gfx.h"
 #include "log.h"
 #include "popup.h"
+#include "layerback.h"
+#include "framesame.h"
 #include "proto.h"
 #include "share.h"
 #include "touch.h"
@@ -156,11 +158,17 @@ typedef struct client {
     /* frames */
     uint32_t *frame; size_t frame_words, frame_cap;
     int dirty;              /* a frame arrived that is not on screen yet */
+    /* messages that can change the picture (framesame.h), and their count when the frame on screen was drawn; a repeat
+       of that frame is not drawn again: its TICK at tick_at (0 = none due) */
+    uint32_t changes, drawn_changes;
+    uint64_t tick_at;
     int want_tick;          /* tell the app when we can take the next frame */
     uint32_t frames_shown, ticks;
     /* watchdog: an app on screen that stops talking (hung) is hidden until it talks again */
     uint64_t last_msg; int stale;
+    int p96;                     /* P9 version the client asked for in HELLO (proto.h), 0 = none */
     int layer_on;                /* the layer was last made visible, on top of the screen (apply_visibility) */
+    uint64_t back_t; int backs;  /* the layer taken off while shown: the current window's start, how often since */
     /* touch claims, logical px (CLAIM) */
     int nclaim; float claim[16][4];
     /* frame cap (MI_FPS): at least min_us between two frames drawn; 0 = none */
@@ -505,6 +513,7 @@ static void send_error(client *c, const char *e) {
 static void send_tick(client *c) {
     uint32_t p[2] = { ++c->ticks, (uint32_t)((now_us() - t_start) / 1000) };
     c->want_tick = 0;
+    c->tick_at = 0;
     send_msg(c, E_TICK, p, sizeof p);
 }
 
@@ -733,6 +742,32 @@ static int layer_onto_screen(uint32_t layer_id, int w, int h) {
     return ok ? 0 : -1;
 }
 
+/* The compositor says which screen the layer is on: none once another program set the screen's layers without it
+ * (F45). Shown, it goes back at once through a fresh connection (layer_onto_screen); hidden, at its next show. */
+static void l_screen(void *d, struct ivi_controller_layer *l, struct wl_output *o) {
+    client *c = d;
+    (void)l;
+    if (!c->cl || o) return;
+    int k = layerback_decide(now_us(), c->layer_on, &c->back_t, &c->backs);
+    if (k == LAYERBACK_WAIT) { log_info("%s: layer taken off the screen", c->app); return; }
+    if (k == LAYERBACK_GIVE_UP)
+        log_warn("%s: layer taken off the screen more than %d times in %llu s; back at its next show", c->app, LAYERBACK_MAX,
+                 (unsigned long long)(LAYERBACK_WINDOW_US / 1000000));
+    if (k != LAYERBACK_PUT) { c->layer_on = 0; return; }
+    log_info("%s: layer taken off the screen, put back", c->app);
+    if (layer_onto_screen(LAYER_BASE + c->slot, out_w > 0 ? out_w : screen_w, out_h > 0 ? out_h : screen_h) < 0) c->layer_on = 0;
+}
+static void l_int(void *d, struct ivi_controller_layer *l, int32_t v) { (void)d, (void)l, (void)v; }
+static void l_opacity(void *d, struct ivi_controller_layer *l, wl_fixed_t v) { (void)d, (void)l, (void)v; }
+static void l_rect(void *d, struct ivi_controller_layer *l, int32_t x, int32_t y, int32_t w, int32_t h) {
+    (void)d, (void)l, (void)x, (void)y, (void)w, (void)h;
+}
+static void l_config(void *d, struct ivi_controller_layer *l, int32_t w, int32_t h) { (void)d, (void)l, (void)w, (void)h; }
+static void l_destroyed(void *d, struct ivi_controller_layer *l) { (void)d, (void)l; }
+static const struct ivi_controller_layer_listener layer_listener = {
+    l_int, l_opacity, l_rect, l_rect, l_config, l_int, l_screen, l_destroyed,
+};
+
 static int surface_create(client *c) {
     if (!dpy) return -1;
     surface_destroy(c);
@@ -763,6 +798,8 @@ static int surface_create(client *c) {
     ivi_controller_layer_set_opacity(c->cl, wl_fixed_from_int(1));
     ivi_controller_layer_add_surface(c->cl, c->cs);
     ivi_controller_layer_set_visibility(c->cl, 0);
+    ivi_controller_layer_add_listener(c->cl, &layer_listener, c);
+    c->back_t = 0; c->backs = 0;
     ivi_controller_commit_changes(ictl);
     wl_display_roundtrip(dpy);                            /* the layer exists before another connection puts it on */
     /* it goes on the screen, on top, when it is first shown (apply_visibility) */
@@ -827,6 +864,7 @@ static void render_layer(client *c) {
     wl_callback_add_listener(c->frame_cb, &frame_listener, c);
     eglSwapBuffers(edpy, c->es);
     c->dirty = 0;
+    c->drawn_changes = c->changes;
     dbr_drawn(c);
     dbr_committed(c);
     if (c->frames_shown++ == 0) { apply_visibility(c); send_state(c); }
@@ -878,6 +916,7 @@ static void render_embed(void) {
         }
         embed_filled();
         c->dirty = 0;
+        c->drawn_changes = c->changes;
         dbr_drawn(c);
         stats(c, now_us() - t0);
     }
@@ -1109,7 +1148,8 @@ static void send_ready(client *c);
 static void hello(client *c, const uint8_t *p, uint32_t len) {
     int native = hello_parse(p, len, c->app, sizeof c->app);
     if (native) c->dialect = DIALECT_NATIVE;
-    log_info("%s: connected (uid %u%s)", c->app, c->uid, native ? ", mgu-render/1" : "");
+    c->p96 = hello_p96(p, len);
+    log_info("%s: connected (uid %u%s%s)", c->app, c->uid, native ? ", mgu-render/1" : "", c->p96 ? ", P9" : "");
     send_ready(c);
 }
 
@@ -1148,6 +1188,10 @@ static void geom_update(void) {
 }
 
 static void send_ready(client *c) {
+    if (c->p96) {
+        uint32_t x[2] = { P96_VERSION, P9CAP_POLY | P9CAP_RCLIP | P9CAP_SAME_FRAME };
+        send_msg(c, P9_READY, x, sizeof x);
+    }
     if (c->dialect == DIALECT_NATIVE) {
         int emb = embed_available(), area[4];
         app_area(area);
@@ -1228,6 +1272,22 @@ static int grab(client *c, const uint32_t *w, size_t nw) {
 }
 
 /* returns -1 to drop the client */
+/* a message that cannot change what a frame draws (framesame.h) */
+static int draws_nothing(const client *c, uint32_t type) {
+    switch (type) {
+    case M_FRAME: case MI_FPS: return 1;
+    case 9: return c->dialect != DIALECT_UPSTREAM;          /* CLAIM (upstream: IMAGE) */
+    case 10: return c->dialect == DIALECT_UPSTREAM;         /* upstream: GRAB (else IMAGE) */
+    case X_GRAB: return c->dialect == DIALECT_NATIVE;
+    default: return 0;
+    }
+}
+/* the time between two TICKs of an app whose frames are not drawn: a frame of the display, or its cap's */
+static uint64_t tick_us(const client *c) {
+    uint64_t r = refresh_mhz > 0 ? 1000000000ull / (uint64_t)refresh_mhz : 16667;
+    return c->min_us > r ? c->min_us : r;
+}
+
 static int handle(client *c, uint32_t type, const uint8_t *p, uint32_t len) {
     const uint32_t *w = (const uint32_t *)p;
     size_t nw = len / 4;
@@ -1236,6 +1296,7 @@ static int handle(client *c, uint32_t type, const uint8_t *p, uint32_t len) {
         if (d == DIALECT_UNKNOWN) return -1;              /* fits neither dialect's message */
         set_dialect(c, d);
     }
+    if (!draws_nothing(c, type)) c->changes++;
     switch (type) {
     case M_HELLO:
         hello(c, p, len);
@@ -1336,6 +1397,12 @@ static int handle(client *c, uint32_t type, const uint8_t *p, uint32_t len) {
         return 0;
     case M_FRAME: {
         int first = !c->frame_words;
+        if (frame_repeats(c->frame, c->frame_words, p, nw, c->dirty, shown(c), c->g.videos != NULL, c->changes, c->drawn_changes)) {
+            c->want_tick = 1;                             /* stays on screen; the app gets its TICK as if drawn */
+            if (!c->tick_at) c->tick_at = now_us() + tick_us(c);
+            return 0;
+        }
+        c->tick_at = 0;                                   /* its TICK comes once it is drawn */
         if (nw > c->frame_cap) { c->frame_cap = nw + 1024; c->frame = realloc(c->frame, c->frame_cap * 4); }
         memcpy(c->frame, p, nw * 4);
         c->frame_words = nw;
@@ -1953,6 +2020,10 @@ int main(int argc, char **argv) {
                 video_on = 1;
                 if (!c->dirty && gfx_video_pending(&c->g)) c->dirty = 1;
             }
+            if (c->tick_at && tnow >= c->tick_at) {
+                if (c->want_tick && !c->dirty) send_tick(c);    /* dirty: it comes once that frame is drawn */
+                c->tick_at = 0;
+            }
             if (c->mode == MODE_LAYER) render_layer(c);
         }
         render_embed();
@@ -1988,7 +2059,8 @@ int main(int argc, char **argv) {
         int wait_ms = video_on ? 5 : ctl_gate_on ? 100 : 250;
         if (touch_on && touch_busy() && wait_ms > 20) wait_ms = 20;   /* nft's answer, seen within 20 ms */
         for (int i = 0; i < MAX_CLIENTS; i++) if (clients[i]) {   /* in time for a capped app's waiting frame */
-            uint64_t us = cap_wait(clients[i], tnow);
+            uint64_t us = cap_wait(clients[i], tnow), t = clients[i]->tick_at;
+            if (t) { uint64_t d = t > tnow ? t - tnow : 1; if (!us || d < us) us = d; }
             if (us && (int)(us / 1000) + 1 < wait_ms) wait_ms = (int)(us / 1000) + 1;
         }
         int r = poll(pf, np, wait_ms);

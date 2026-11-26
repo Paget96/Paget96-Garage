@@ -55,8 +55,8 @@ typedef struct gfx_video {
 typedef struct gfx_xf { float s, ox, oy; } gfx_xf;      /* device = logical * s + (ox, oy) */
 
 typedef struct gfx_client {
-    /* glyph atlases are packed into one shared texture; this maps atlas id -> position there */
-    struct { uint32_t id; int x, y, w, h; } atlas[64];
+    /* glyph atlases are packed into shared texture pages (gfx.c glyphs[]); atlas id -> its slot there */
+    struct { uint32_t id; int slot; } atlas[64];
     int natlas;
     struct { uint32_t id; int row; } ramp[64];
     int nramp;
@@ -100,5 +100,6 @@ int gfx_video_pending(gfx_client *c);     /* a video has a newer frame than the 
 enum { GFX_CLEAR = 1, GFX_TOP_DOWN = 2 };
 void gfx_draw(gfx_client *c, const gfx_xf *xf, int fbw, int fbh, const uint32_t *cmd, size_t nwords, int flags);
 const char *gfx_error(void);
+int gfx_glyph_pages(void);               /* glyph texture pages in use (tests) */
 
 #endif

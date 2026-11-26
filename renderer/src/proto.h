@@ -157,4 +157,25 @@ enum {
                          corner radius r; no frame yet: nothing drawn; not in layers (they are drawn once) */
 };
 
+/*
+ * P9: Paget96 Garage's extensions (p96-renderd only; "P9" = 0x5039, clear of the other dialects' numbers). A client
+ * asks for them with a field "p96=<n>" after the app id in HELLO (NUL separated, beside "proto=mgu-render/1"); other
+ * renderers ignore the field. p96-renderd then answers P9_READY before READY. A client uses the ops below only on a
+ * connection that got P9_READY with their cap bit; another renderer stops a frame at an op it does not know.
+ */
+#define P96_TOKEN "p96="
+#define P96_VERSION 1
+enum {
+    P9_READY = 0x50390101,  /* daemon -> client: u32 P9 version, u32 caps (P9CAP_*) */
+};
+enum {
+    P9CAP_POLY = 1,         /* OP_P9_POLY */
+    P9CAP_RCLIP = 2,        /* OP_P9_RCLIP */
+    P9CAP_SAME_FRAME = 4,   /* a frame that repeats the one on screen is not drawn again (its TICK still comes) */
+};
+enum {
+    OP_P9_POLY = 0x50390011,  /* width c n (x y)*n  polyline, round caps and joins, see-through without darker joins */
+    OP_P9_RCLIP = 0x50390012, /* x y w h r  what follows is clipped to this rounded rect, until OP_NOCLIP */
+};
+
 #endif

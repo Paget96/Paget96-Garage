@@ -18,6 +18,9 @@ int dialect_of(uint32_t type, const uint8_t *p, uint32_t len);
  * after it), or 0 for a legacy HELLO. */
 int hello_parse(const uint8_t *p, uint32_t len, char *app, size_t appsz);
 
+/* HELLO: the P9 version the client asks for ("p96=<n>" among the fields after the app id, proto.h), or 0. */
+int hello_p96(const uint8_t *p, uint32_t len);
+
 const char *dialect_name(int d);
 
 #endif

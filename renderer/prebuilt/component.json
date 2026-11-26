@@ -1,7 +1,7 @@
 {
   "id": "p96-renderd",
   "kind": "tool",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Paget96 Garage renderer (test)",
   "description": "Optional GPU renderer for Paget96 Garage apps, beside the Store's renderer (its own socket, layers and touch). Garage apps use it when it runs and the Store's renderer otherwise. Logs which system popups it sees. Not needed by anything; remove it any time.",
   "mguHmi": ["ID7"],

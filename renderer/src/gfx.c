@@ -24,7 +24,7 @@
 #include "log.h"
 #include "proto.h"
 
-enum { K_BOX = 0, K_RRECT = 1, K_ARC = 3, K_LINE = 4, K_GLYPH = 5, K_TEX = 6, K_VCOL = 7, K_RAMPRECT = 8, K_QUAD = 9, K_IMG = 10, K_YUV = 11 };
+enum { K_BOX = 0, K_RRECT = 1, K_ARC = 3, K_LINE = 4, K_GLYPH = 5, K_TEX = 6, K_VCOL = 7, K_RAMPRECT = 8, K_QUAD = 9, K_IMG = 10, K_YUV = 11, K_POLY = 12 };
 
 /* vertex: pos(2) kind(1) pad(1) | a(4) | b(4) | c(4) | d(4) | col(4) = 24 floats */
 #define VF 24
@@ -37,7 +37,14 @@ static GLuint atlas_tex, ramp_tex;
 #define ATLAS_H 4096
 #define RAMP_W 256
 #define RAMP_H 256
-static int atlas_shelf_x[2], atlas_shelf_y[2];          /* two 1024-wide columns, filled top-down */
+/* Glyph atlases share bounded texture pages: an atlas is freed with its last client, a page with its last atlas
+   (F44; as mgu-render 0.6.23 does it). Before, one shared texture was filled top-down and never given back, so after
+   many apps or large fonts text stopped drawing ("glyph atlas texture full") until the renderer restarted. */
+#define GLYPH_TEXTURES 256
+#define GLYPH_BYTES (64u << 20)
+static struct { uint32_t id; int page, x, y, w, h, refs; } glyphs[GLYPH_TEXTURES];
+#define GLYPH_PAGES (GLYPH_BYTES / (ATLAS_W * ATLAS_H))
+static struct { GLuint tex; int entries; } glyph_pages[GLYPH_PAGES];
 static uint8_t ramp_used[RAMP_H];                        /* rows an app's ramp holds (freed with the app's resources) */
 static char err[256];
 
@@ -47,6 +54,9 @@ static GLuint cur_tex2, cur_tex3;                        /* a video's U and V pl
 static int fb_w, fb_h;
 static int fb_top_down;                                  /* the framebuffer's rows in memory top-down (GFX_TOP_DOWN) */
 static float g_alpha = 1;
+/* P9 rounded clip (OP_P9_RCLIP), device px: centre, half size, radius; off while rclip_on is 0 */
+static float rclip[5]; static int rclip_on;
+static GLint u_clip, u_clipr;
 
 const char *gfx_error(void) { return err; }
 
@@ -63,10 +73,16 @@ static const char *FS =
     "precision highp float;\n"
     "varying vec2 v_p; varying float v_kind; varying vec4 v_a; varying vec4 v_b; varying vec4 v_c; varying vec4 v_d; varying vec4 v_col;\n"
     "uniform sampler2D u_atlas; uniform sampler2D u_ramp; uniform sampler2D u_tex; uniform sampler2D u_tex2; uniform sampler2D u_tex3;\n"
+    "uniform vec4 u_clip; uniform vec2 u_clipr;\n"
     "const float PI = 3.14159265358979;\n"
     /* exact overlap of the pixel square around p with the box a.xy..a.zw */
     "float boxcov(vec2 p, vec4 r) { vec2 o = clamp(min(p + 0.5, r.zw) - max(p - 0.5, r.xy), 0.0, 1.0); return o.x * o.y; }\n"
     "float rrdist(vec2 p, vec4 a, float r) { vec2 q = abs(p - a.xy) - (a.zw - r); return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }\n"
+    /* P9 rounded clip: coverage of the rounded rect u_clip (centre, half size), radius u_clipr.x, on when u_clipr.y */
+    "float clipcov(vec2 p) { if (u_clipr.y < 0.5) return 1.0; vec2 q = abs(p - u_clip.xy) - (u_clip.zw - u_clipr.x);\n"
+    "  return clamp(0.5 - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - u_clipr.x), 0.0, 1.0); }\n"
+    /* distance from p to the segment a..b */
+    "float segd(vec2 p, vec2 a, vec2 b) { vec2 v = b - a, q = p - a; return length(q - v * clamp(dot(q, v) / max(dot(v, v), 1e-6), 0.0, 1.0)); }\n"
     "vec4 rampcol(float row, float t) { return texture2D(u_ramp, vec2((clamp(t, 0.0, 1.0) * 255.0 + 0.5) / 256.0, (row + 0.5) / 256.0)); }\n"
     "void main() {\n"
     "  float k = v_kind; vec2 p = v_p; float cov = 1.0; vec4 col = v_col;\n"
@@ -106,7 +122,7 @@ static const char *FS =
     "    cov = clamp(v_b.x - length(q - v * t) + 0.5, 0.0, 1.0);\n"
     "  }\n"
     "  else if (k < 5.5) { cov = texture2D(u_atlas, v_c.xy).a; }\n"
-    "  else if (k < 6.5) { vec4 t = texture2D(u_tex, v_c.xy); gl_FragColor = t * v_col.a; return; }\n"
+    "  else if (k < 6.5) { vec4 t = texture2D(u_tex, v_c.xy); gl_FragColor = t * (v_col.a * clipcov(p)); return; }\n"
     "  else if (k < 7.5) { cov = 1.0; }\n"
     "  else if (k < 8.5) {\n"                                   /* ramp rect: a = centre/half, b = r, spanX, spanW, row */
     "    cov = clamp(0.5 - rrdist(p, v_a, v_b.x), 0.0, 1.0);\n"
@@ -118,12 +134,23 @@ static const char *FS =
     "    vec4 c4 = clamp(e + 0.5, 0.0, 1.0); cov = c4.x * c4.y * c4.z * c4.w;\n"
     "  }\n"
     "  else if (k < 10.5) {\n"                                  /* picture: a = centre, half size; b.x radius; uv in c.xy (premultiplied) */
-    "    float ic = clamp(0.5 - rrdist(p, v_a, v_b.x), 0.0, 1.0) * v_col.a;\n"
+    "    float ic = clamp(0.5 - rrdist(p, v_a, v_b.x), 0.0, 1.0) * v_col.a * clipcov(p);\n"
     "    if (ic <= 0.0) discard;\n"
     "    gl_FragColor = texture2D(u_tex, v_c.xy) * ic; return;\n"
     "  }\n"
+    /* P9 polyline segment a.xy..a.zw, half width b.x, round caps; b.y / b.z: how many neighbours before / after
+       (0..2) in c.xy, d.xy (before: nearest first) and c.zw, d.zw (after). A pixel belongs to the nearest of them
+       (ties, within 0.002 px of interpolation noise, to the later), so joins are round and a see-through line is not darker where segments meet. */
+    "  else if (k > 11.5) {\n"
+    "    float d = segd(p, v_a.xy, v_a.zw);\n"
+    "    if (v_b.y > 0.5 && segd(p, v_c.xy, v_a.xy) < d - 0.002) discard;\n"
+    "    if (v_b.y > 1.5 && segd(p, v_d.xy, v_c.xy) < d - 0.002) discard;\n"
+    "    if (v_b.z > 0.5 && segd(p, v_a.zw, v_c.zw) <= d + 0.002) discard;\n"
+    "    if (v_b.z > 1.5 && segd(p, v_c.zw, v_d.zw) <= d + 0.002) discard;\n"
+    "    cov = clamp(v_b.x - d + 0.5, 0.0, 1.0);\n"
+    "  }\n"
     "  else {\n"                                                /* video, I420 planes Y U V: as a picture; b.y 1 = BT.709, b.z 1 = full range */
-    "    float ic = clamp(0.5 - rrdist(p, v_a, v_b.x), 0.0, 1.0) * v_col.a;\n"
+    "    float ic = clamp(0.5 - rrdist(p, v_a, v_b.x), 0.0, 1.0) * v_col.a * clipcov(p);\n"
     "    if (ic <= 0.0) discard;\n"
     "    float cy = texture2D(u_tex, v_c.xy).r, cu = texture2D(u_tex2, v_c.xy).r - 0.501961, cv = texture2D(u_tex3, v_c.xy).r - 0.501961;\n"
     "    if (v_b.z < 0.5) { cy = (cy - 0.062745) * 1.164384; cu *= 1.138393; cv *= 1.138393; }\n"
@@ -131,7 +158,7 @@ static const char *FS =
     "                           : vec3(cy + 1.402 * cv, cy - 0.344136 * cu - 0.714136 * cv, cy + 1.772 * cu);\n"
     "    gl_FragColor = vec4(clamp(rgb, 0.0, 1.0) * ic, ic); return;\n"
     "  }\n"
-    "  float a = col.a * cov;\n"
+    "  float a = col.a * cov * clipcov(p);\n"
     "  if (a <= 0.0) discard;\n"
     "  gl_FragColor = vec4(col.rgb * a, a);\n"
     "}\n";
@@ -161,15 +188,10 @@ int gfx_init(void) {
     u_tex = glGetUniformLocation(prog, "u_tex");
     u_tex2 = glGetUniformLocation(prog, "u_tex2");
     u_tex3 = glGetUniformLocation(prog, "u_tex3");
+    u_clip = glGetUniformLocation(prog, "u_clip");
+    u_clipr = glGetUniformLocation(prog, "u_clipr");
     glGenBuffers(1, &vbo); glGenBuffers(1, &ibo);
 
-    glGenTextures(1, &atlas_tex);
-    glBindTexture(GL_TEXTURE_2D, atlas_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, ATLAS_W, ATLAS_H, 0, GL_ALPHA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenTextures(1, &ramp_tex);
     glBindTexture(GL_TEXTURE_2D, ramp_tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, RAMP_W, RAMP_H, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -186,27 +208,72 @@ int gfx_init(void) {
 
 int gfx_atlas(gfx_client *c, uint32_t id, int w, int h, const uint8_t *alpha) {
     for (int i = 0; i < c->natlas; i++) if (c->atlas[i].id == id) return 0;    /* already have it */
-    if (c->natlas >= 64 || w > ATLAS_W / 2) { snprintf(err, sizeof err, "atlas %u: too many or too wide", id); return -1; }
-    /* the shared atlas texture is first come, first served for all clients; an atlas with
-       the same content key (id) from an earlier client is reused */
-    static struct { uint32_t id; int x, y, w, h; } global[128];
-    static int nglobal;
-    for (int i = 0; i < nglobal; i++) if (global[i].id == id && global[i].w == w && global[i].h == h) {
-        c->atlas[c->natlas].id = id; c->atlas[c->natlas].x = global[i].x; c->atlas[c->natlas].y = global[i].y;
-        c->atlas[c->natlas].w = w; c->atlas[c->natlas].h = h; c->natlas++;
-        return 0;
+    if (c->natlas >= 64 || w < 1 || h < 1 || w > ATLAS_W / 2 || h > ATLAS_H || !alpha) {
+        snprintf(err, sizeof err, "atlas %u: invalid size or too many", id); return -1;
     }
-    int col = atlas_shelf_y[0] <= atlas_shelf_y[1] ? 0 : 1;
-    if (atlas_shelf_y[col] + h > ATLAS_H || nglobal >= 128) { snprintf(err, sizeof err, "glyph atlas texture full"); return -1; }
-    int x = col * (ATLAS_W / 2), y = atlas_shelf_y[col];
-    atlas_shelf_y[col] += h + 1;
-    glBindTexture(GL_TEXTURE_2D, atlas_tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_ALPHA, GL_UNSIGNED_BYTE, alpha);
-    global[nglobal].id = id; global[nglobal].x = x; global[nglobal].y = y; global[nglobal].w = w; global[nglobal].h = h; nglobal++;
-    c->atlas[c->natlas].id = id; c->atlas[c->natlas].x = x; c->atlas[c->natlas].y = y;
-    c->atlas[c->natlas].w = w; c->atlas[c->natlas].h = h; c->natlas++;
-    (void)atlas_shelf_x;
+    /* an atlas with the same content key (id) and size another client holds is shared */
+    int slot = -1;
+    for (int i = 0; i < GLYPH_TEXTURES; i++) {
+        if (!glyphs[i].refs) { if (slot < 0) slot = i; continue; }
+        if (glyphs[i].id == id && glyphs[i].w == w && glyphs[i].h == h) { slot = i; break; }
+    }
+    if (slot < 0) { snprintf(err, sizeof err, "glyph texture count limit"); return -1; }
+    if (!glyphs[slot].refs) {
+        /* the first page with room in one of its two 1024-wide columns, below every atlas there that overlaps */
+        int page = -1, col = 0, y = 0;
+        for (unsigned p = 0; p < GLYPH_PAGES && page < 0; p++) {
+            int rows[2] = { 0, 0 };
+            for (int cidx = 0; cidx < 2; cidx++) {
+                int moved;
+                do {
+                    moved = 0;
+                    for (int i = 0; i < GLYPH_TEXTURES; i++) {
+                        if (!glyphs[i].refs || glyphs[i].page != (int)p || glyphs[i].x != cidx * (ATLAS_W / 2)) continue;
+                        if (rows[cidx] < glyphs[i].y + glyphs[i].h + 1 && rows[cidx] + h > glyphs[i].y) {
+                            rows[cidx] = glyphs[i].y + glyphs[i].h + 1;
+                            moved = 1;
+                        }
+                    }
+                } while (moved);
+            }
+            col = rows[0] <= rows[1] ? 0 : 1;
+            y = rows[col];
+            if (y + h <= ATLAS_H) page = (int)p;
+        }
+        if (page < 0) { snprintf(err, sizeof err, "glyph texture memory limit"); return -1; }
+        for (int k = 0; k < 8 && glGetError() != GL_NO_ERROR; k++) {}    /* an older error must not fail this upload */
+        if (!glyph_pages[page].tex) {
+            uint8_t *blank = calloc(ATLAS_W, ATLAS_H);
+            if (!blank) { snprintf(err, sizeof err, "glyph texture allocation failed"); return -1; }
+            glGenTextures(1, &glyph_pages[page].tex);
+            glBindTexture(GL_TEXTURE_2D, glyph_pages[page].tex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, ATLAS_W, ATLAS_H, 0, GL_ALPHA, GL_UNSIGNED_BYTE, blank);
+            free(blank);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        } else glBindTexture(GL_TEXTURE_2D, glyph_pages[page].tex);
+        int x = col * (ATLAS_W / 2);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_ALPHA, GL_UNSIGNED_BYTE, alpha);
+        if (glGetError() != GL_NO_ERROR) {
+            if (!glyph_pages[page].entries) { glDeleteTextures(1, &glyph_pages[page].tex); glyph_pages[page].tex = 0; }
+            snprintf(err, sizeof err, "glyph texture allocation failed"); return -1;
+        }
+        glyphs[slot].id = id; glyphs[slot].page = page;
+        glyphs[slot].x = x; glyphs[slot].y = y; glyphs[slot].w = w; glyphs[slot].h = h;
+        glyph_pages[page].entries++;
+    }
+    glyphs[slot].refs++;
+    c->atlas[c->natlas].id = id; c->atlas[c->natlas].slot = slot; c->natlas++;
     return 0;
+}
+
+/* how many glyph texture pages exist now (tests) */
+int gfx_glyph_pages(void) {
+    int n = 0;
+    for (unsigned p = 0; p < GLYPH_PAGES; p++) n += glyph_pages[p].tex != 0;
+    return n;
 }
 
 int gfx_ramp(gfx_client *c, uint32_t id, int n, const uint32_t *cols) {
@@ -570,6 +637,18 @@ void gfx_client_free(gfx_client *c) {
     while (c->images) gfx_image_drop(c, c->images->id);
     while (c->videos) gfx_video_drop(c, c->videos->id);
     for (int i = 0; i < c->nramp; i++) ramp_used[c->ramp[i].row] = 0;
+    for (int i = 0; i < c->natlas; i++) {
+        int slot = c->atlas[i].slot;
+        if (--glyphs[slot].refs == 0) {
+            int page = glyphs[slot].page;
+            if (--glyph_pages[page].entries == 0) {
+                if (atlas_tex == glyph_pages[page].tex) atlas_tex = 0;
+                glDeleteTextures(1, &glyph_pages[page].tex);
+                glyph_pages[page].tex = 0;
+            }
+            memset(&glyphs[slot], 0, sizeof glyphs[slot]);
+        }
+    }
     c->natlas = c->nramp = 0;
 }
 
@@ -604,6 +683,8 @@ static void flush(void) {
     glUseProgram(prog);
     glUniform3f(u_view, (float)fb_w, (float)fb_h, fb_top_down ? -1.0f : 1.0f);
     glUniform1i(u_atlas, 0); glUniform1i(u_ramp, 1); glUniform1i(u_tex, 2); glUniform1i(u_tex2, 3); glUniform1i(u_tex3, 4);
+    glUniform4f(u_clip, rclip[0], rclip[1], rclip[2], rclip[3]);
+    glUniform2f(u_clipr, rclip[4], rclip_on ? 1.0f : 0.0f);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, atlas_tex);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, ramp_tex);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, cur_tex);
@@ -736,6 +817,45 @@ static void prim_quad(const float *P, uint32_t c) {
     setcol(v, c);
 }
 
+/* P9 polyline: n points (device px, x y pairs), width, colour; round caps and round joins. Points closer than a
+   quarter of the width to the last one kept are left out, so no segment is so short that one two places away
+   reaches over it (the shader compares each pixel with two neighbours on each side). */
+static void prim_poly(const float *pts, int n, float width, uint32_t c) {
+    if (n < 1 || !(width > 0)) return;
+    static float *k; static int kcap;
+    if (n > kcap) { kcap = n + 64; k = realloc(k, (size_t)kcap * 2 * sizeof *k); if (!k) { kcap = 0; return; } }
+    float hw = width / 2, min2 = (hw * 0.5f) * (hw * 0.5f);
+    if (min2 < 0.25f) min2 = 0.25f;
+    int m = 0;
+    for (int i = 0; i < n; i++) {
+        float x = pts[i * 2], y = pts[i * 2 + 1];
+        if (!isfinite(x) || !isfinite(y)) continue;
+        if (m && i < n - 1) { float dx = x - k[(m - 1) * 2], dy = y - k[(m - 1) * 2 + 1]; if (dx * dx + dy * dy < min2) continue; }
+        if (m > 1 && i == n - 1) {                         /* the last point always counts: it replaces a too close one */
+            float dx = x - k[(m - 1) * 2], dy = y - k[(m - 1) * 2 + 1];
+            if (dx * dx + dy * dy < min2) m--;
+        }
+        k[m * 2] = x; k[m * 2 + 1] = y; m++;
+    }
+    if (m == 1) { prim_line(k[0], k[1], k[0], k[1], width, c); return; }
+    float e = hw + 1.5f;
+    for (int s = 0; s + 1 < m; s++) {
+        float xa = k[s * 2], ya = k[s * 2 + 1], xb = k[s * 2 + 2], yb = k[s * 2 + 3];
+        float dx = xb - xa, dy = yb - ya, len = sqrtf(dx * dx + dy * dy);
+        float ux = len > 1e-4f ? dx / len : 1, uy = len > 1e-4f ? dy / len : 0, px = -uy * e, py = ux * e;
+        vert *v = push4();
+        float X[4] = { xa - ux * e + px, xb + ux * e + px, xb + ux * e - px, xa - ux * e - px };
+        float Y[4] = { ya - uy * e + py, yb + uy * e + py, yb + uy * e - py, ya - uy * e - py };
+        for (int i = 0; i < 4; i++) { v[i].v[0] = X[i]; v[i].v[1] = Y[i]; v[i].v[2] = K_POLY; }
+        int nb = s >= 2 ? 2 : s, na = m - 2 - s >= 2 ? 2 : m - 2 - s;
+        set4(v, 4, xa, ya, xb, yb);
+        set4(v, 8, hw, (float)nb, (float)na, 0);
+        set4(v, 12, nb > 0 ? k[(s - 1) * 2] : 0, nb > 0 ? k[(s - 1) * 2 + 1] : 0, na > 0 ? k[(s + 2) * 2] : 0, na > 0 ? k[(s + 2) * 2 + 1] : 0);
+        set4(v, 16, nb > 1 ? k[(s - 2) * 2] : 0, nb > 1 ? k[(s - 2) * 2 + 1] : 0, na > 1 ? k[(s + 3) * 2] : 0, na > 1 ? k[(s + 3) * 2 + 1] : 0);
+        setcol(v, c);
+    }
+}
+
 /* ---------------- command execution ---------------- */
 
 #define F(i) (*(const float *)&cmd[(i)])
@@ -785,9 +905,9 @@ static void bands(const uint32_t *cmd, int n, float x, float y, float w, float h
     band(x, y, w, h, prev_y, y + h, A, A, rounded, r);                    /* after the last stop */
 }
 
-static int glyph_atlas(gfx_client *c, uint32_t id, int *ax, int *ay) {
-    for (int i = 0; i < c->natlas; i++) if (c->atlas[i].id == id) { *ax = c->atlas[i].x; *ay = c->atlas[i].y; return 1; }
-    return 0;
+static int glyph_atlas(gfx_client *c, uint32_t id) {
+    for (int i = 0; i < c->natlas; i++) if (c->atlas[i].id == id) return c->atlas[i].slot;
+    return -1;
 }
 
 static void run(gfx_client *c, const gfx_xf *xf, const uint32_t *cmd, size_t n, int depth);
@@ -952,8 +1072,10 @@ static void run(gfx_client *c, const gfx_xf *xf0, const uint32_t *cmd, size_t n,
             i += 3;
             if (k > 100000) return;
             NEED((size_t)k * 8);
-            int ax, ay;
-            if (!glyph_atlas(c, aid, &ax, &ay)) { i += (size_t)k * 8; break; }
+            int slot = glyph_atlas(c, aid);
+            if (slot < 0) { i += (size_t)k * 8; break; }
+            if (atlas_tex != glyph_pages[glyphs[slot].page].tex) { flush(); atlas_tex = glyph_pages[glyphs[slot].page].tex; }
+            int ax = glyphs[slot].x, ay = glyphs[slot].y;
             for (uint32_t g = 0; g < k; g++) {
                 const uint32_t *p = cmd + i + g * 8;
                 float gx = X(*(const float *)&p[0]), gy = Y(*(const float *)&p[1]);
@@ -999,7 +1121,7 @@ static void run(gfx_client *c, const gfx_xf *xf0, const uint32_t *cmd, size_t n,
             glScissor(sx, fb_top_down ? sy : fb_h - (sy + sh), sw, sh);   /* GL: origin bottom-left */
             break;
         }
-        case OP_NOCLIP: flush(); glDisable(GL_SCISSOR_TEST); break;
+        case OP_NOCLIP: flush(); glDisable(GL_SCISSOR_TEST); rclip_on = 0; break;
         case OP_XF: {
             NEED(3);
             float ns = F(i), nx = F(i + 1), ny = F(i + 2);
@@ -1010,6 +1132,31 @@ static void run(gfx_client *c, const gfx_xf *xf0, const uint32_t *cmd, size_t n,
             break;
         }
         case OP_ALPHA: NEED(1); g_alpha = F(i); if (!(g_alpha >= 0)) g_alpha = 0; if (g_alpha > 1) g_alpha = 1; i += 1; break;
+        case OP_P9_POLY: {
+            NEED(3);
+            float lw = L(F(i)); uint32_t col = U(i + 1), k = U(i + 2);
+            i += 3;
+            if (k > 65536) return;
+            NEED((size_t)k * 2);
+            static float *pp; static uint32_t pcap;
+            if (k > pcap) { pcap = k + 256; pp = realloc(pp, (size_t)pcap * 2 * sizeof *pp); if (!pp) { pcap = 0; return; } }
+            for (uint32_t q = 0; q < k; q++) { pp[q * 2] = X(F(i + q * 2)); pp[q * 2 + 1] = Y(F(i + q * 2 + 1)); }
+            prim_poly(pp, (int)k, lw, col);
+            i += (size_t)k * 2;
+            break;
+        }
+        case OP_P9_RCLIP: {
+            NEED(5);
+            flush();
+            float x = X(F(i)), y = Y(F(i + 1)), w = L(F(i + 2)), h = L(F(i + 3)), r = L(F(i + 4));
+            i += 5;
+            if (!(w > 0) || !(h > 0)) { w = h = 0; }
+            if (r > w / 2) r = w / 2;
+            if (r > h / 2) r = h / 2;
+            if (!(r > 0)) r = 0;
+            rclip[0] = x + w / 2; rclip[1] = y + h / 2; rclip[2] = w / 2; rclip[3] = h / 2; rclip[4] = r; rclip_on = 1;
+            break;
+        }
         default:
             return;                                             /* unknown op: stop rather than misread */
         }
@@ -1021,7 +1168,7 @@ static void run(gfx_client *c, const gfx_xf *xf0, const uint32_t *cmd, size_t n,
 }
 
 void gfx_draw(gfx_client *c, const gfx_xf *xf, int fbw, int fbh, const uint32_t *cmd, size_t n, int flags) {
-    fb_w = fbw; fb_h = fbh; fb_top_down = (flags & GFX_TOP_DOWN) != 0; g_alpha = 1;
+    fb_w = fbw; fb_h = fbh; fb_top_down = (flags & GFX_TOP_DOWN) != 0; g_alpha = 1; rclip_on = 0;
     glViewport(0, 0, fbw, fbh);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
@@ -1061,7 +1208,7 @@ int gfx_layer_def(gfx_client *c, uint32_t id, float w, float h, float scale, con
     /* drawn the right way up in GL terms; draw_layer flips it back */
     gfx_xf lx = { scale, 0, 0 };
     int save_w = fb_w, save_h = fb_h, save_td = fb_top_down;
-    fb_w = pw; fb_h = ph; fb_top_down = 0; g_alpha = 1;
+    fb_w = pw; fb_h = ph; fb_top_down = 0; g_alpha = 1; rclip_on = 0;
     glViewport(0, 0, pw, ph);
     glDisable(GL_SCISSOR_TEST);
     glEnable(GL_BLEND);
@@ -1070,6 +1217,7 @@ int gfx_layer_def(gfx_client *c, uint32_t id, float w, float h, float scale, con
     nv = 0;
     run(c, &lx, cmd, n, 1);
     flush();
+    rclip_on = 0;
     fb_w = save_w; fb_h = save_h; fb_top_down = save_td;
     glBindFramebuffer(GL_FRAMEBUFFER, prev);
     l->next = c->layers; c->layers = l;

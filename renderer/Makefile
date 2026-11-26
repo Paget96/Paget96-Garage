@@ -69,6 +69,10 @@ build/$(OUT)/mgu-render: $(SRC) $(HDR) $(GEN_H) $(GEN_C)
 in-test: build/$(OUT)/mgu-render
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_popup test/test_popup.c src/popup.c src/config.c src/log.c
 	build/$(OUT)/test_popup
+	$(CC) $(CFLAGS) -o build/$(OUT)/test_logic test/test_logic.c
+	build/$(OUT)/test_logic
+	$(CC) $(CFLAGS) -o build/$(OUT)/test_p9 test/test_p9.c src/gfx.c src/log.c -lEGL -lGLESv2 -lm
+	LIBGL_ALWAYS_SOFTWARE=1 EGL_PLATFORM=surfaceless build/$(OUT)/test_p9
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_dialect test/test_dialect.c src/dialect.c
 	build/$(OUT)/test_dialect
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_dbr test/test_dbr.c src/dbr.c

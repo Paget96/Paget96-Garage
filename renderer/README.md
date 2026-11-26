@@ -60,6 +60,27 @@ Everything else (drawing, the protocol and its three dialects, touch routing, th
 frame cap) is upstream's code as it was at idrive7-apps commit `54f9f748`. [COMPARISON.md](COMPARISON.md) lists the
 problems reported about mgu-store's renderer and how ours stands on each.
 
+## P9: what only our renderer draws
+
+An app asks for our extensions with one more field in its HELLO (`p96=1` beside `proto=mgu-render/1`; other
+renderers ignore it). p96-renderd answers `P9_READY` (0x50390101: version, what it can do) before READY
+(`src/proto.h`). Only a connection that got it is sent the new drawing ops; every other renderer, and every cached
+layer, gets the kit's own ops as before (`lib/render.js`).
+
+| Op | What |
+|---|---|
+| `OP_P9_POLY` (0x50390011) | a polyline in one op: round caps and round joins, and a see-through line is not darker where its segments meet (each pixel belongs to the nearest segment). Every `stroke` and `polyline` of the kit, `lib/ui.js` and the apps goes this way on our renderer |
+| `OP_P9_RCLIP` (0x50390012) | what follows is clipped to a rounded rectangle, until `OP_NOCLIP` |
+| same frame (cap 4) | a frame that repeats the one on screen is not drawn again; its TICK still comes |
+
+![The kit's lines (top) and P9 (bottom), drawn by p96-renderd](media/p9-compare.png)
+
+Made with `node test/p9_session.js` and `--replay` (below); `test/test_p9.c` checks the joins, the clip and the glyph
+pages on Mesa.
+
+**Performance overlay:** Settings, Display card, "Performance overlay" (off by default) shows at the page's bottom
+left the frames the app sends a second, the renderer's fps and its ms a frame, and which renderer draws.
+
 ## The popup watch
 
 The problem: the renderer puts an app's picture on its own compositor layer, on top of the whole screen. The
