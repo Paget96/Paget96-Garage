@@ -25,9 +25,13 @@ head unit, and nothing in the Store or in our apps uses it yet.
 | Other renderers' sockets | links the community socket and display-bridge's to itself | takes neither: it runs beside the others and serves only apps that connect to it |
 | System popups | hides only for the camera surfaces (`yield_surfaces`); everything else relies on the app hearing "focus lost" | **popup watch**: every other program's surface that comes up over the app area is noticed, logged with its process, and (with `popup_watch = yield`) our layers step back while it is up |
 | In-page drawing (embed) | on | off for now (`embed = 0`): the HMI page template can only be loaded by one renderer, see the plan |
+| HMI popup or menu over an app | touch and the controller stay with the app | the foreground gate reports the app `covered`; its layer steps back, touch and the controller go to the HMI |
+| HMI still starting | a gate instance that failed is never watched again | tried again every 5 s; an instance that becomes available is read at once |
+| Slow nft | the render loop waits for it (the guard may kill the renderer) | nft runs beside the loop; the rule comes out without a file in `/tmp` |
 
-Everything else (drawing, the protocol and its three dialects, the foreground gate, touch, the controller,
-video, pictures, the frame cap) is upstream's code as it was at idrive7-apps commit `54f9f748`.
+Everything else (drawing, the protocol and its three dialects, touch routing, the controller, video, pictures, the
+frame cap) is upstream's code as it was at idrive7-apps commit `54f9f748`. [COMPARISON.md](COMPARISON.md) lists the
+problems reported about mgu-store's renderer and how ours stands on each.
 
 ## The popup watch
 
@@ -35,6 +39,15 @@ The problem: the renderer puts an app's picture on its own compositor layer, on 
 HMI's own popups (the favourite buttons, volume, notifications, Android Auto banners, calls) are drawn below
 it, so the app covers them. The kit hides the picture only when the HMI says the app's screen lost focus, and
 most of these popups never say that.
+
+Two things now cover this, each for a different kind of popup:
+
+- **Popups that take the input** (a check control message, the header menu, the voice assistant, a screen opened
+  from there): the HMI takes the focus from the app's states. The foreground gate follows that focus and reports
+  the app `covered` once none of its states had it for 150 ms; the renderer then takes the app's layer off, and
+  touch and the controller go back to the HMI with it, until the focus comes back.
+- **Popups that do not take the input** (volume, notifications, very likely the favourite buttons): the popup
+  watch below.
 
 What the watch does (`src/popup.c`, wired in `src/main.c`):
 
@@ -76,7 +89,9 @@ make test      # all unit tests in Ubuntu 24.04 with Mesa's software GPU, the po
 
 `make test` runs upstream's tests (protocol dialects, touch, sockets, video, ramps, the foreground gate, the
 JS client, the page-template script, embed buffers against a mock HMI) and ours (`test/test_popup.c`: the
-popup rules and the settings). Upstream's byte-for-byte replay against the original renderers needs their
+popup rules and the settings; `test/test_gate_watch.js`: the gate's retry, its read on availability and the
+covered report, on a mock SOME/IP; `test/test_gate_iface.js`: where the gate finds the HMI's interface; in
+`test/test_touch.c`, a slow nft and an nft that leaves no table). Upstream's byte-for-byte replay against the original renderers needs their
 sources in `test/reference/`, which are not here, so it is skipped.
 
 ## Draw without a car

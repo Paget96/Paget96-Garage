@@ -27,6 +27,7 @@ installed and updated from the MGU Store.
 - [Install](#install)
 - [The apps](#the-apps)
 - [How every app works](#how-every-app-works)
+- [Our renderer](#our-renderer)
 - [Building](#building)
 - [Contributing](#contributing)
 - [Follow](#follow)
@@ -407,6 +408,33 @@ Every Paget96 Garage app follows the same rules, so once you know one, you know 
   only when you tap and confirm: clearing the fault memory and resetting a service item (Health),
   and the exhaust flap (Exhaust).
 - **Your popups stay on top.** An app must never cover the car's own popups (work in progress).
+
+## Our renderer
+
+An iDrive 7 app does not draw pixels itself: it sends a list of shapes and text over a socket, and a renderer
+draws them on the head unit's GPU. Paget96 Garage has its own renderer, **p96-renderd**, in
+[renderer/](renderer/README.md). It starts from mgu-render (Robert Nisipeanu and IterioDev, GPL-3.0-or-later,
+shipped by idrive7-apps and the MGU Store) and speaks the same protocol, so any app written for that renderer
+runs on ours unchanged.
+
+**Status: it builds and its tests pass on a PC. It has not run on a car yet, and no app uses it yet.**
+
+What it does differently, each point checked on a PC (the full list, with how each was checked, is in
+[renderer/COMPARISON.md](renderer/COMPARISON.md)):
+
+- **Its own place.** Its own socket, compositor ids and touch divert. It never takes the shared socket of the other
+  renderers, so it runs beside the MGU Store's renderer and the kit's without taking their apps.
+- **Car popups on top.** When the car shows something that takes the input over an app (a check control message,
+  the menu, the voice assistant), the app's picture steps back and touch and the controller go to the car. The
+  popup watch also notices other popups that come up over the app area and can make the picture step back for
+  them.
+- **Fixes for what people reported** about mgu-store's renderer that are still open there: after an iDrive start,
+  a screen the car was still starting is watched again, so an app does not get stuck inside the car's page with
+  the car's button bar (their pull request #156).
+- **Fixes from their history** that the renderer we started from did not have yet: a slow firewall tool no longer
+  stops the drawing or gets the renderer restarted, and the touch rule comes out even when `/tmp` is full.
+
+Not measured yet: CPU, memory and frame time on the head unit. Nothing here says it is faster.
 
 ## Building
 
