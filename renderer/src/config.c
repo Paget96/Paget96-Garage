@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and
+ * IterioDev, with parts MIT, Copyright (c) 2026 cauliflowermossgrape (LICENSE.mgu-renderd). */
 #include "config.h"
 
 #include <ctype.h>
@@ -39,6 +43,25 @@ void cfg_defaults(struct cfg *c)
     snprintf(c->touch_table, sizeof c->touch_table, "idrive7_render");
     snprintf(c->controller_gate, sizeof c->controller_gate, "/run/mgu-renderd/inputgate");
     snprintf(c->controller_lib, sizeof c->controller_lib, "mgu-inputgate");
+    c->popup_watch = 0;
+    c->popup_max_ms = 20000;
+}
+
+/* "0x1, 0x2, 3" into ids[], at most max: how many */
+static int idlist(uint32_t *ids, int max, const char *value)
+{
+    int n = 0;
+    for (const char *p = value; *p && n < max;) {
+        char *e;
+        unsigned long id = strtoul(p, &e, 0);
+        if (e == p)
+            break;
+        ids[n++] = (uint32_t)id;
+        p = e;
+        while (*p == ',' || isspace((unsigned char)*p))
+            p++;
+    }
+    return n;
 }
 
 static int str(char *dst, size_t n, const char *v, const char *key)
@@ -138,6 +161,20 @@ int cfg_set(struct cfg *c, const char *key, const char *value)
         }
         return 0;
     }
+    if (!strcmp(key, "popup_ignore")) {
+        c->n_popup_ignore = idlist(c->popup_ignore, CFG_MAX_YIELD, value);
+        return 0;
+    }
+    if (!strcmp(key, "popup_watch")) {
+        if (!strcmp(value, "off") || !strcmp(value, "0")) c->popup_watch = 0;
+        else if (!strcmp(value, "log") || !strcmp(value, "1")) c->popup_watch = 1;
+        else if (!strcmp(value, "yield") || !strcmp(value, "2")) c->popup_watch = 2;
+        else {
+            log_error("%s: off, log or yield expected", key);
+            return -1;
+        }
+        return 0;
+    }
     if (num(value, &n)) {
         log_error("%s: '%s' is not a number", key, value);
         return -1;
@@ -153,6 +190,14 @@ int cfg_set(struct cfg *c, const char *key, const char *value)
     else if (!strcmp(key, "touch")) c->touch = n != 0;
     else if (!strcmp(key, "touch_port")) c->touch_port = (int)n;
     else if (!strcmp(key, "verbose")) c->verbose = n != 0;
+    else if (!strcmp(key, "popup_max_ms")) c->popup_max_ms = n < 0 ? 0 : (int)n;
+    else if (!strcmp(key, "layer_base")) {
+        if (n && ((uint32_t)n & 0xffffu)) {
+            log_error("%s: a multiple of 0x10000 expected (or 0)", key);
+            return -1;
+        }
+        c->layer_base = (uint32_t)n;
+    }
     else {
         log_error("unknown setting '%s'", key);
         return -1;

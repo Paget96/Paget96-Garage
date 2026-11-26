@@ -1,8 +1,11 @@
-# kit/renderd: the renderer (mgu-render from robertnisipeanu/mgu-store, built here as mgu-renderd), the controller
-# gate and ivi-probe. See README.md.
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+# Based on idrive7-apps kit/renderd (mgu-render by Robert Nisipeanu and IterioDev, GPL-3.0-or-later; parts MIT).
 #
-#   docker run --rm -v $PWD:/src mgu-renderd-build make   head-unit binaries in build/ (Ubuntu 18.04, glibc 2.27, like
-#                                                          the unit; kit/tools/make_kit.py runs this)
+# renderer/: p96-renderd, the renderer, plus the controller gate and ivi-probe. See README.md.
+#
+#   docker run --rm -v $PWD:/src p96-renderd-build make   head-unit binaries in build/ (Ubuntu 18.04, glibc 2.27, like
+#                                                          the unit)
 #   make check-target    the renderer's loader, libraries and glibc versions (inside the same image)
 #   make test            protocol, touch-routing, community-socket, video, ramp, foreground-gate, app-input, JS-client
 #                        placement, page-template-script and embed-buffer unit tests, and recorded sessions of both
@@ -25,7 +28,7 @@ RUN = $(DOCKER) run --rm -v "$(CURDIR):/w" -w /w -u $$(id -u):$$(id -g)
 UNIT_LD = -Wl,--dynamic-linker=/lib/ld-linux-x86-64.so.2
 
 .PHONY: all check-target check-protocol test in-test clean
-all: build/mgu-renderd build/mgu-inputgate.so build/ivi-probe
+all: build/p96-renderd build/mgu-inputgate.so build/ivi-probe
 
 $(GEN_DIR)/%-client-protocol.h: protocol/%.xml
 	@mkdir -p $(GEN_DIR)
@@ -35,7 +38,7 @@ $(GEN_DIR)/%-protocol.c: protocol/%.xml
 	wayland-scanner private-code $< $@ 2>/dev/null || wayland-scanner code $< $@
 
 # the head unit's renderer (OUT empty: protocol code in build/protocol)
-build/mgu-renderd: $(SRC) $(HDR) $(GEN_H) $(GEN_C)
+build/p96-renderd: $(SRC) $(HDR) $(GEN_H) $(GEN_C)
 	$(CC) $(CFLAGS) $(UNIT_LD) -o $@ $(SRC) $(GEN_C) $(LIBS)
 	strip $@
 # loaded into the HMI (LD_PRELOAD): the controller gate for full-screen apps (inputgate/)
@@ -46,8 +49,8 @@ build/ivi-probe: tools/ivi-probe.c $(GEN_H) $(GEN_C)
 	$(CC) -O2 -g0 -Wall -Wno-unused-parameter -I$(GEN_DIR) $(UNIT_LD) -o $@ tools/ivi-probe.c \
 		$(GEN_DIR)/ivi-controller-protocol.c $(GEN_DIR)/ivi-application-protocol.c -lwayland-client -lwayland-egl -lEGL -lGLESv2 -lm
 
-check-target: build/mgu-renderd
-	sh tools/check_target.sh build/mgu-renderd
+check-target: build/p96-renderd
+	sh tools/check_target.sh build/p96-renderd
 
 check-protocol:
 	@test -n "$(IVI_LIB_DIR)" || { echo "set IVI_LIB_DIR to a directory with libivi-application.so.1.11.0 and libivi-controller.so.1.11.0"; exit 2; }
@@ -63,6 +66,8 @@ build/$(OUT)/mgu-render: $(SRC) $(HDR) $(GEN_H) $(GEN_C)
 	strip $@
 
 in-test: build/$(OUT)/mgu-render
+	$(CC) $(CFLAGS) -o build/$(OUT)/test_popup test/test_popup.c src/popup.c src/config.c src/log.c
+	build/$(OUT)/test_popup
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_dialect test/test_dialect.c src/dialect.c
 	build/$(OUT)/test_dialect
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_dbr test/test_dbr.c src/dbr.c

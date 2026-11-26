@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and
+ * IterioDev, with parts MIT, Copyright (c) 2026 cauliflowermossgrape (LICENSE.mgu-renderd). */
 /* mgu-render settings: built-in defaults, a key = value file (mgu-render.conf), -s key=value overrides. */
 #ifndef MGU_CONFIG_H
 #define MGU_CONFIG_H
@@ -38,6 +42,12 @@ struct cfg {
     int touch_area[4];          /* where apps may claim; w 0: by screen size */
     char controller_gate[128];  /* the HMI controller gate's file (upstream inputgate) */
     char controller_lib[64];    /* its library name, looked for in the HMI's maps */
+    /* p96-renderd (Paget96 Garage) */
+    int popup_watch;            /* 0 off, 1 log new popup surfaces, 2 also hide layer apps while one is up (popup.h) */
+    int popup_max_ms;           /* a popup surface up longer than this is a screen of its own: it stops counting */
+    uint32_t popup_ignore[CFG_MAX_YIELD]; /* surfaces never taken for popups */
+    int n_popup_ignore;
+    uint32_t layer_base;        /* our ivi layer ids (base + slot; surfaces base + 0x100 + slot); 0: the built-in ones */
     char record_dir[128];       /* debug: each connection's incoming bytes to <dir>/<app>-<pid>-<n>.bin */
     int verbose;
 };

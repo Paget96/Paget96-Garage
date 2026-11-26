@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and
+ * IterioDev, with parts MIT, Copyright (c) 2026 cauliflowermossgrape (LICENSE.mgu-renderd). */
 /*
  * mgu-render - the renderer for MGU custom apps.
  *
@@ -60,6 +64,7 @@
 #include "gate.h"
 #include "gfx.h"
 #include "log.h"
+#include "popup.h"
 #include "proto.h"
 #include "share.h"
 #include "touch.h"
@@ -198,6 +203,9 @@ static void c_screen(void *d, struct ivi_controller *c, uint32_t id, struct ivi_
 static void c_layer(void *d, struct ivi_controller *c, uint32_t id) { (void)d, (void)c, (void)id; }
 
 static void update_all(void);
+static void app_area(int r[4]);
+static void popup_unwatch(uint32_t id);
+static int popup_yielding(void);
 static void yield_update(int i) {
     int any = 0;
     for (int k = 0; k < nyield; k++) any |= yield[k].visible && yield[k].w > 0 && yield[k].h > 0;
@@ -273,6 +281,7 @@ static void p_stats(void *d, struct ivi_controller_surface *s, uint32_t a, uint3
         log_info("the HMI's surface %u (%s, pid %u): buffer %dx%d shown at %d,%d %dx%d", hmi.id, base, pid,
                  hmi.buf[0], hmi.buf[1], hmi.dst[0], hmi.dst[1], hmi.dst[2], hmi.dst[3]);
         probes[i].s = NULL;
+        popup_unwatch(hmi.id);
         geom_update();
         return;
     }
@@ -306,9 +315,101 @@ static void hmi_probe(struct ivi_controller *c, uint32_t id) {
     ivi_controller_surface_send_stats(probes[k].s);
 }
 
+/* ---------------- popup watch (p96-renderd, popup.h) ----------------
+ * Every other program's surface on the compositor is watched for visibility, size and place; one that comes up
+ * after the start over the app area is taken for a popup (the HMI's favourite buttons, volume, notifications,
+ * Android Auto: whether each is a surface of its own is to be seen on the car). popup_watch = log only logs them,
+ * with their process; yield also hides the layer apps while one is up. */
+static struct popup pw;
+static struct ivi_controller_surface *pw_s[POPUP_MAX];
+static char pw_name[POPUP_MAX][24];
+static int popup_yielding(void) { return cfg.popup_watch == POPUP_YIELD && pw.active; }
+static int pw_index(struct ivi_controller_surface *s) {
+    for (int i = 0; i < POPUP_MAX; i++) if (pw_s[i] == s) return i;
+    return -1;
+}
+static void pw_eval(void) {
+    if (!cfg.popup_watch) return;
+    app_area(pw.area);
+    int was = pw.active;
+    if (!popup_update(&pw, now_us())) return;
+    if (pw.active) {
+        int k = popup_slot(&pw, pw.active_id);
+        const struct popup_surface *ps = k >= 0 ? &pw.s[k] : NULL;
+        log_info("popup: surface %#x (%s) up at %d,%d %dx%d%s", pw.active_id, k >= 0 && pw_name[k][0] ? pw_name[k] : "?",
+                 ps ? ps->dst[0] : 0, ps ? ps->dst[1] : 0, ps ? ps->w : 0, ps ? ps->h : 0,
+                 cfg.popup_watch == POPUP_YIELD ? ": layer apps step back" : " (log only)");
+    } else log_info("popup: none up%s", cfg.popup_watch == POPUP_YIELD ? ": layer apps may show" : "");
+    if (cfg.popup_watch == POPUP_YIELD && was != pw.active) update_all();
+}
+static void w_visibility(void *d, struct ivi_controller_surface *s, int32_t v) {
+    (void)d;
+    int k = pw_index(s);
+    popup_visibility(&pw, k, v, now_us());
+    if (k >= 0 && cfg.verbose) log_debug("popup watch: %#x (%s) visible %d", pw.s[k].id, pw_name[k], v);
+    pw_eval();
+}
+static void w_opacity(void *d, struct ivi_controller_surface *s, wl_fixed_t o) { (void)d, (void)s, (void)o; }
+static void w_src(void *d, struct ivi_controller_surface *s, int32_t x, int32_t y, int32_t w, int32_t h) { (void)d, (void)s, (void)x, (void)y, (void)w, (void)h; }
+static void w_dst(void *d, struct ivi_controller_surface *s, int32_t x, int32_t y, int32_t w, int32_t h) {
+    (void)d;
+    popup_dst(&pw, pw_index(s), x, y, w, h);
+    pw_eval();
+}
+static void w_config(void *d, struct ivi_controller_surface *s, int32_t w, int32_t h) {
+    (void)d;
+    popup_size(&pw, pw_index(s), w, h);
+    pw_eval();
+}
+static void w_int(void *d, struct ivi_controller_surface *s, int32_t v) { (void)d, (void)s, (void)v; }
+static void w_layer(void *d, struct ivi_controller_surface *s, struct ivi_controller_layer *l) { (void)d, (void)s, (void)l; }
+static void w_stats(void *d, struct ivi_controller_surface *s, uint32_t a, uint32_t b, uint32_t c, uint32_t pid, const char *n) {
+    (void)d, (void)a, (void)b, (void)c, (void)pid;
+    int k = pw_index(s);
+    if (k < 0) return;
+    const char *base = n ? strrchr(n, '/') : NULL;
+    base = base ? base + 1 : n ? n : "";
+    snprintf(pw_name[k], sizeof pw_name[k], "%s", base);
+}
+static void w_destroyed(void *d, struct ivi_controller_surface *s) {
+    (void)d;
+    int k = pw_index(s);
+    if (k >= 0) { popup_gone(&pw, k); pw_s[k] = NULL; pw_name[k][0] = 0; }
+    wl_proxy_destroy((struct wl_proxy *)s);
+    pw_eval();
+}
+static const struct ivi_controller_surface_listener watch_listener = {
+    w_visibility, w_opacity, w_src, w_dst, w_config, w_int, w_int, w_layer, w_stats, w_destroyed, w_int,
+};
+/* a renderer's own surfaces (ours, the community renderers' "MG", mgu-render's "MR") are never popups */
+static int renderer_surface(uint32_t id) {
+    uint32_t hi = id & 0xffff0000u;
+    return hi == 0x4d470000u || hi == 0x4d520000u || hi == (LAYER_BASE & 0xffff0000u);
+}
+static void popup_watch_surface(struct ivi_controller *c, uint32_t id) {
+    if (!cfg.popup_watch || renderer_surface(id) || (hmi.s && id == hmi.id)) return;
+    for (int i = 0; i < cfg.n_yield; i++) if (cfg.yield_surfaces[i] == id) return;   /* yield_surfaces has those */
+    int k = popup_track(&pw, id, now_us());
+    if (k < 0) return;
+    pw_name[k][0] = 0;
+    pw_s[k] = ivi_controller_surface_create(c, id);
+    ivi_controller_surface_add_listener(pw_s[k], &watch_listener, NULL);
+    ivi_controller_surface_send_stats(pw_s[k]);
+}
+/* the HMI's own page is not a popup: once it is known, it is not watched */
+static void popup_unwatch(uint32_t id) {
+    int k = popup_slot(&pw, id);
+    if (k < 0) return;
+    if (pw_s[k]) ivi_controller_surface_destroy(pw_s[k], 0);   /* our handle only: the surface stays */
+    pw_s[k] = NULL; pw_name[k][0] = 0;
+    popup_gone(&pw, k);
+    pw_eval();
+}
+
 static void c_surface(void *d, struct ivi_controller *c, uint32_t id) {
     (void)d;
     hmi_probe(c, id);
+    popup_watch_surface(c, id);
     for (int i = 0; i < cfg.n_yield; i++) {
         if (cfg.yield_surfaces[i] != id) continue;
         int k = 0;
@@ -424,7 +525,7 @@ static int in_front(const client *c) {
 
 static int shown(const client *c) {
     if (c->mode == MODE_EMBED) return c == embed_owner && embed_visible() && c->frames_shown > 0;
-    return c->cl && c->visible && c->frames_shown > 0 && !c->stale && in_front(c) && !yielding;
+    return c->cl && c->visible && c->frames_shown > 0 && !c->stale && in_front(c) && !yielding && !popup_yielding();
 }
 
 /* where the app's logical (0, 0) + placement offset sits on the screen */
@@ -1764,8 +1865,14 @@ int main(int argc, char **argv) {
         else { usage(argv[0]); return 2; }
     }
     beside_binary(gate_given);
+    if (cfg.layer_base) { layer_base = cfg.layer_base; surf_base = cfg.layer_base + 0x100u; }
     log_verbose = cfg.verbose;
     t_start = now_us();
+    {
+        int area[4];
+        app_area(area);
+        popup_init(&pw, cfg.popup_watch, (uint64_t)cfg.popup_max_ms * 1000u, area, cfg.popup_ignore, cfg.n_popup_ignore, t_start);
+    }
     if (rin) return replay(rin, rout, rraw, ruid);
     share_setup();
     if (share_only) {

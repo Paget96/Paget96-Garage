@@ -56,3 +56,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+renderer/ (p96-renderd) is based on the renderer in idrive7-apps kit/renderd at the same pinned
+commit, which is mgu-render from robertnisipeanu/mgu-store:
+  Copyright (C) 2026 Robert Nisipeanu and IterioDev, GPL-3.0-or-later (renderer/LICENSE).
+Parts of it come from idrive7-apps' first renderer and stay MIT as well (renderer/LICENSE.mgu-renderd,
+Copyright (c) 2026 cauliflowermossgrape). The Wayland ivi protocol files in renderer/protocol/ are MIT
+(DENSO CORPORATION, BMW Car IT GmbH; notice in each file); the vsomeip headers in
+renderer/inputgate/vsomeip-include/ are MPL-2.0 (notice in each file). Paget96 Garage's changes and
+additions there are GPL-3.0-only with the additional terms above, as the rest of this repository;
+the upstream notices are kept in every file.
