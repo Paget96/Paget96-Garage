@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>Four apps for the BMW iDrive 7 head unit: live engine data, a full car health check, the exhaust flap under your control and a calm clock.</b><br>
+  <b>Five apps for the BMW iDrive 7 head unit: live engine data, a full car health check, the exhaust flap under your control, a calm clock and the car's lights.</b><br>
   One modern look, drawn by the GPU at 60 fps, installed and updated from the MGU Store.
 </p>
 
@@ -13,7 +13,7 @@
   <img alt="BMW iDrive 7 MGU" src="https://img.shields.io/badge/BMW-iDrive%207%20MGU-e4002b?style=for-the-badge">
   <img alt="Tested on a car" src="https://img.shields.io/badge/tested%20on-a%20real%20car-2ea44f?style=for-the-badge">
   <img alt="60 fps" src="https://img.shields.io/badge/frame%20rate-60%20fps-ff7a1a?style=for-the-badge">
-  <img alt="4 apps" src="https://img.shields.io/badge/apps-4-1c6dd0?style=for-the-badge">
+  <img alt="5 apps" src="https://img.shields.io/badge/apps-5-1c6dd0?style=for-the-badge">
 </p>
 <p align="center">
   <img alt="MGU Store source" src="https://img.shields.io/badge/MGU%20Store-Paget96%2FPaget96--Garage-8957e5?style=flat-square">
@@ -482,6 +482,21 @@ Follow ambient lighting, Demo data (Off or On, Off by default; while it is on th
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
 
+
+### Lights
+
+The car's own lights: any colour on the ambient light, light sequences over the outside lamps and
+high beam flashes, the last two only while the car stands still. Simulated until you arm it in
+Settings; the car takes its lights back by itself when the app stops. Not tried on a car as Lights
+yet.
+
+![Lights working](docs/media/p96_lights/lights.gif)
+
+| Page | Screenshot |
+|---|---|
+| Ambient | ![](docs/media/p96_lights/ambient.png) |
+| Party | ![](docs/media/p96_lights/party.png) |
+| Flash | ![](docs/media/p96_lights/flash.png) |
 ## How every app works
 
 Every Paget96 Garage app follows the same rules, so once you know one, you know them all.

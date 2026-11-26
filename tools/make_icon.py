@@ -147,8 +147,18 @@ def _garage(d, c, s, w, col, acc):
     for wx in (c - s * 0.4, c + s * 0.4):
         d.rounded_rectangle([wx - s * 0.1, by1 - s * 0.02, wx + s * 0.1, y1 - s * 0.02], radius=s * 0.04, fill=acc)
 
+def _lights(d, c, s, w, col, acc):
+    # Lights: a headlight seen from the side, its beam as three lines, the low one dipped
+    r = s * 0.55; cx = c - s * 0.35
+    d.ellipse([cx - r, c - r, cx + r * 0.6, c + r], outline=col, width=w)
+    poly(d, [(cx + r * 0.05, c - r * 0.95), (cx + r * 0.05, c + r * 0.95)], w, col)
+    for k, dy in enumerate((-0.55, 0.0, 0.55)):
+        y0 = c + dy * r; drop = s * 0.18 * (k + 1) / 2
+        poly(d, [(cx + r * 0.85, y0), (c + s * 0.95, y0 + drop)], int(w * 0.85), acc)
+
+
 # name -> draw(d, centre, radius, stroke, ink, detail); add new apps' glyphs here
-GLYPHS = {'garage': _garage, 'datalog': _datalog, 'health': _health, 'exhaust': _exhaust, 'standby': _standby}
+GLYPHS = {'garage': _garage, 'datalog': _datalog, 'health': _health, 'exhaust': _exhaust, 'standby': _standby, 'lights': _lights}
 
 
 def _draw(fn, s):

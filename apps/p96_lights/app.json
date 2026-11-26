@@ -1,0 +1,152 @@
+{
+  "id": "p96_lights",
+  "title": "Lights",
+  "description": "The car's lights: any colour on the ambient light, light sequences and high beam flashes while parked, simulated until you arm it",
+  "version": "0.1.0",
+  "vendor": "custom",
+  "loggingId": "PGL1",
+  "iconGlyph": "lights",
+  "mguHmi": [
+    "ID7"
+  ],
+  "requires": {
+    "p96-renderd": "0.2.0",
+    "idrive7-renderd": "2.1.18",
+    "mgu-inputgate": "1.1.0"
+  },
+  "signals": {
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "_optional": "the car's speed: sequences and flashes only while it stands still",
+      "statusCarSpeed2": "rs"
+    },
+    "de.bmw.infrastructure.VehicleCondition": {
+      "_optional": "the car locked and left: nothing is sent",
+      "VehicleCondition": "s"
+    },
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": {
+      "_optional": "the body controller: the ambient colour, the light functions, only once armed in Settings",
+      "_instances": "SystemFunctionsInternalTasuInst1",
+      "_methods": [
+        "sendTasuRequest"
+      ],
+      "_broadcasts": [
+        "sendTasuResponse"
+      ]
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "embed": true,
+      "settings": true,
+      "title": "Lights",
+      "buttons": [
+        [
+          "BTN_PAGE",
+          "Next page"
+        ],
+        [
+          "BTN_PREV",
+          "Previous page"
+        ],
+        [
+          "BTN_SETTINGS",
+          "Settings"
+        ]
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "renderer",
+      "label": "Renderer",
+      "type": "choice",
+      "default": "auto",
+      "options": [
+        [
+          "auto",
+          "GPU"
+        ],
+        [
+          "software",
+          "Software"
+        ]
+      ]
+    },
+    {
+      "key": "fps",
+      "label": "Frame rate",
+      "type": "choice",
+      "default": 60,
+      "options": [
+        [
+          15,
+          "15"
+        ],
+        [
+          30,
+          "30"
+        ],
+        [
+          60,
+          "60 fps"
+        ]
+      ]
+    },
+    {
+      "key": "followAmbient",
+      "label": "Follow ambient lighting",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "demo",
+      "label": "Demo data",
+      "type": "choice",
+      "default": "off",
+      "options": [
+        [
+          "off",
+          "Off"
+        ],
+        [
+          "on",
+          "On"
+        ]
+      ],
+      "aliases": {
+        "auto": "off"
+      }
+    },
+    {
+      "key": "arm",
+      "label": "Light control",
+      "type": "choice",
+      "default": "off",
+      "options": [
+        [
+          "off",
+          "Simulated (safe, sends nothing)"
+        ],
+        [
+          "on",
+          "Armed (switches the car's lights)"
+        ]
+      ]
+    },
+    {
+      "key": "demoCar",
+      "label": "Demo car",
+      "type": "choice",
+      "default": "b48",
+      "hidden": true,
+      "options": [
+        [
+          "b48",
+          "B48"
+        ]
+      ]
+    }
+  ]
+}
