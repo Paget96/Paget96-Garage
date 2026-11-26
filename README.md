@@ -18,8 +18,8 @@
 <p align="center">
   <img alt="MGU Store source" src="https://img.shields.io/badge/MGU%20Store-Paget96%2FPaget96--Garage-8957e5?style=flat-square">
   <img alt="License" src="https://img.shields.io/github/license/Paget96/Paget96-Garage?style=flat-square">
-  <img alt="Last commit" src="https://img.shields.io/github/last-commit/Paget96/Paget96-Garage?style=flat-square">
-  <img alt="Stars" src="https://img.shields.io/github/stars/Paget96/Paget96-Garage?style=flat-square">
+  <img alt="Last commit" src="https://img.shields.io/github/last-commit/Paget96/Paget96-Garage/develop?style=flat-square&label=last%20commit">
+  <img alt="Stars" src="https://img.shields.io/github/stars/Paget96/Paget96-Garage?style=flat-square&label=stars&cacheSeconds=3600">
 </p>
 
 <p align="center">
