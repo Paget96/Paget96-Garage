@@ -207,9 +207,8 @@ function exhaustPath(cv, x0, x1, cy, o) {
         if (o.numbers !== false && tc != null) cv.text(Math.round(tc) + ' °C', X, top - off - (small ? (i % 2 ? 40 : 62) * Math.max(0.75, sc) : two ? 12 : 52), small ? 16 : 19, C.text, { font: 'bold', align: 'center', literal: true });
     });
     // the gas, in each pipe
-    // the gas: along the pipe; in a valved rear silencer the way the flap sets: open (or removed) straight through the
-    // tube and out, closed out of the tube's holes, round the baffles and out of the bottom tail pipe; the car's own
-    // setting half each
+    // the gas: along the pipe; in a valved rear silencer the way the flap sets: open (or removed) mostly straight through
+    // the tube and out, closed out of the tube's holes, round the baffles and out of the bottom tail pipe
     const n = 24, gx0 = parts[0].x + S(64);
     const along = (pts, f) => {
         let tot = 0; const ls = [];
@@ -229,7 +228,9 @@ function exhaustPath(cv, x0, x1, cy, o) {
         const fl = ri === 1 && o.flap2 ? o.flap2 : o.flap, removed = valved && rearP.flaps === 'removed';
         for (let i = 0; i < n; i++) {
             const f = (gas + i / n + ri * 0.5 / n) % 1;
-            const shut = valved && !removed && (fl === 'CLOSED' || (fl !== 'OPEN' && i % 2));
+            // open: most of the gas the short way, some still through the chambers (owner, 2026-11-27 00:24: "ide kroz oba");
+            // closed: all through the chambers; the car's own setting: half each
+            const shut = valved && (removed || fl === 'OPEN' ? i % 3 === 0 : fl === 'CLOSED' || i % 2 === 1);
             const q = along(shut ? wayShut : wayOpen, f);
             cv.circle(q[0], q[1], Math.max(3, S(5) * (two ? 0.8 : 1)), heat(tempAt(f, o.temps)));
         }
