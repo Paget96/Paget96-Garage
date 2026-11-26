@@ -17,7 +17,7 @@ const UI = lib();
 const C = UI.C;
 const M = require('./maths');
 const { column } = require('./runs');
-const { sheet } = require('./dyno');
+const { sheet, power: hpOf } = require('./dyno');
 const { INFO, TOPICS } = require('./info');
 const { APP_ROWS } = require('./model');
 const ART = require('./art');
@@ -317,12 +317,31 @@ function pageDyno(cv, m) {
                 marks: [{ side: 'left', i: ip, text: Math.round(sh.peakPower.v) + ' hp @ ' + rpmText(sh.peakPower.rpm) },
                     { side: 'right', i: it, text: Math.round(tq(sh.peakTorque.v)) + ' ' + tqU + ' @ ' + rpmText(sh.peakTorque.rpm) }] });
     }
-    const x = L + lw + 14, w = R - x, ch = (UI.hh() - 14) / 2;
+    // the right column reads like a dyno screen (owner, 2026-11-26 23:53): what the engine does now (gear, rpm, torque,
+    // power in hp and kW), then the peaks of the pull with the rpm they came at, in both units
+    const x = L + lw + 14, w = R - x, gap = 12, ch = Math.floor((UI.hh() - 2 * gap) / 3);
+    const v = m.v || {}, liveTq = isNum(v.torque) ? v.torque : null, liveRpm = isNum(v.rpm) ? v.rpm : null;
+    const liveHp = liveTq != null && liveRpm != null ? Math.max(0, hpOf(liveTq, liveRpm)) : null;
+    UI.card(cv, x, T, w, ch, 'Now', { info: INFO.dyno });
+    const cell = (cx, label, val, unit, col) => {
+        ltext(cv, label, cx, T + 56, 14, C.dim, 'bold');
+        const tw = cv.text(val == null ? '--' : String(val), cx, T + 96, 30, val == null ? C.dim : col, { font: 'num', literal: true });
+        if (unit && val != null) ltext(cv, unit, cx + tw + 6, T + 96, 15, C.dim);
+    };
+    const cw = Math.floor((w - 40) / 4);
+    cell(x + 20, 'GEAR', isNum(v.gear) && v.gear > 0 ? v.gear : null, '', C.text);
+    cell(x + 20 + cw, 'RPM', liveRpm != null ? Math.round(liveRpm) : null, '', C.text);
+    cell(x + 20 + 2 * cw, 'TORQUE', liveTq != null ? Math.round(tq(liveTq)) : null, tqU, C.blue);
+    cell(x + 20 + 3 * cw, 'POWER', liveHp != null ? Math.round(liveHp) : null, 'hp', C.accent);
+    if (liveHp != null) ltext(cv, Math.round(liveHp * 0.7457) + ' kW', x + 20 + 3 * cw, T + 118, 14, C.dim);
+    // how to make a pull, where there is room for it (the full screen on the car has it)
+    if (ch >= 170) UI.wrap(cv, 'How: 2nd or 3rd gear, from about 2 000 rpm, full throttle to the shift point, only on a closed road.', 14, w - 40)
+        .slice(0, 2).forEach((ln, i, all) => ltext(cv, ln, x + 20, T + ch - 16 - (all.length - 1 - i) * 18, 14, C.dim));
     const corr = sh && sh.corrected ? 'weather corrected, ' : '';
-    UI.stat(cv, x, T, w, ch, { label: 'Peak power', value: sh ? sh.peakPower.v : null, decimals: 0, unit: 'hp',
-        sub: corr + 'at the engine (est.)', color: 'accent', info: INFO.peakPower });
-    UI.stat(cv, x, T + ch + 14, w, ch, { label: 'Peak torque', value: sh ? tq(sh.peakTorque.v) : null, decimals: 0, unit: tqU,
-        sub: sh ? 'from the engine unit, ' + rpmText(sh.peakTorque.rpm) + ' rpm' : 'from the engine unit', color: 'info', info: INFO.peakTorque });
+    UI.stat(cv, x, T + ch + gap, w, ch, { label: 'Peak power', value: sh ? sh.peakPower.v : null, decimals: 0, unit: 'hp',
+        sub: sh ? Math.round(sh.peakPower.v * 0.7457) + ' kW at ' + rpmText(sh.peakPower.rpm) + ' rpm, ' + corr + 'at the engine (est.)' : corr + 'at the engine (est.)', color: 'accent', info: INFO.peakPower });
+    UI.stat(cv, x, T + 2 * (ch + gap), w, ch, { label: 'Peak torque', value: sh ? tq(sh.peakTorque.v) : null, decimals: 0, unit: tqU,
+        sub: sh ? (imp ? Math.round(sh.peakTorque.v) + ' Nm' : Math.round(sh.peakTorque.v * 0.737562) + ' lb-ft') + ' at ' + rpmText(sh.peakTorque.rpm) + ' rpm, from the engine unit' : 'from the engine unit', color: 'info', info: INFO.peakTorque });
 }
 
 /* ---------- Correction ---------- */
