@@ -95,7 +95,10 @@ function head(cv, st, act) {
     if (UI.clock && !(UI.standard && UI.standard(cv))) UI.clock(cv, UI.MARGIN, UI.CLOCK_CY, st.now);
     UI.header(cv, { status: st.status, statusColor: st.statusColor, demo: !!st.demo, onDemo: on ? act.demoOff : null,
         onHelp: on ? act.help : null, onSettings: on ? act.settings : null });
-    if (a < 1) {
+    // with the side menu (the car's full screen layout): it slides away with the same timing, the clock gets the screen
+    const railMode = UI.railOn && UI.railOn(cv);
+    if (railMode) UI.setRailShown(st.tab === 0 ? a : 1);
+    if (a < 1 && !railMode) {
         // the menu fades: the page's own background laid over it, more and more (works on both render paths)
         const k = 1 - a;
         cv.fillRect(0, 0, UI.W, T - 6, [].concat(rgb(bgAt(50)), [Math.round(255 * k)]));
@@ -104,7 +107,10 @@ function head(cv, st, act) {
         if (st.demo) UI.demoBadge(cv, UI.pillX(cv), UI.HEAD_CY, true, act.demoOff);
     }
     // a tap brings the menu back (and keeps it while it shows): the whole page when it is gone, the content when not
-    if (st.tab === 0 && cv.target && act.wake) cv.target(0, on ? T : 0, UI.W, on ? UI.H - T : UI.H, act.wake, 'sbwake', 0);
+    if (st.tab === 0 && cv.target && act.wake) {
+        const rx = railMode && !on ? -UI.RAIL : 0, eh = railMode ? UI.bottom() + 20 : UI.H;
+        cv.target(rx, on ? T : 0, UI.W - rx, on ? eh - T : eh, act.wake, 'sbwake', 0);
+    }
 }
 const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 /** Three tabs: the bar hugs them (I18), no arrows or dots. */
@@ -116,13 +122,14 @@ function tabsWidth(cv) {
 /* ---------- Clock ---------- */
 
 const CLOCK_SIZE = 190, CLOCK_BASE = 368, STEPS = 12;
+let clockDy = 0;     // the clock block moved down to the middle of a taller page (the car's full screen)
 /** One glyph of the big clock as a cached layer: the glyph with a soft glow, centred in its slot. */
 function digit(cv, ch, x, w, col) {
     if (ch === ' ') return;
     const pad = 24, lh = CLOCK_SIZE + 2 * pad;
     cv.blit(G.layer('sbdigit|' + ch + '|' + w + '|' + col, w + 2 * pad, lh, (c) =>
         UI.glowText(c, ch, pad + w / 2, pad + CLOCK_SIZE * 0.82, CLOCK_SIZE, col, { font: 'num', align: 'center' }, 8, 0.8), cv.textScale),
-    x - pad, CLOCK_BASE - CLOCK_SIZE * 0.82 - pad);
+    x - pad, CLOCK_BASE + clockDy - CLOCK_SIZE * 0.82 - pad);
 }
 
 function pageClock(cv, v, st) {
@@ -130,20 +137,23 @@ function pageClock(cv, v, st) {
     const big = M.mixColour(C.text, M.NIGHT_TEXT, p), small = M.mixColour('#a0a8b4', M.NIGHT_DIM, p), val = M.mixColour(C.text, M.NIGHT_TEXT, p);
     const tt = M.timeText(now, st.settings.clock);
     const sl = M.digitSlots(tt.text, (ch) => cv.textWidth(ch, CLOCK_SIZE, { font: 'num' }), 4);
-    const x0 = Math.round(UI.W / 2 - sl.w / 2);
+    // the centre of what shows: with the side menu gone the clock moves to the middle of the whole screen
+    const cxs = UI.W / 2 - (UI.railOn && UI.railOn(cv) ? (UI.RAIL / 2) * (1 - UI.railShown()) : 0);
+    const x0 = Math.round(cxs - sl.w / 2);
+    clockDy = UI.railOn && UI.railOn(cv) ? Math.round((UI.bottom() - 504) / 2) : 0;
     sl.slots.forEach((s) => digit(cv, s.ch, x0 + s.x, Math.round(s.w), big));
-    if (tt.ampm) cv.text(tt.ampm, x0 + sl.w + 18, CLOCK_BASE - 8, 30, small, { font: 'bold', literal: true });
-    cv.text(M.dateText(now), UI.W / 2, 438, 24, small, { align: 'center', literal: true });
+    if (tt.ampm) cv.text(tt.ampm, x0 + sl.w + 18, CLOCK_BASE + clockDy - 8, 30, small, { font: 'bold', literal: true });
+    cv.text(M.dateText(now), cxs, 438 + clockDy, 24, small, { align: 'center', literal: true });
     // the small values under the date, only those the car reports
     const items = [];
     if (v.has('outside')) items.push([f(v.outside, 0) + ' °C', 'outside', M.iceRisk(v.outside) && M.iceRisk(v.outside).level !== 'none' && p < 0.5 ? C.blue : val]);
     if (v.has('volts')) items.push([f(v.volts, 1) + ' V', 'battery', val]);
     else if (v.has('charge')) items.push([f(v.charge, 0) + ' %', 'battery', val]);
     if (v.has('range')) items.push([f(v.range, 0) + ' km', 'range', val]);
-    const gap = 240, xs = UI.W / 2 - (items.length - 1) * gap / 2;
+    const gap = 240, xs = cxs - (items.length - 1) * gap / 2;
     items.forEach((it, i) => {
-        cv.text(it[0], xs + i * gap, 486, 24, it[2], { font: 'bold', align: 'center', literal: true });
-        cv.text(it[1], xs + i * gap, 510, 15, small, { align: 'center', literal: true });
+        cv.text(it[0], xs + i * gap, 486 + clockDy, 24, it[2], { font: 'bold', align: 'center', literal: true });
+        cv.text(it[1], xs + i * gap, 510 + clockDy, 15, small, { align: 'center', literal: true });
     });
 }
 

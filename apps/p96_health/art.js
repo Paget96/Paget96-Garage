@@ -103,15 +103,13 @@ function faults(cv, x, y, w, h, t) {
 /** A car from above with four tyres; the rear left one slowly loses air. */
 function tyre(cv, x, y, w, h, t) {
     const cx = x + w / 2, cy = y + h / 2;
-    cv.strokeRoundRect(cx - 70, cy - 130, 140, 260, 60, 3, LINE);
-    const p = loop(t, 6), rl = 2.22 - 0.12 * ease(Math.min(1, p * 1.3));
-    const tyres = [['FL', -1, -1, 2.20], ['FR', 1, -1, 2.21], ['RL', -1, 1, rl], ['RR', 1, 1, 2.19]];
+    const p = loop(t, 6), rl = 2.22 - 0.12 * ease(Math.min(1, p * 1.3)), k = Math.min(0.95, (h - 50) / 320);
+    const tyres = [['FL', -1, -1, 2.20], ['FR', 1, -1, 2.21], ['RL', -1, 1, rl], ['RR', 1, 1, 2.19]], cols = {};
+    tyres.forEach((q) => { cols[q[0]] = q[3] < 2.15 ? C.amber : C.green; });
+    UI.carWithTyres(cv, cx, cy - 10, k, cols, { RL: (2.22 - rl) * 60 });
     tyres.forEach((q) => {
-        const tx = cx + q[1] * 92, ty = cy + q[2] * 80, low = q[3] < 2.15;
-        const col = low ? C.amber : C.green;
-        const squash = q[0] === 'RL' ? (2.22 - rl) * 60 : 0;
-        cv.roundRect(tx - 14 - squash / 2, ty - 36, 28 + squash, 72, 14, col);
-        cv.text(q[3].toFixed(2) + ' bar', tx + q[1] * 40, ty + 6, 20, low ? C.amber : C.text, { font: 'bold', align: q[1] < 0 ? 'right' : 'left', literal: true });
+        const ty = cy - 10 + q[2] * 92 * k, low = q[3] < 2.15;
+        cv.text(q[3].toFixed(2) + ' bar', cx + q[1] * 112 * k, ty + 6, 20, low ? C.amber : C.text, { font: 'bold', align: q[1] < 0 ? 'right' : 'left', literal: true });
     });
     cv.text('rear left: -0.03 bar a week', cx, y + h - 20, 15, C.amber, { align: 'center', literal: true });
 }

@@ -2,7 +2,7 @@
   "id": "p96_standby",
   "title": "Standby",
   "description": "A calm clock for waiting and night drives: digits that never move, outside with an ice warning, 12 V battery, range, doors, seat and wheel heating, climate, this drive and today",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "vendor": "custom",
   "loggingId": "PGS1",
   "iconGlyph": "clock",

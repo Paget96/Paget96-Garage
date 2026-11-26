@@ -339,11 +339,10 @@ function pressureArt(cv, x, y, w, h, t) {
 
 function tyreArt(cv, x, y, w, h, t) {
     const f = 0.5 - 0.5 * Math.cos(t * 0.8), cx = x + w / 2, cy = y + h / 2 - 6;
-    cv.strokeRoundRect(cx - 70, cy - 130, 140, 260, 60, 3, '#4a4e58');
-    cv.strokeRoundRect(cx - 45, cy - 60, 90, 70, 14, 2, '#3a3e48');
+    const tc0 = f > 0.6 ? C.green : f > 0.3 ? C.amber : C.blue, k = Math.min(0.95, (h - 40) / 320);
+    UI.carWithTyres(cv, cx, cy, k, { FL: tc0, FR: tc0, RL: tc0, RR: tc0 });
     [[-1, -1, 'FL'], [1, -1, 'FR'], [-1, 1, 'RL'], [1, 1, 'RR']].forEach((p) => {
-        const tx = cx + p[0] * 98, ty = cy + p[1] * 78;
-        cv.roundRect(tx - 14, ty - 36, 28, 72, 14, f > 0.6 ? C.green : f > 0.3 ? C.amber : C.blue);
+        const ty = cy + p[1] * 92 * k;
         const pr = (p[2] === 'RL' ? 2.1 : 2.2) + f * 0.22, tc = 19 + f * 16;
         const ax = cx + p[0] * 220;
         cv.text(pr.toFixed(2) + ' bar', ax, ty - 4, 22, C.text, { align: 'center', font: 'bold', literal: true });

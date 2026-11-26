@@ -517,14 +517,14 @@ function addPartBody(S, V, A) {
 function tyres(cv, S, V, A, t) {
     const lw = 700, pr = S.pressures || {}, ty = S.tyres || {};
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Pressure now' + (S.coldNow ? ' (cold)' : ''), { info: info('pressure') });
-    const cx = X0 + lw / 2, cy = TOP + 214;
-    cv.strokeRoundRect(cx - 78, cy - 148, 156, 296, 70, 3, '#3c4048');
+    const cx = X0 + lw / 2, cy = TOP + Math.round(UI.hh() / 2) + 8, ck = Math.min(1.5, (UI.hh() - 60) / 310), cols = {};
+    const tyc = (w) => (pr[w] == null ? 'dim' : ty.leak === w || ty.low === w ? 'warm' : 'ok');
+    M.WHEELS.forEach((w) => { cols[w] = col(tyc(w)); });
+    UI.carWithTyres(cv, cx, cy, ck, cols);
     [['FL', -1, -1], ['FR', 1, -1], ['RL', -1, 1], ['RR', 1, 1]].forEach((q) => {
-        const w = q[0], v = pr[w], tx = cx + q[1] * 110, ty0 = cy + q[2] * 96;
-        const c = v == null ? 'dim' : ty.leak === w || ty.low === w ? 'warm' : 'ok';
+        const w = q[0], v = pr[w], ty0 = cy + q[2] * 92 * ck;
         const v2 = v == null ? null : UI.glide('tyre|' + w, v, null, 10);
-        cv.roundRect(tx - 14, ty0 - 36, 28, 72, 14, col(c));
-        const ax = q[1] < 0 ? tx - 30 : tx + 30, al = q[1] < 0 ? 'right' : 'left';
+        const ax = cx + q[1] * 112 * ck, al = q[1] < 0 ? 'right' : 'left';
         cv.text(v2 == null ? '--' : v2.toFixed(2) + ' bar', ax, ty0 - 2, 26, C.text, { font: 'bold', align: al, literal: true });
         cv.text(w, ax, ty0 + 28, 16, C.dim, { align: al, literal: true });
     });

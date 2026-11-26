@@ -479,51 +479,6 @@ function tyreColour(p, target) {
     const d = Math.abs(p - target);
     return p < 1.6 || d > 0.3 ? C.red : d > 0.1 ? C.amber : C.green;
 }
-/*
- * A BMW 3 Series (G20) from above, nose up (owner, 2026-11-26 22:01: "da lici na bmw g20 odozgo"): the body's outline
- * smoothed through its half profile and mirrored, the glass, the mirrors, the kidney grille, the slim headlights and
- * the L-shaped tail lights. k scales it (1: 304 px long).
- */
-const G20_HALF = [[0, -152], [24, -151], [46, -146], [60, -136], [68, -118], [72, -92], [74, -60], [75, -20], [75, 30],
-    [75, 70], [74, 100], [71, 122], [64, 138], [48, 148], [24, 152], [0, 153]];
-function smoothLoop(pts, n) {
-    const out = [], L = pts.length;
-    for (let i = 0; i < L; i++) {
-        const p0 = pts[(i - 1 + L) % L], p1 = pts[i], p2 = pts[(i + 1) % L], p3 = pts[(i + 2) % L];
-        for (let t = 0; t < n; t++) {
-            const u = t / n, u2 = u * u, u3 = u2 * u;
-            out.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * u3)));
-        }
-    }
-    return out;
-}
-function g20(cv, cx, cy, k) {
-    const kx = k * 0.84;     // the G20 is 1.83 m wide and 4.71 m long
-    const P = (a) => a.map((q) => [cx + q[0] * kx, cy + q[1] * k]);
-    const right = G20_HALF, left = G20_HALF.slice(1, -1).reverse().map((q) => [-q[0], q[1]]);
-    const body = smoothLoop(right.concat(left), 4);
-    cv.fill(P(body), '#262a32');
-    cv.stroke(P(body.concat([body[0]])), 2.5 * k, '#5c636f');
-    // bonnet creases and the boot line
-    cv.stroke(P([[-26, -142], [-34, -98], [-40, -66]]), 1.5 * k, '#3a3f49');
-    cv.stroke(P([[26, -142], [34, -98], [40, -66]]), 1.5 * k, '#3a3f49');
-    cv.stroke(P([[-50, 120], [0, 126], [50, 120]]), 1.5 * k, '#3a3f49');
-    // glass: windscreen, roof, rear window
-    cv.fill(P(smoothLoop([[-58, -60], [0, -64], [58, -60], [52, -16], [0, -18], [-52, -16]], 3)), '#11151c');
-    cv.roundRect(cx - 49 * kx, cy - 12 * k, 98 * kx, 72 * k, 14 * k, '#2e333c');
-    cv.fill(P(smoothLoop([[-49, 64], [0, 62], [49, 64], [55, 100], [0, 106], [-55, 100]], 3)), '#11151c');
-    // side windows (a thin dark line along the cabin)
-    cv.stroke(P([[-62, -52], [-64, -10], [-64, 40], [-60, 92]]), 3 * k, '#11151c');
-    cv.stroke(P([[62, -52], [64, -10], [64, 40], [60, 92]]), 3 * k, '#11151c');
-    // mirrors
-    [-1, 1].forEach((sd) => cv.fill(P([[sd * 72, -54], [sd * 90, -50], [sd * 90, -40], [sd * 72, -40]]), '#3a3f49'));
-    // kidney grille and headlights
-    cv.roundRect(cx - 20 * kx, cy - 153 * k, 17 * kx, 5 * k, 2.5 * k, '#9aa1ad');
-    cv.roundRect(cx + 3 * kx, cy - 153 * k, 17 * kx, 5 * k, 2.5 * k, '#9aa1ad');
-    [-1, 1].forEach((sd) => cv.fill(P([[sd * 34, -149], [sd * 58, -140], [sd * 66, -126], [sd * 50, -136]]), '#e6eef8'));
-    // L-shaped tail lights
-    [-1, 1].forEach((sd) => cv.fill(P([[sd * 40, 150], [sd * 64, 140], [sd * 70, 124], [sd * 64, 128], [sd * 58, 138], [sd * 40, 145]]), '#e0302c'));
-}
 function pageTyres(cv, m) {
     const U = units(m), ty = m.v.tyres || { p: {}, t: {} }, p = ty.p || {}, tt = ty.t || {}, target = m.setting('tyreTarget');
     // left: the car from above, each tyre's pressure and temperature
@@ -531,10 +486,9 @@ function pageTyres(cv, m) {
     UI.card(cv, L, T, lw, UI.hh(), 'Tyres now', { info: INFO.tyresNow });
     const cx = L + lw / 2, cy = T + Math.round(UI.hh() / 2) + 8;
     const ck = Math.min(1.5, (UI.hh() - 60) / 310);
-    const WH = [['FL', -1, -1], ['FR', 1, -1], ['RL', -1, 1], ['RR', 1, 1]];
-    // the tyres first: the body covers their inner half, as seen from above
-    WH.forEach((w) => cv.roundRect(cx + w[1] * 67 * ck - 12 * ck, cy + w[2] * 92 * ck - 30 * ck, 24 * ck, 60 * ck, 10 * ck, tyreColour(p[w[0]], target)));
-    g20(cv, cx, cy, ck);
+    const WH = [['FL', -1, -1], ['FR', 1, -1], ['RL', -1, 1], ['RR', 1, 1]], cols = {};
+    WH.forEach((w) => { cols[w[0]] = tyreColour(p[w[0]], target); });
+    UI.carWithTyres(cv, cx, cy, ck, cols);
     WH.forEach((w) => {
         const k = w[0], wy = cy + w[2] * 92 * ck;
         const tx = cx + w[1] * 112 * ck, al = w[1] < 0 ? 'right' : 'left';

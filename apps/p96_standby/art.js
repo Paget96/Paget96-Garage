@@ -125,13 +125,13 @@ function rangeArt(cv, x, y, w, h, t) {
 
 /** The car from above: doors swing open and shut, the windows, the lock. */
 function doorsArt(cv, x, y, w, h, t) {
-    const cx = x + w / 2, cy = y + h / 2 - 10, bw = 130, bh = 260;
-    cv.strokeRoundRect(cx - bw / 2, cy - bh / 2, bw, bh, 40, 4, GREY);
-    cv.strokeRoundRect(cx - bw / 2 + 18, cy - 60, bw - 36, 120, 16, 3, DARK);
+    const cx = x + w / 2, cy = y + h / 2 - 10, k = Math.min(0.95, (h - 60) / 320), side = 63 * 0.84 * k;
+    UI.carTop(cv, cx, cy, k);
     const open = ease(tri(t, 4));
-    [[-1, -40], [1, -40], [-1, 40], [1, 40]].forEach((d, i) => {
-        const ang = (i === 0 ? open : 0) * 0.9, hx = cx + d[0] * bw / 2, hy = cy + d[1] - 30;
-        cv.line(hx, hy, hx + d[0] * 58 * Math.sin(ang), hy + 58 * Math.cos(ang), 6, i === 0 && open > 0.1 ? C.amber : C.green);
+    // the four doors along the sides (front from -52, rear from 8, as long as the cabin); the driver's swings open
+    [[-1, -52], [1, -52], [-1, 8], [1, 8]].forEach((d, i) => {
+        const ang = (i === 0 ? open : 0) * 0.9, hx = cx + d[0] * side, hy = cy + d[1] * k, L = 56 * k;
+        cv.line(hx, hy, hx + d[0] * L * Math.sin(ang), hy + L * Math.cos(ang), 5, i === 0 && open > 0.1 ? C.amber : C.green);
     });
     const locked = open < 0.05;
     cv.text(locked ? 'all closed, locked' : 'driver door open', cx, y + h - 26, 16, locked ? C.green : C.amber, { font: 'bold', align: 'center', literal: true });

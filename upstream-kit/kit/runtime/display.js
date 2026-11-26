@@ -882,7 +882,9 @@ class Display {
         }
         // the page button (or row) the controller is on, and one just pressed
         const k = pl.scale, onPage = (key) => !this.sheet && key && (this.pageTargets || []).find((q) => 'tgt:' + q.key === key);
-        const pt = onPage(this.focusKey), pp = Date.now() - this.pressedT < 300 && onPage(this.pressed);
+        const pt = onPage(this.focusKey), pp0 = Date.now() - this.pressedT < 300 && onPage(this.pressed);
+        // no flash over a target as big as a page (a tap anywhere to wake): it would tint the whole screen
+        const pp = pp0 && pp0.w * pp0.h < 160000 ? pp0 : null;
         if (pp) c.roundRect(pp.x * k + pl.ox, pp.y * k + pl.oy, pp.w * k, pp.h * k, (pp.r != null ? pp.r : pp.h / 2) * k, G.withAlpha(t.sel || t.accent, 0.35));
         // the controller on a page that scrolls: a frame round the page; on a list (cv.scroll = { y, bar }) its
         // scroll bar in the colour of the selection (bar: where the page drew it, so it moves with the list)
@@ -919,7 +921,9 @@ class Display {
         const pl = this.place, W = pl.w, hx = HMI.left - pl.x;
         this.headEnd = hx; c.tabRects = [];
         const k = pl.scale, onPage = (key) => !this.sheet && key && (this.pageTargets || []).find((q) => 'tgt:' + q.key === key);
-        const pt = onPage(this.focusKey), pp = Date.now() - this.pressedT < 300 && onPage(this.pressed);
+        const pt = onPage(this.focusKey), pp0 = Date.now() - this.pressedT < 300 && onPage(this.pressed);
+        // no flash over a target as big as a page (a tap anywhere to wake): it would tint the whole screen
+        const pp = pp0 && pp0.w * pp0.h < 160000 ? pp0 : null;
         if (pp) c.roundRect(pp.x * k + pl.ox, pp.y * k + pl.oy, pp.w * k, pp.h * k, (pp.r != null ? pp.r : pp.h / 2) * k, G.withAlpha(t.sel || t.accent, 0.35));
         if (pt) {
             const S = t.sel || t.accent, fx = pt.x * k + pl.ox, fy = pt.y * k + pl.oy, fw = pt.w * k, fh = pt.h * k, fr = (pt.r != null ? pt.r : pt.h / 2) * k;
