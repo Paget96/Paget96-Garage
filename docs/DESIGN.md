@@ -10,6 +10,14 @@ Reference, drawn as the target: ![Reference](design/ui-B-final.png)
 The same page drawn by `lib/ui.js` (`node tools/ui_demo.js`, the head unit's software path):
 ![lib/ui.js](design/ui-demo.png)
 
+The other standard pieces, drawn the same way:
+
+| Chart axes and card charts | Info popup |
+|---|---|
+| ![Charts](design/ui-demo-chart.png) | ![Info popup](design/ui-demo-popup.png) |
+| **How to use** | **Settings** |
+| ![How to use](design/ui-demo-help.png) | ![Settings](design/ui-demo-settings.png) |
+
 ## Layout (1600 x 520)
 
 | Part | Where | Look |
@@ -18,9 +26,9 @@ The same page drawn by `lib/ui.js` (`node tools/ui_demo.js`, the head unit's sof
 | App name | top left, x 28, baseline 44 | bold 24, orange, soft orange glow |
 | Tabs | glass bar x 270 to 1170, y 12, 56 high | pills; the selected one filled orange with a glow and dark text, the others dim. Many tabs scroll sideways: the ends fade out, round-ended arrows (left, right) show where there is more, position dots sit under the bar, the selected tab glides into view, and the iDrive knob goes through all tabs |
 | Status pill | glass pill 130 x 44, left of the two buttons (x 1250) | a dot and LIVE (green) or demo |
-| How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in the accent, no labels under them (owner, 17:17). Both pages are mandatory in every app |
+| How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in the accent colour, no labels under them; on its own page a button is lit (filled, dark glyph). Both pages are mandatory in every app |
 | Hero ring | left column, centre (200, 300), r 150 | dark track, orange arc with glow over 270 degrees, the number large in the middle, a unit line, an uppercase label below. Only where an app has one main number |
-| Cards | right of the ring, 3 x 2, 386 x 200, 14 px apart | glass: white 6 % fill, 10 % outline, radius 22; uppercase dim label, a dim (i) top right, big condensed number, small unit, a coloured one-line status, a sparkline on the right under the (i) |
+| Cards | right of the ring, 3 x 2, 386 x 200, 14 px apart | glass: white 6 % fill, 10 % outline, radius 22; uppercase dim label, big condensed number, small unit, a coloured one-line status, a sparkline on the right |
 
 Status colours: green (70,210,130) ok, amber (255,186,70) warming, orange (255,128,40) accent, dim
 (140,148,160) neutral, red bad, blue info. Text (236,240,245).
@@ -38,35 +46,108 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | `nextTab(sel, n, step)` | the next or previous tab, round the end (for an app that turns the knob itself) |
 | `header(cv, { status, statusColor, onHelp, onSettings })` | status pill and the How to use and Settings buttons |
 | `status(cv, label, note, color)` | LIVE / demo as plain text (a page without the header) |
-| `bar(cv, x, y, w, h, frac, color)` | a progress bar with round ends |
+| `bar(cv, x, y, w, h, frac, color, key)` | a progress bar with round ends; with a key the fill glides |
 | `curve(cv, pts, width, color)` | a smoothed line with round caps and joins |
-| `card(cv, x, y, w, h, label, r, onInfo)` | a glass card with the (i) top right; `onInfo` makes the card a target that opens its popup, `false` leaves the (i) out |
-| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, onInfo })` | a stat card with sparkline |
-| `ring(cv, cx, cy, r, { value, min, max, text, unit, label, color })` | the hero ring (the arc glides) |
+| `card(cv, x, y, w, h, label, { info })` | a glass card; with `info` a small (i) top right and the whole card opens the info popup |
+| `stat(cv, x, y, w, h, { label, value, decimals, unit, sub, color, history, info, minSpan, seq })` | a stat card: the number glides, the small chart is a strip under it with its range and time span |
+| `ring(cv, cx, cy, r, { value, min, max, text, unit, label, color, scale, target, info })` | the hero ring: the arc and number glide; optional scale and target mark |
 | `pill(cv, x, y, text, color, filled)` | a status pill |
-| `chart(cv, x, y, w, h, series, { label, min, max, onInfo })` | a chart card: grid, lines, a soft fill under the first |
-| `infoPopup(cv, { title, sections, art, since, onClose })` | a card's info popup over the page: animation left, text right, close X and Got it |
-| `helpPage(cv, { topics, sel, onSelect, onClose, since })` | the How to use page: topics, animation, text, close X |
-| `explain`, `wrap`, `button`, `infoDot` | the parts: sections of wrapped text, word wrap, the filled accent button, the (i) |
+| `chart(cv, x, y, w, h, series, { label, info, min, max, yTicks, yUnit, xLabels, legend, note, seq })` | a chart card with axes: round y numbers with the unit on the top one, x labels, a legend |
+| `segmented(cv, right, cy, options, value, onChange)` | a segmented choice; the selected pill slides |
+| `toggle(cv, right, cy, on, onChange)` | a switch; the knob slides |
+| `stepper(cv, right, cy, value, { decimals, unit, onMinus, onPlus })` | minus, the value, plus |
+| `infoPopup(cv, info, t)`, `openInfo(info)`, `closeInfo()`, `overlay(cv, t)` | the info popup (below) |
+| `howToUse(cv, topics, sel, t, opts)` | the whole How to use page (below) |
+| `settingsPage(cv, appRows, values, onChange, opts)` | the whole Settings page (below); `DISPLAY_SETTINGS`, `DISPLAY_DEFAULTS` |
+| `niceRange(lo, hi, n)`, `fmtTick(v, step)`, `wrap(cv, text, size, width)`, `anim(key, target, ms)`, `glide(key, v)` | helpers for new widgets |
 | `spark`, `glass`, `glowRoundRect`, `glowArc`, `glowText` | the parts, for new widgets |
 
-## Explaining every card (owner, 17:35)
+## Smooth motion at 60 fps
 
-Every card has a small dim (i) top right (`card()`, `stat()`, `chart()` draw it). Tapping the card
-opens its popup, `infoPopup()`: the page dims, an animation on the left shows what the value is and
-how it works, plain text on the right says what it is, where it comes from, why it matters and its
-normal values (`sections: [{ head, text }]`), with a close X and a Got it button. The How to use page
-behind the ? button, `helpPage()`, uses the same pattern on a whole page: up to 6 topics on the left,
-the topic's animation in the middle, its explanation on the right, a close X where Settings sits.
+Owner, 2026-11-26 17:48: every chart, progress bar, ring, number change, popup, tab change and animation
+is smooth at 60 fps. Nothing jumps.
 
-An app keeps the open popup or topic in its own state and draws the overlay last. Both take the knob
-and touches while open: they drop the page's targets under them. `art(cv, x, y, w, h, t)` draws the
-animation each frame, `t` in seconds since `since` (the ms the popup or topic opened), so it starts
-from the beginning. Without `art` a pulsing (i) stands in. Text goes through the translations before
-it is wrapped, so whole sentences are translated.
+- Numbers, rings and bars glide to a new value (the kit's spring, `gauges.smooth`). Pass `smooth: false`
+  for a value that must show the exact sample.
+- Charts move instead of redrawing in steps: give `seq`, the number of the newest sample, and when it goes
+  up the lines slide left by one step. A small chart's range glides too.
+- The selected tab pill slides to the new tab; a segmented choice slides its pill; a switch slides its knob
+  and fades its track.
+- The info popup fades and scales in and out over about 200 ms.
+- Motion is time based, so it looks the same at 15, 30 or 60 fps.
 
-![Info popup](design/ui-demo-popup.png)
-![How to use](design/ui-demo-help.png)
+To keep 60 fps on the head unit, everything static is a cached layer, a frame records only what moves,
+and the line drawing reuses its point buffers instead of making new arrays every frame. A new widget
+follows the same rules.
+
+## Every chart shows its values
+
+Owner, 2026-11-26 17:33: axes with numbers and units on every chart.
+
+- `chart()`: the y axis is rounded out to whole steps of 1, 2, 2.5 or 5 (`yTicks` is about how many), the
+  numbers sit left of the grid and the top one carries the unit (`yUnit`, "3 bar"). `xLabels` are spread
+  under the plot ("0 s" .. "12 s", "-10 min" .. "now"). Named series get a legend at the bottom or, with
+  `legend: 'right'`, in a column on the right with an optional `note` under it.
+- `stat()`: the small chart is a strip across the card under the value, with its top and bottom value on
+  the left and "-60 s" and "now" under it (`spanLabel`, `nowLabel`). It never zooms in past `minSpan`
+  (default 2) or 1 % of the value, so a tiny wobble does not look like a big swing.
+- `ring()`: `scale: { step, decimals }` (or a list of values) draws ticks and numbers outside the arc;
+  `target` marks a value across the track with a round-ended line.
+
+## The (i) and the info popup
+
+Owner, 2026-11-26 17:35: every card has a small (i) top right. Give a card, stat, chart or ring an `info`:
+
+```js
+const info = {
+    label: 'Charge air', title: 'The air that goes into the engine',
+    text: 'Where it is measured and how it works.\n\nWhy it matters.',   // paragraphs split by a blank line
+    note: 'Normal: 10 to 25 °C above the outside air under load.',
+    draw: (cv, x, y, w, h, t) => { /* the illustration; t in seconds, so it can animate */ },
+};
+UI.stat(cv, x, y, w, h, { label: 'Charge air', value: 38, unit: '°C', info: info });
+// ... the rest of the page, then, last in the frame:
+UI.overlay(cv, t);
+```
+
+The whole card is then a touch and knob target. Tapping it opens the popup: the page dimmed, a panel with
+the illustration on the left and the label, heading, text and note on the right, a round X and a "Got it"
+button, both of which close it. While it is open only those two can be pressed. `infoPopup(cv, info, t)`
+draws it directly (fully open), for a preview or an app that keeps its own state. An app that keeps the
+popup in its own state passes `onInfo` (a function) instead of `info`; `info.sections` (`[{ head, text }]`)
+works in place of `text` and `info.art` in place of `draw`.
+
+Every card in every app gets an `info`: the rule is an (i) on every card, and an (i) that opens nothing
+would be a dead control, so the (i) is drawn exactly when there is something to open.
+
+## How to use
+
+`howToUse(cv, topics, sel, t, { title, onSelect, onBack, onSettings })` draws the whole page: a back pill
+"How to use" in place of the tabs, the ? button lit, the topics on the left (numbered, the selected one
+slides), the topic's illustration in the middle (`topic.draw(cv, x, y, w, h, t)`, animated) and its text
+on the right, with a note in amber and, at the bottom, the credit line "Paget96 Garage by Danijel Markov
+(Paget96)" that every copy keeps (NOTICE). `topics = [{ title, text, note, draw }]`.
+
+## Settings
+
+`settingsPage(cv, appRows, values, onChange, { title, appLabel, onBack, onHelp })` draws the whole page:
+a back pill "Settings", the gear lit, the Display card on the left and the app's own card on the right.
+
+The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DISPLAY_SETTINGS`:
+
+| Key | Setting | Choices | Default |
+|---|---|---|---|
+| `renderer` | Renderer | GPU (`auto`) / Software | GPU |
+| `fps` | Frame rate | 15 / 30 / 60 fps | 60 |
+| `followAmbient` | Follow ambient lighting | switch | on |
+| `demo` | Demo data | Auto / On / Off | Auto |
+
+The entries have the shape upstream apps use for `"settings"` in `app.json` (`key`, `label`, `type`,
+`default`, `options`), so an app copies them there, first, and adds its own after them. `hint` is the
+line under the name on this page. App rows use the same shape: `type` `choice` (a segmented choice),
+`bool` (a switch) or `number` (a stepper through `steps`, or `min`, `max`, `step`, with `unit` and
+`decimals`). A missing value shows the default; every control calls `onChange(key, value)`.
+`UI.DISPLAY_DEFAULTS` holds the defaults by key.
 
 ## Round ends everywhere
 
@@ -81,8 +162,7 @@ square ends anywhere.
 Everything static (background, title, tab bar per selection, card glass and label, ring track and
 label, chart grid) is a cached layer (`gauges.layer`), drawn into a texture once; a frame records only
 numbers, sparklines and the ring's arc. `tools/ui_demo.js` reports the recording time of a frame
-(about 0.5 ms on a laptop for the reference page, 2980 words) and also draws the popup and the How to
-use page (`docs/design/ui-demo-popup.png`, `docs/design/ui-demo-help.png`).
+(about 0.3 ms on a PC for the reference page).
 
 **In an app** the file ships as `garage_ui.js` beside `main.js` (`tools/build.py` copies it):
 `const UI = require('./garage_ui');`. Node 8 only syntax.
