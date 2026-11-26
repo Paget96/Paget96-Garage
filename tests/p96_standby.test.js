@@ -199,6 +199,25 @@ test('pages: with the menu faded the tabs and buttons are no targets, a tap anyw
     const w = rec.targets.filter((q) => q.key === 'sbwake')[0];
     assert.ok(w && w.y === 0 && w.h === 520);
 });
+test('pages: the Seats and wheel card draws the wheel only when the car reports wheel heating', () => {
+    const drawn = (v) => {
+        const rec = new Recorder(1600, 520), text = rec.text.bind(rec), out = [];
+        rec.text = (str, x, y, size, c, o) => { out.push([String(str), c]); return text(str, x, y, size, c, o); };
+        const card = P.glanceCards(v).filter((c) => /Seats|wheel/i.test(c.label || ''))[0];
+        assert.ok(card, 'the card');
+        card.extra(rec, 28, 112, 760, 180);
+        return out;
+    };
+    const base = { seats: { DR: 3, PS: 0 }, drives: new M.Drives() };
+    const off = drawn(Object.assign({ wheel: false, has: (k) => k === 'seats' || k === 'wheel' }, base));
+    assert.ok(off.some((d) => d[0] === 'wheel' && d[1] !== '#ff8028'), 'grey wheel when off');
+    const on = drawn(Object.assign({ wheel: true, has: (k) => k === 'seats' || k === 'wheel' }, base));
+    assert.ok(on.some((d) => d[0] === 'wheel' && d[1] === '#ff8028'), 'orange wheel when on');
+    const lvl = drawn(Object.assign({ wheel: true, wheelLevel: 2, has: (k) => k === 'seats' || k === 'wheel' || k === 'wheelLevel' }, base));
+    assert.ok(lvl.some((d) => d[0] === 'wheel 2'), 'its level');
+    const none = drawn(Object.assign({ has: (k) => k === 'seats' }, base));
+    assert.ok(!none.some((d) => /^wheel/.test(d[0])), 'no wheel without wheel heating');
+});
 test('pages: Settings and How to use draw', () => {
     const v = { has: () => false, drives: new M.Drives(), seats: {} };
     ['settings', 'help'].forEach((p) => { const rec = new Recorder(1600, 520); P.draw(rec, v, Object.assign({}, baseSt, { page: p }), 1, ACT); });

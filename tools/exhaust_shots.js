@@ -70,7 +70,9 @@ function state() {
     if (regenNow) S.regen = DEMO.regenNow();
     return S;
 }
-const V = { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when', values: {} };
+const V = { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when',
+    // the shots are demo data: Demo data On, so the header shows the DEMO pill and every card says DEMO (D26)
+    values: { demo: 'on', demoCar: (CAR || E.demoCar('b48')).id } };
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
 V.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_exhaust/app.json'), get: () => undefined }));
 const noop = () => {};

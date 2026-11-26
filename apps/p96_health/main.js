@@ -86,9 +86,9 @@ mgu.run({
         let linkReady = null;
         const getLink = () => linkReady || (linkReady = link.init().catch((e) => { log.warn('diagnostic link: ' + e); return link; }));
 
-        const demoSetting = () => settings.get('demo') || 'auto';
         UI.T.source(() => settings.get('timeZone'));   // times shown in the car's zone (Display card, Time zone)
-        const useDemo = () => demoSetting() === 'on' || (demoSetting() === 'auto' && live.rpm == null && live.units == null && !link.available);
+        // Demo data is On or Off, Off by default; it never turns on by itself (owner, 2026-11-26 20:20, D26)
+        const useDemo = () => UI.demoOn(settings.get('demo'));
 
         /* ---------- broadcast signals, always ---------- */
         let lastSpeedT = 0;
@@ -564,6 +564,8 @@ mgu.run({
             settings: () => { V.mode = V.mode === 'settings' ? 'main' : 'settings'; changed(); },
             helpTopic: (i) => { V.helpSel = i; changed(); },
             setting: (k, v) => { settings.set(k, v, 'user'); changed(); },
+            // the DEMO pill in the header: tapped (or pressed with the knob), the demo goes off at once
+            demoOff: () => { settings.set('demo', 'off', 'user'); changed(); },
             save: () => {
                 try { saveReport(); faultMsg = savedText; faultMsgColor = 'ok'; } catch (e) { faultMsg = 'Report not saved: ' + e.message; faultMsgColor = 'bad'; }
                 changed();

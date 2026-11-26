@@ -94,7 +94,10 @@ class Model {
         if ((v === undefined || v === null) && k === 'boostTarget' && this.isDemo()) { const c = E.demoCar(this.setting('demoCar')); if (c.boost && c.id !== 'b48') return Math.round((c.boost - 0.05) * 20) / 20; }
         return v === undefined || v === null ? DEFAULTS[k] : v;
     }
+    /** Demo data on (the setting, D26): never by itself. */
     isDemo() { return !!(this.o.demo && this.o.demo()); }
+    /** The car answers (or the demo runs): LIVE in the header, else WAIT. */
+    isLive() { return this.isDemo() || !!(this.o.live && this.o.live()); }
     log() { return this.isDemo() && this.demoLog ? this.demoLog : this.real; }
 
     _demoOn(t) {
@@ -197,6 +200,6 @@ const APP_ROWS = [
 ];
 const DEFAULTS = {};
 APP_ROWS.forEach((r) => { DEFAULTS[r.key] = r.default; });
-Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, layout: 'full', followAmbient: true, demo: 'auto', demoCar: 'b48' });
+Object.assign(DEFAULTS, { renderer: 'auto', fps: 60, layout: 'full', followAmbient: true, demo: 'off', demoCar: 'b48' });
 
 module.exports = { Model, APP_ROWS, DEFAULTS, FIELDS, HIST, demoHas };

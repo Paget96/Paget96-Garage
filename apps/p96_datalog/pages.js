@@ -122,7 +122,9 @@ function head(cv, m) {
     UI.tabs(cv, tabs, tabs.indexOf(m.ui.page), { onSelect: (i) => { m.ui.page = tabs[i]; } });
     UI.title(cv, NAME);
     UI.header(cv, {
-        status: m.v.demo ? 'DEMO' : 'LIVE', statusColor: m.v.demo ? 'warm' : 'ok',
+        status: m.isLive() ? 'LIVE' : 'WAIT', statusColor: m.isLive() ? 'ok' : 'dim',
+        // the DEMO pill in LIVE's place while the demo is on; tapped, the demo goes off at once (D26)
+        demo: m.isDemo(), onDemo: () => { if (m.settings && m.settings.set) m.settings.set('demo', 'off', 'user'); },
         onHelp: () => { m.ui.view = 'help'; }, onSettings: () => { m.ui.view = 'settings'; },
     });
 }
@@ -670,7 +672,7 @@ function draw(cv, m, t) {
     const ui = m.ui;
     ART.setEngine(m.car());
     if (ui.view === 'help') {
-        const topics = TOPICS.filter((tp) => !tp.needs || m.has(tp.needs)).concat([UI.REPORT_TOPIC]);
+        const topics = TOPICS.filter((tp) => !tp.needs || m.has(tp.needs)).concat([UI.DEMO_TOPIC, UI.REPORT_TOPIC]);
         if (ui.topic >= topics.length) ui.topic = 0;
         UI.howToUse(cv, topics, ui.topic, t, { title: NAME, onSelect: (i) => { ui.topic = i; },
             onBack: () => { ui.view = 'main'; }, onSettings: () => { ui.view = 'settings'; } });

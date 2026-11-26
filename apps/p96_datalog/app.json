@@ -126,21 +126,20 @@
       "key": "demo",
       "label": "Demo data",
       "type": "choice",
-      "default": "auto",
+      "default": "off",
       "options": [
         [
-          "auto",
-          "Auto"
+          "off",
+          "Off"
         ],
         [
           "on",
           "On"
-        ],
-        [
-          "off",
-          "Off"
         ]
-      ]
+      ],
+      "aliases": {
+        "auto": "off"
+      }
     },
     {
       "key": "timeZone",

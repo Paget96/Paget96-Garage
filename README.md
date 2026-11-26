@@ -182,7 +182,7 @@ Demo car shows each layout.
 | Electric: the speed ring in place of the boost | ![](docs/media/cars/datalog-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
+Follow ambient lighting, Demo data (Off or On, Off by default; while it is on the header says DEMO, tap it to turn it off), Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Datalog's own: Run length (201 m, 402 m or 1/2 mile), Boost target (the
 mark on the boost ring, 1.45 bar by default), Tyre target (hot, 2.40 bar by default, the Tyres page compares with it)
 and Units (metric or imperial).
 
@@ -196,7 +196,7 @@ to your mechanic as a QR code that any phone camera reads.
 
 Health shows only what your car reports: a page, card, chart line, setting or button appears once your car
 answers it (found the first time, remembered for that car). A car without tyre pressure sensors has no Tyres page,
-and only the service items the car itself can reset get a Reset. The screenshots use demo data, which shows everything.
+and only the service items the car itself can reset get a Reset. The screenshots use demo data (Demo data On, so the header shows the amber DEMO pill and every card says DEMO), which shows everything.
 
 ![Health working](docs/media/p96_health/demo.gif)
 
@@ -283,7 +283,7 @@ Engine page and no engine items in Service. Settings, Demo car shows each layout
 | Diesel: rough running and the rail pressure | ![](docs/media/cars/health-engine-b57-diesel.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
+Follow ambient lighting, Demo data (Off or On, Off by default; while it is on the header says DEMO, tap it to turn it off), Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
@@ -314,8 +314,8 @@ a warm dark colour. Standby only reads.
 - **Clock:** every digit in a slot as wide as the widest digit, so nothing shifts when a minute
   passes. Under it the date, outside (blue when ice is possible), the 12 V battery and the range.
 - **Glance:** outside with the ice warning (possible below 3 °C, likely below 0 °C), the 12 V battery,
-  range and fuel, doors (windows and the lock where the car sends them), seat and steering wheel
-  heating, the climate.
+  range and fuel, doors (windows and the lock where the car sends them), seat heating (a level per seat) and
+  the steering wheel (a small wheel, orange while its heating is on), the climate.
 - **Last drive:** this drive or the last one (distance, time, average, fuel, outside) and every drive
   of today on one line.
 
@@ -358,7 +358,7 @@ anything on the car. A Setup page records what your exhaust has, and the drawing
 
 Exhaust shows only what your car reports: the Flap pages appear when the engine unit answers for an electric
 flap, the filter pages when it reports soot or load, and a rule can only use a value your car sends. The
-screenshots use demo data, which shows everything.
+screenshots use demo data (Demo data On, so the header shows the amber DEMO pill and every card says DEMO), which shows everything.
 
 ![Exhaust working](docs/media/p96_exhaust/demo.gif)
 
@@ -433,7 +433,7 @@ car has no exhaust: the app says so on its one page and reads nothing. Settings,
 | Electric: no exhaust | ![](docs/media/cars/exhaust-electric.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Follow ambient lighting, Demo data (Off or On, Off by default; while it is on the header says DEMO, tap it to turn it off), Time zone (Auto, or a zone from the list), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
 
@@ -454,6 +454,10 @@ Every Paget96 Garage app follows the same rules, so once you know one, you know 
 - **Every engine.** Three to eight cylinders, one or two turbos, a V8 with two engine units, diesels, plug-in
   hybrids and electric cars: each app finds the engine from the car's own answers (cylinder count, engine units,
   fuel) and lays its pages out for it, never for one car. Each app's "Works with" says what differs.
+- **Real data unless you choose demo.** Demo data in Settings is Off or On, and Off by default: the app shows
+  only what your car sends, or WAIT and empty cards until it answers. Nothing turns the demo on by itself. While
+  it is on, an amber DEMO pill sits where LIVE does and every card says DEMO; tap the pill (or press the knob on
+  it) and the car's own values are back at once. Demo car picks which engine the samples show.
 - **Colours mean something.** Green is fine, amber look at it soon, red now. The accent follows your
   front ambient light, but data colours never change.
 - **Read first.** The apps read what the car already reports. The only things they ever change, and

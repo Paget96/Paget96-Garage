@@ -49,7 +49,9 @@ function state() {
     S.downBecause = 'the rear left tyre and the stored charge air fault.';
     return S;
 }
-const V = { page: 0, mode: 'main', mem: 'fault', unit: null, first: 0, detail: null, histSel: 0, dialog: null, helpSel: 0, values: {} };
+const V = { page: 0, mode: 'main', mem: 'fault', unit: null, first: 0, detail: null, histSel: 0, dialog: null, helpSel: 0,
+    // the shots are demo data: Demo data On, so the header shows the DEMO pill and every card says DEMO (D26)
+    values: { demo: 'on', demoCar: (CAR || E.demoCar('b48')).id } };
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
 V.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_health/app.json'), get: () => undefined }));
 const noop = () => {};

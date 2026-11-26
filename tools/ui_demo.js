@@ -114,7 +114,8 @@ function head(cv, sel) {
     UI.background(cv);
     UI.tabs(cv, TABS, sel, { w: 900, onSelect: () => {} });
     UI.title(cv, 'RACE DAY');
-    UI.header(cv, { status: 'LIVE', statusColor: 'ok', onHelp: () => {}, onSettings: () => {} });
+    // sample values: Demo data On, so the DEMO pill sits where LIVE does and every card says DEMO (D26)
+    UI.header(cv, { status: 'LIVE', statusColor: 'ok', demo: true, onDemo: () => {}, onHelp: () => {}, onSettings: () => {} });
 }
 function mainPage(cv) {
     head(cv, 4);
@@ -159,7 +160,7 @@ const APP_ROWS = [
     { key: 'units', label: 'Units', hint: 'Speed, pressure and temperature', type: 'choice', default: 'metric', options: [['metric', 'Metric'], ['imperial', 'Imperial']] },
 ];
 function settingsPage(cv) {
-    UI.settingsPage(cv, APP_ROWS, {}, () => {}, { title: 'RACE DAY', appLabel: 'Race Day', onBack: () => {}, onHelp: () => {}, onReport: () => {} });
+    UI.settingsPage(cv, APP_ROWS, { demo: 'on' }, () => {}, { title: 'RACE DAY', appLabel: 'Race Day', onBack: () => {}, onHelp: () => {}, onReport: () => {} });
 }
 
 function render(draw, file, t) {

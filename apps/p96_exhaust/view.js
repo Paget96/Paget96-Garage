@@ -95,8 +95,8 @@ function frame(cv, S, V, A) {
     const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
     UI.tabs(cv, pages.map((i) => names[i]), pages.indexOf(V.page), { onSelect: (i) => A.tab(pages[i]) });
     UI.title(cv, 'EXHAUST');
-    const st = S.demo ? ['DEMO', 'info'] : S.live ? ['LIVE', 'ok'] : ['WAIT', 'dim'];
-    UI.header(cv, { status: st[0], statusColor: st[1], onHelp: A.help, onSettings: A.settings });
+    const st = S.live || S.demo ? ['LIVE', 'ok'] : ['WAIT', 'dim'];
+    UI.header(cv, { status: st[0], statusColor: st[1], demo: !!S.demo, onDemo: A.demoOff, onHelp: A.help, onSettings: A.settings });
 }
 
 /* ---------- Now ---------- */
@@ -542,7 +542,7 @@ let topicsFor = null;
 function helpTopics() {
     if (!topics || topicsFor !== fname()) {
         topicsFor = fname();
-        topics = T.TOPICS.map((tp) => Object.assign({}, tp, { title: forEngine(tp.title), text: forEngine(tp.text), draw: ART.artFor(tp.art) }));
+        topics = T.TOPICS.map((tp) => Object.assign({}, tp, { title: forEngine(tp.title), text: forEngine(tp.text), draw: ART.artFor(tp.art) })).concat([UI.DEMO_TOPIC]);
         topics.push({ title: 'Which cars', art: 'path', text: T.WORKS_WITH, draw: ART.artFor('path') });
         topics.push(UI.REPORT_TOPIC);
     }

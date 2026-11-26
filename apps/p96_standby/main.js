@@ -120,7 +120,11 @@ mgu.run({
                 statusSeatHeatingDR: (v) => { const l = M.seatLevel(M.one(v, 'statusSeatHeaterDR')); if (l !== null) { live.seats.DR = l; put('seats', live.seats); } },
                 statusSeatHeatingPS: (v) => { const l = M.seatLevel(M.one(v, 'statusSeatHeaterPS')); if (l !== null) { live.seats.PS = l; put('seats', live.seats); } },
             }],
-            ['de.bmw.body.steeringwheelcomfort.SteeringWheelClimate', { heatingState: (v) => { const h = M.one(v, 'heating'); if (typeof h === 'boolean') put('wheel', h); } }],
+            ['de.bmw.body.steeringwheelcomfort.SteeringWheelClimate', { heatingState: (v) => {
+                const h = M.one(v, 'heating'); if (typeof h === 'boolean') put('wheel', h);
+                // a level, where the car sends one with the state (unsure which cars do): shown under the wheel
+                const l = M.one(v, 'level'); if (typeof l === 'number' && l >= 0 && l < 15) put('wheelLevel', l);
+            } }],
             ['de.bmw.infotainment.climate.climatemaster.ClimateMaster', {
                 statusClimateSystemOn: (v) => { const on = anyOn(v, 'airConditioningOn'); if (on !== null) put('climate', on); },
                 statusAirCondAC: (v) => { const on = anyOn(v, 'acButton'); if (on !== null) live.ac = on; },
@@ -144,13 +148,11 @@ mgu.run({
                 .catch((e) => log.warn('signal ' + short + ': ' + (e && e.message || e)));
         });
         const carPresent = () => lastCar > 0 || subs.some((s) => s.available);
-        function usingDemo() {
-            const d = val('demo');
-            return d === 'on' || (d === 'auto' && !carPresent() && now() - t0 > 5000);
-        }
+        // Demo data is On or Off, Off by default; it never turns on by itself (owner, 2026-11-26 20:20, D26)
+        const usingDemo = () => UI.demoOn(val('demo'));
 
         /* ---------- the screen state ---------- */
-        const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'LIVE', statusColor: 'ok', now: 0, menuA: 1, nightP: 0 };
+        const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'WAIT', statusColor: 'dim', demo: false, now: 0, menuA: 1, nightP: 0 };
         st.report = Report.forApp(ctx);  // Settings, Send a report (lib/report.js)
         let lastTap = now(), shown = false;
         const touch = () => { lastTap = now(); };
@@ -216,6 +218,8 @@ mgu.run({
             topic: (i) => { st.topic = i; },
             set: (k, v) => settings.set(k, v, 'user'),
             wake: () => touch(),
+            // the DEMO pill (or badge, with the menu hidden): tapped or pressed, the demo goes off at once
+            demoOff: () => { settings.set('demo', 'off', 'user'); touch(); },
         };
         ui.onClick('BTN_PAGE', () => go(st.tab + 1));
         ui.onClick('BTN_PREV', () => go(st.tab - 1));
@@ -232,7 +236,8 @@ mgu.run({
             last = t;
             keys.forEach((k) => { st.settings[k] = val(k); });
             const d = usingDemo();
-            st.status = d ? 'DEMO' : 'LIVE'; st.statusColor = d ? 'info' : 'ok'; st.now = t;
+            const on = d || carPresent();
+            st.demo = d; st.status = on ? 'LIVE' : 'WAIT'; st.statusColor = on ? 'ok' : 'dim'; st.now = t;
             st.menuA = M.menuAlpha(lastTap, t, st.settings.menuDelay);
             st.nightP = UI.anim('sbnight', M.isNight(String(st.settings.night), d ? null : live.carNight, UI.T.carTime(t)) ? 1 : 0, 1500);
             const cv = ctx.canvas(W, H);

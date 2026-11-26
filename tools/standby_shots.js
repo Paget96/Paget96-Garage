@@ -37,10 +37,11 @@ function values(t) {
     v.outsideHist = hist.outside; v.voltsHist = hist.volts; v.drives = drives; v.has = (k) => v[k] !== undefined && v[k] !== null;
     return v;
 }
-const st = { page: 'main', tab: 0, topic: 0, settings: Object.assign({}, P.DEFAULTS), status: 'DEMO', statusColor: 'info', now: T0, menuA: 1, nightP: 0 };
+const st = { page: 'main', tab: 0, topic: 0, settings: Object.assign({}, P.DEFAULTS, { demo: 'on' }), status: 'LIVE', statusColor: 'ok',
+    demo: true, now: T0, menuA: 1, nightP: 0 };   // the shots are demo data: Demo data On, the DEMO pill and the DEMO mark on every card (D26)
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
 st.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p96_standby/app.json'), get: () => undefined }));
-const act = { tab() {}, help() {}, settings() {}, back() {}, topic() {}, set() {}, wake() {} };
+const act = { tab() {}, help() {}, settings() {}, back() {}, topic() {}, set() {}, wake() {}, demoOff() {} };
 
 function frame(t, popup) {
     const rec = new Recorder(UI.W, UI.H);

@@ -10,7 +10,7 @@ anything on the car. A Setup page records what your exhaust has, and the drawing
 
 Exhaust shows only what your car reports: the Flap pages appear when the engine unit answers for an electric
 flap, the filter pages when it reports soot or load, and a rule can only use a value your car sends. The
-screenshots use demo data, which shows everything.
+screenshots use demo data (Demo data On, so the header shows the amber DEMO pill and every card says DEMO), which shows everything.
 
 ![Exhaust working](../../docs/media/p96_exhaust/demo.gif)
 
@@ -93,7 +93,7 @@ car has no exhaust: the app says so on its one page and reads nothing. Settings,
 ## Settings
 
 The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
+Follow ambient lighting, Demo data (Off or On, Off by default; while it is on the header says DEMO, tap it to turn it off), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Exhaust's own: Flap control (Simulated or Armed, with a confirmation),
 Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 000, 5 000 rpm or never), and on a
 car with two flaps, Left flap is (bank 1 or 2).
 

@@ -26,7 +26,7 @@ The other standard pieces, drawn the same way:
 | App name | top left, x 28, caps centred at y 42 | bold 24, orange, soft orange glow |
 | Clock | under the name, x 28, centred at y 70 (owner, 18:26) | bold 17, dim, HH:MM 24 h; each digit in a fixed slot, so a new minute moves nothing (`title()` draws it, `clock()` alone) |
 | Tabs | glass bar x 270 to 1170, y 12, 56 high | pills; the selected one filled orange with a glow and dark text, the others dim. Many tabs scroll sideways: the ends fade out, round-ended arrows (left, right) show where there is more, position dots sit under the bar, the selected tab glides into view, and the iDrive knob goes through all tabs |
-| Status pill | glass pill 130 x 44, left of the two buttons (x 1250) | a dot and LIVE (green) or demo |
+| Status pill | glass pill 130 x 44, left of the two buttons (x 1250) | a dot and LIVE (green), WAIT (grey) or, while Demo data is On, DEMO (amber, an amber ring; tapping it turns the demo off and the pill glides back to LIVE) |
 | How to use, Settings | round glass buttons, r 30, flush right at the title's margin (28 px): Settings centred at x 1542, How to use at 1462; the Settings button's right edge is the content cards' right edge | "?" and a gear in the accent colour, no labels under them; on its own page a button is lit (filled, dark glyph). Both pages are mandatory in every app |
 | Hero ring | left column, centre (200, 300), r 150 | dark track, orange arc with glow over 270 degrees, the number large in the middle, a unit line, an uppercase label below. Only where an app has one main number |
 | Cards | right of the ring, 3 x 2, 386 x 200, 14 px apart | glass: white 6 % fill, 10 % outline, radius 22; uppercase dim label, big condensed number, small unit, a coloured one-line status, a sparkline on the right |
@@ -47,6 +47,8 @@ frame surface as every kit widget: the GPU renderer at 60 fps, or the software c
 | `nextTab(sel, n, step)` | the next or previous tab, round the end (for an app that turns the knob itself) |
 | `header(cv, { status, statusColor, onHelp, onSettings })` | status pill and the How to use and Settings buttons |
 | `status(cv, label, note, color)` | LIVE / demo as plain text (a page without the header) |
+| `demoBadge(cv, x, cy, on, onOff)` | the DEMO pill on a page without our header (a faded menu, the car's standard layout); tapping it turns the demo off |
+| `demoOn(v)`, `demoValue(v)` | the Demo data setting read as on or off: only 'on' is on, never by itself |
 | `bar(cv, x, y, w, h, frac, color, key)` | a progress bar with round ends; with a key the fill glides |
 | `curve(cv, pts, width, color)` | a smoothed line with round caps and joins |
 | `card(cv, x, y, w, h, label, { info, infoIcon })` | a glass card; with `info` a small (i) top right and the whole card opens the info popup (`infoIcon: true`: only the (i), for a card with rows or buttons of its own) |
@@ -156,7 +158,10 @@ picture, so `title()` draws nothing and the tabs and back pill start at the page
 taps reach our buttons there, lets a finger swipe the tab bar where the kit runs the screen, and orders the
 targets so a button on a card is pressed before the card (the kit presses the first target under a finger).
 
-The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DISPLAY_SETTINGS`:
+The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DISPLAY_SETTINGS`. Demo data is Off or On, Off by
+default, and nothing turns it on by itself (owner, 2026-11-26 20:20): while it is on, `UI.header({ demo: true, onDemo })` draws the
+amber DEMO pill where LIVE sits and every card drawn after it carries a small amber DEMO top right; every app ends its How to use
+with `UI.DEMO_TOPIC`.
 
 | Key | Setting | Choices | Default |
 |---|---|---|---|
@@ -164,7 +169,7 @@ The Display card is the same in every app (owner, 2026-11-26 17:39), from `UI.DI
 | `fps` | Frame rate | 15 / 30 / 60 fps | 60 |
 | `layout` | Full screen | On (`full`) / Off (`standard`), the kit's own setting; not offered with Software | On |
 | `followAmbient` | Follow ambient lighting | switch | on |
-| `demo` | Demo data | Auto / On / Off | Auto |
+| `demo` | Demo data | Off / On (an old saved Auto reads as Off) | Off |
 | `timeZone` | Time zone | Auto, a zone, or a UTC offset (a stepper through the list) | Auto |
 
 **Times shown to the user go through `lib/cartime.js`** (`UI.T`, shipped as `garage_time.js`), never a raw

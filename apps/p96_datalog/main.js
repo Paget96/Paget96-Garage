@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const E = require('./garage_engine');
 const CT = require('./garage_time');   // the car's time (the head unit keeps UTC)
+const UI = require('./garage_ui');
 const P = require('./pages');
 const UI = require('./garage_ui');
 const Report = require('./garage_report');
@@ -39,7 +40,10 @@ mgu.run({
         /* the engine (lib/engine.js): asked once, kept in engine.json; a V8's second engine unit gives bank 2 */
         const engineStore = E.fileStore(fs, path.join(ctx.dataDir, 'engine.json'));
         let detector = null, bank2 = null;
-        const m = new Model({ settings, dataDir: ctx.dataDir, log, demo: () => !!(car && car.data().demo),
+        // Demo data is On or Off, Off by default; it never turns on by itself (owner, 2026-11-26 20:20, D26). The kit's
+        // car.js would start its demo drive when no car answers within 5 s ("auto"): it sees only 'on' or 'off'.
+        const m = new Model({ settings, dataDir: ctx.dataDir, log, demo: () => UI.demoOn(settings.get('demo')),
+            live: () => !!(car && car.carPresent()),
             facts: () => (detector ? detector.facts : engineStore.get() || {}) });
         // Settings, Send a report (lib/report.js), with the engine as found on this car
         m.report = Report.forApp(ctx, { engineFacts: () => (detector ? detector.facts : engineStore.get()) });
@@ -63,7 +67,9 @@ mgu.run({
                 },
             },
         };
-        car = new Car(ctx, ['rpm', 'speed', 'temps', 'torque', 'gear'], extra);
+        const carCtx = Object.create(ctx);
+        carCtx.settings = UI.demoSettings(settings);
+        car = new Car(carCtx, ['rpm', 'speed', 'temps', 'torque', 'gear'], extra);
         const fresh = (t) => typeof t === 'number' && Date.now() - t < 1500;
         car.onSample((d, t) => {
             if (d.demo) return;

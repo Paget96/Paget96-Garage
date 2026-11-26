@@ -81,8 +81,8 @@ function frame(cv, S, V, A) {
     const pages = M.pagesFor(S.caps, S);
     UI.tabs(cv, pages.map((i) => TABS[i]), pages.indexOf(V.page), { onSelect: (i) => A.tab(pages[i]) });
     UI.title(cv, 'HEALTH');
-    const st = S.reading ? ['SCAN', 'info'] : S.demo ? ['DEMO', 'warm'] : S.live ? ['LIVE', 'ok'] : ['WAIT', 'dim'];
-    UI.header(cv, { status: st[0], statusColor: st[1], onHelp: A.help, onSettings: A.settings });
+    const st = S.reading ? ['SCAN', 'info'] : S.live || S.demo ? ['LIVE', 'ok'] : ['WAIT', 'dim'];
+    UI.header(cv, { status: st[0], statusColor: st[1], demo: !!S.demo, onDemo: A.demoOff, onHelp: A.help, onSettings: A.settings });
 }
 
 /* ---------- Overview ---------- */
@@ -686,7 +686,7 @@ function share(cv, S, V, A, t) {
 
 let topics = null;
 function helpTopics() {
-    if (!topics) topics = T.TOPICS.map((tp) => Object.assign({}, tp, { draw: artFor(tp.art, { art: tp.art }) })).concat([UI.REPORT_TOPIC]);
+    if (!topics) topics = T.TOPICS.map((tp) => Object.assign({}, tp, { draw: artFor(tp.art, { art: tp.art }) })).concat([UI.DEMO_TOPIC, UI.REPORT_TOPIC]);
     return topics;
 }
 
@@ -702,8 +702,9 @@ const APP_ROWS = [
 /** Health's settings rows this car has a use for. */
 function appRowsFor(S) {
     const cp = S.caps;
-    return APP_ROWS.filter((r) => (r.key === 'nightly' || r.key === 'batteryWarn' ? M.has(cp, 'volts') : r.key === 'tyreWarn' ? M.has(cp, 'tpms')
-        : r.key === 'intervals' ? M.has(cp, 'speed') || M.has(cp, 'oilKm') || M.has(cp, 'plugKm') : true));
+    // Demo car only while the demo is on (D26): with the demo off the car's own engine is used
+    return (S.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'nightly' || r.key === 'batteryWarn' ? M.has(cp, 'volts') : r.key === 'tyreWarn' ? M.has(cp, 'tpms')
+        : r.key === 'intervals' ? M.has(cp, 'speed') || M.has(cp, 'oilKm') || M.has(cp, 'plugKm') : true)));
 }
 
 /* ---------- one frame ---------- */

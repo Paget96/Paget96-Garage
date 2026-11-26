@@ -26,8 +26,9 @@ reads.
   and the range under it. The menu (name, tabs, buttons) fades out after the set delay; tap anywhere
   to bring it back. At night the clock dims to a warm dark colour.
 - **Glance:** outside with the ice warning (possible below 3 °C, likely below 0 °C), the 12 V
-  battery, range and fuel, doors (windows and the lock where the car sends them), seat and steering
-  wheel heating, and the climate (on or off, A/C, fan).
+  battery, range and fuel, doors (windows and the lock where the car sends them), seat heating (a level per
+  seat) and the steering wheel (a small wheel, orange while its heating is on, shown only when the car has
+  wheel heating), and the climate (on or off, A/C, fan).
 - **Last drive:** this drive, or the last one: distance, time, average, the trip computer's fuel
   figure and the outside temperature on the way. Today: every drive of the day on one line.
 
@@ -64,7 +65,8 @@ broadcasts. On an electric car the range card has no fuel line. Settings, Demo c
 
 ## Settings
 
-- **Renderer, Frame rate, Full screen, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app.
+- **Renderer, Frame rate, Full screen, Follow ambient lighting, Demo data:** the same in every Paget96 Garage app. Demo data is
+  Off or On, Off by default; while it is on the header says DEMO (tap it to turn it off) and Demo car shows here.
 - **Send a report** (top of the Settings page): see [Send a report](../../README.md#send-a-report).
 - **Clock:** 24 h or 12 h (with AM and PM).
 - **Night dimming:** Auto (the car's own day and night, else 20:00 to 07:00), On or Off.

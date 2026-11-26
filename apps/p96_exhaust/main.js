@@ -80,10 +80,10 @@ mgu.run({
         let linkReady = null;
         const getLink = () => linkReady || (linkReady = link.init().catch((e) => { log.warn('diagnostic link: ' + e); return link; }));
         getLink();
-        const demoSetting = () => settings.get('demo') || 'auto';
         UI.T.source(() => settings.get('timeZone'));   // times shown in the car's zone (Display card, Time zone)
         let carSeen = false;
-        const useDemo = () => demoSetting() === 'on' || (demoSetting() === 'auto' && !carSeen && !link.available && Date.now() - t0 > 5000);
+        // Demo data is On or Off, Off by default; it never turns on by itself (owner, 2026-11-26 20:20, D26)
+        const useDemo = () => UI.demoOn(settings.get('demo'));
 
         /* ---------- drives, cold starts and the km (always, from the broadcasts) ---------- */
         let drive = null, lastSpeedT = 0, warmRec = null;
@@ -392,6 +392,8 @@ mgu.run({
             help: () => { V.mode = V.mode === 'help' ? 'main' : 'help'; changed(); },
             settings: () => { V.mode = V.mode === 'settings' ? 'main' : 'settings'; changed(); },
             back: () => { V.mode = 'main'; changed(); },
+            // the DEMO pill in the header: tapped (or pressed with the knob), the demo goes off at once
+            demoOff: () => { settings.set('demo', 'off', 'user'); changed(); },
             helpTopic: (i) => { V.helpSel = i; changed(); },
             setting: (k, x) => {
                 if (k === 'arm' && x === 'on' && !armed()) return askArm();

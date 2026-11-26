@@ -8,7 +8,7 @@
  *   draw(cv, v, st, t, act)
  *     v:   the values (main.js live(), or the demo): outside, outsideHist, volts, voltsHist, charge, range, fuelL,
  *          doors, windows, locked, seats, wheel, climate, ac, blower, drives, has(key)
- *     st:  { page: 'main' | 'help' | 'settings', tab, topic, settings, status, statusColor, now, menuA, nightP, report (lib/report.js Flow) }
+ *     st:  { page: 'main' | 'help' | 'settings', tab, topic, settings, status, statusColor, demo, now, menuA, nightP, report (lib/report.js Flow) }
  *     act: { tab(i), help(), settings(), back(), topic(i), set(key, v), wake() }
  *     t:   seconds, for the illustrations
  *
@@ -61,7 +61,7 @@ const INFO = {
     doors: { label: 'Doors and windows', title: 'Is everything closed?', draw: A.doorsArt,
         text: 'Each door\'s switch as the car reports it, the windows and the central locking when the car sends them. If a door is open, it is named here.' },
     heat: { label: 'Seats and wheel', title: 'Seat and steering wheel heating', draw: A.heatArt,
-        text: 'The seat heating level of each front seat (1 to 3) and whether the steering wheel heating is on, as the climate control reports them. Standby only shows them; it never switches anything.' },
+        text: 'The seat heating level of each front seat (1 to 3), and the steering wheel: a small wheel, orange while its heating is on, grey when off (with its level when the car gives one). As the climate control reports them; a car without wheel heating shows no wheel. Standby only shows them; it never switches anything.' },
     climate: { label: 'Climate', title: 'The climate control', draw: A.climateArt,
         text: 'Whether the climate control is on, the A/C compressor, and the blower level, as the car reports them.' },
     drive: { label: 'This drive', title: 'The drive in numbers', draw: A.driveArt,
@@ -93,12 +93,15 @@ function head(cv, st, act) {
     UI.title(cv, TITLE, null, null, { clock: false });
     // the small clock under the name, on the app's own time; in the Standard layout the car's own clock shows instead
     if (UI.clock && !(UI.standard && UI.standard(cv))) UI.clock(cv, UI.MARGIN, UI.CLOCK_CY, st.now);
-    UI.header(cv, { status: st.status, statusColor: st.statusColor, onHelp: on ? act.help : null, onSettings: on ? act.settings : null });
+    UI.header(cv, { status: st.status, statusColor: st.statusColor, demo: !!st.demo, onDemo: on ? act.demoOff : null,
+        onHelp: on ? act.help : null, onSettings: on ? act.settings : null });
     if (a < 1) {
         // the menu fades: the page's own background laid over it, more and more (works on both render paths)
         const k = 1 - a;
         cv.fillRect(0, 0, UI.W, T - 6, [].concat(rgb(bgAt(50)), [Math.round(255 * k)]));
         if (k > 0.7) cv.text('tap for menu', R, 44, 15, M.mixColour(bgAt(44), '#5a606a', (k - 0.7) / 0.3), { align: 'right', literal: true });
+        // the demo stays plain with the menu gone (D26): the DEMO badge in the pill's place, on top of the fade
+        if (st.demo) UI.demoBadge(cv, UI.pillX(cv), UI.HEAD_CY, true, act.demoOff);
     }
     // a tap brings the menu back (and keeps it while it shows): the whole page when it is gone, the content when not
     if (st.tab === 0 && cv.target && act.wake) cv.target(0, on ? T : 0, UI.W, on ? UI.H - T : UI.H, act.wake, 'sbwake', 0);
@@ -159,6 +162,22 @@ function seatBars(cv, x, y, lvl, name) {
     cv.text(name, x, y + 30, 14, C.dim, lit);
 }
 
+/**
+ * The steering wheel heating (owner, 2026-11-26 20:29: "Ne pokazuje volan samo pise dole"): a small round wheel,
+ * orange when on, grey when off, its level under it when the car gives one, else on / off.
+ */
+function wheelGlyph(cv, cx, cy, on, lvl) {
+    const c = on ? C.orange : '#5a606a', r = 15;
+    cv.arc(cx, cy, r - 2.5, r + 2.5, 0, 360, c);
+    cv.circle(cx, cy, 4.5, c);
+    [90, 210, 330].forEach((a) => {
+        const rad = a * Math.PI / 180;
+        cv.line(cx + 5 * Math.cos(rad), cy + 5 * Math.sin(rad), cx + (r - 2) * Math.cos(rad), cy + (r - 2) * Math.sin(rad), 4, c);
+    });
+    const word = isNum(lvl) ? (lvl ? 'wheel ' + lvl : 'wheel off') : 'wheel';
+    cv.text(word, cx, cy + 37, 14, on ? C.orange : C.dim, { align: 'center', literal: true });
+}
+
 /** The cards this car can fill, in a fixed order. */
 function glanceCards(v) {
     const out = [];
@@ -186,13 +205,17 @@ function glanceCards(v) {
         const s = v.seats || {}, parts = [];
         if (isNum(s.DR)) parts.push('driver ' + (s.DR || 'off'));
         if (isNum(s.PS)) parts.push('passenger ' + (s.PS || 'off'));
-        if (v.has('wheel')) parts.push('wheel ' + (v.wheel ? 'on' : 'off'));
+        const wl = v.has('wheelLevel') && isNum(v.wheelLevel) ? v.wheelLevel : null;
+        if (v.has('wheel')) parts.push('wheel ' + (wl ? wl : v.wheel ? 'on' : 'off'));
         const anyOn = (s.DR || 0) + (s.PS || 0) > 0 || v.wheel;
         out.push({ kind: 'word', label: v.has('seats') ? 'Seats and wheel' : 'Steering wheel', big: anyOn ? 'heating' : 'off', sub: parts.join(', '), color: anyOn ? 'accent' : 'dim', info: INFO.heat,
             extra: (cv, x, y, w) => {
-                let bx = x + w - 250;
+                // right aligned: the seats' bars, then the wheel (only what the car reports)
+                const seats = (isNum(s.DR) ? 1 : 0) + (isNum(s.PS) ? 1 : 0), wheel = v.has('wheel');
+                let bx = x + w - 36 - (seats ? seats * 118 - 22 : 0) - (wheel ? (seats ? 24 : 0) + 40 : 0);
                 if (isNum(s.DR)) { seatBars(cv, bx, y + 64, s.DR, 'driver'); bx += 118; }
-                if (isNum(s.PS)) seatBars(cv, bx, y + 64, s.PS, 'passenger');
+                if (isNum(s.PS)) { seatBars(cv, bx, y + 64, s.PS, 'passenger'); bx += 118; }
+                if (wheel) wheelGlyph(cv, bx + (seats ? 2 : 0) + 20, y + 69, !!v.wheel || !!wl, wl);
             } });
     }
     if (v.has('climate')) {
@@ -284,6 +307,7 @@ const TOPICS = [
         text: 'This drive (or the last one): distance, time, average, fuel and the outside temperature on the way. Today: every drive of the day on one line, kept across restarts.' },
     { title: 'Read only', draw: A.doorsArt,
         text: 'Standby only reads. It never switches the heating, the climate or anything else. The 12 V voltage is read from the engine unit\'s battery sensor only while the Clock or Glance page is on the screen; everything else is what the car already broadcasts.' },
+    UI.DEMO_TOPIC,
 ];
 
 // How to use: Standby's topics, then Send a report (the same in every app)
@@ -297,7 +321,7 @@ function draw(cv, v, st, t, act) {
     } else if (st.page === 'settings' && st.report && st.report.active()) {
         UI.reportPage(cv, st.report, t, { title: TITLE, onHelp: () => { st.report.close(); act.help(); } });
     } else if (st.page === 'settings') {
-        UI.settingsPage(cv, (st.status === 'DEMO' ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help,
+        UI.settingsPage(cv, (st.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Standby', onBack: act.back, onHelp: act.help,
             onReport: st.report ? () => st.report.open() : null });
     } else {
         head(cv, st, act);

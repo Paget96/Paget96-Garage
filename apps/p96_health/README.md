@@ -10,7 +10,7 @@ to your mechanic as a QR code that any phone camera reads.
 
 Health shows only what your car reports: a page, card, chart line, setting or button appears once your car
 answers it (found the first time, remembered for that car). A car without tyre pressure sensors has no Tyres page,
-and only the service items the car itself can reset get a Reset. The screenshots use demo data, which shows everything.
+and only the service items the car itself can reset get a Reset. The screenshots use demo data (Demo data On, so the header shows the amber DEMO pill and every card says DEMO), which shows everything.
 
 ![Health working](../../docs/media/p96_health/demo.gif)
 
@@ -97,7 +97,7 @@ Engine page and no engine items in Service. Settings, Demo car shows each layout
 | Diesel: rough running and the rail pressure | ![](../../docs/media/cars/health-engine-b57-diesel.png) |
 
 **Settings.** The Display block (the same in every Paget96 Garage app): Renderer, Frame rate (60 fps by default), Full screen (on by default),
-Follow ambient lighting, Demo data, and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
+Follow ambient lighting, Demo data (Off or On, Off by default; while it is on the header says DEMO, tap it to turn it off), and while the demo runs Demo car (B48, B58, S58, S63 V8, B57 diesel, PHEV or EV). Then Health's own: Nightly battery check (on or off), Battery warning at (the
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
