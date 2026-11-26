@@ -1,6 +1,10 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and IterioDev. */
 /*
  * The foreground gate (js/foreground_gate.js): a child process that reads the HMI and reports the uids of
- * the apps whose screens are in front, as "foreground [uid ...]" lines on its fd 3.
+ * the apps whose screens are in front, as "foreground [uid ...]" lines on its fd 3, and those of them the HMI
+ * covers with something that takes the input (a popup, its menu, a screen opened from there), as "covered [uid ...]".
  */
 #ifndef MGU_GATE_H
 #define MGU_GATE_H
@@ -14,6 +18,7 @@ int gate_reported(void);               /* a report has come (until then no app i
 int gate_unavailable(void);            /* the gate cannot tell (no RHMI interface on this unit): as without a gate */
 int gate_front(uint32_t uid);          /* uid is in front */
 int gate_any_front(void);              /* some app is in front */
+int gate_covered(uint32_t uid);        /* uid is in front with something of the HMI over it */
 void gate_stop(void);
 
 #endif

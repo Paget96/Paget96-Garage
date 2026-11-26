@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and IterioDev. */
 #ifndef MGU_TOUCH_H
 #define MGU_TOUCH_H
 /*
@@ -15,9 +18,11 @@ int touch_init(const char *iface, const char *saddr, const int area[4]);
 int touch_ports(int in_port, const char *name);
 int touch_fd(void);                  /* the diverted PDUs (poll it), -1 when off */
 void touch_read(void);               /* route what came in */
-void touch_tick(int claimed);        /* every loop turn: claimed = a visible app has claims -> rule in or out */
+void touch_tick(int claimed);        /* every loop turn: claimed = a visible app has claims -> rule in or out; nft runs
+                                        beside the loop, never blocking it */
+int touch_busy(void);                /* nft is running: tick again soon */
 void touch_forget(int slot);         /* that app is gone: the rest of its gesture is dropped */
-void touch_stop(void);               /* rule out */
+void touch_stop(void);               /* at exit: a running nft stopped, the rule out (the guard takes it out too) */
 
 /* provided by main.c */
 int touch_owner_at(int x, int y);                   /* the client slot claiming design pixel x, y, or -1 */

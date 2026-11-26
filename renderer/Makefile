@@ -7,7 +7,8 @@
 #   docker run --rm -v $PWD:/src p96-renderd-build make   head-unit binaries in build/ (Ubuntu 18.04, glibc 2.27, like
 #                                                          the unit)
 #   make check-target    the renderer's loader, libraries and glibc versions (inside the same image)
-#   make test            protocol, touch-routing, community-socket, video, ramp, foreground-gate, app-input, JS-client
+#   make test            protocol, touch-routing, community-socket, video, ramp, foreground-gate (C and its watch on a
+#                        mock SOME/IP), app-input, JS-client
 #                        placement, page-template-script and embed-buffer unit tests, and recorded sessions of both
 #                        legacy kits replayed through the original daemons and this one, frames compared (Docker,
 #                        Ubuntu 24.04 with Mesa)
@@ -85,6 +86,8 @@ in-test: build/$(OUT)/mgu-render
 	$(CC) $(CFLAGS) -o build/$(OUT)/test_client_read test/test_client_read.c $(filter-out src/main.c,$(SRC)) $(GEN_C) $(LIBS)
 	build/$(OUT)/test_client_read
 	node test/test_gate_apps.js
+	node test/test_gate_watch.js
+	node test/test_gate_iface.js
 	node test/test_client_place.js
 	node test/test_client_reconnect.js
 	sh test/test_hmi.sh

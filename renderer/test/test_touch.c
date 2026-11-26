@@ -52,6 +52,12 @@ static char *slurp(void)
     buf[n] = 0;
     return buf;
 }
+/* nft runs beside the loop: tick until its job is done (and no next one started) */
+static void tick(int claimed)
+{
+    do { touch_tick(claimed); usleep(2000); } while (touch_busy());
+}
+static double ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
 static int count(const char *hay, const char *needle) { int n = 0; for (const char *p = hay; (p = strstr(p, needle)); p++) n++; return n; }
 /* rules loaded, and taken out (a load also deletes the table first, to replace it) */
 static int loads(void) { return count(slurp(), "table ip idrive7_render {"); }
@@ -65,7 +71,11 @@ int main(void)
     snprintf(nft_log, sizeof nft_log, "%s/nft.log", dir);
     snprintf(nft_path, sizeof nft_path, "%s/nft", dir);
     FILE *f = fopen(nft_path, "w");
-    fprintf(f, "#!/bin/sh\n{ echo \"nft $*\"; [ \"$1\" = -f ] && cat \"$2\"; } >> %s; true\n", nft_log);
+    /* NFT_SLOW: a load takes that many seconds; NFT_NOTABLE: the table is not there after a load */
+    fprintf(f, "#!/bin/sh\n{ echo \"nft $*\"; [ \"$1\" = -f ] && cat \"$2\"; } >> %s\n"
+               "[ -n \"$NFT_SLOW\" ] && [ \"$1\" = -f ] && sleep \"$NFT_SLOW\"\n"
+               "[ -n \"$NFT_NOTABLE\" ] && [ \"$1\" = list ] && exit 1\n"
+               "true\n", nft_log);
     fclose(f); chmod(nft_path, 0755);
     snprintf(path, sizeof path, "%s:%s", dir, getenv("PATH") ? getenv("PATH") : "/usr/bin:/bin");
     setenv("PATH", path, 1);
@@ -81,17 +91,50 @@ int main(void)
     /* lo: our rule lets both renderers' re-injections through */
     const int area[4] = { 0, 0, 0, 0 };
     if (touch_init("lo", "", area) != 0) { printf("touch_init failed\n"); return 1; }
+    tick(0);                                                  /* the leftover clean-up, beside the loop */
     CHECK(strstr(rule, "iifname \"lo\" udp sport { 30569, 30571, 30573 } accept\n") &&
           strstr(rule, "iifname \"lo\" udp dport 30567 notrack udp dport set 30572") && !open_fw[0], "lo rule: %s", rule);
     CHECK(outs() == 1 && loads() == 0, "start: a leftover of ours is not removed");
-    touch_tick(1);
+    tick(1);
     CHECK(loads() == 1 && strstr(slurp(), "udp dport set 30572"), "claimed: rule not in");
     /* after the other renderers' -300: their overlays (drawn over our apps) see a touch first (issue #152) */
     CHECK(strstr(slurp(), "priority -299;") != NULL, "rule not after the other renderers': %s", slurp());
-    touch_tick(1);
+    tick(1);
     CHECK(loads() == 1, "claimed twice: loaded twice");
-    touch_tick(0);
+    tick(0);
     CHECK(outs() == 2, "nothing claimed: rule not out");
+    /* out without a script file: it must work with /tmp full */
+    CHECK(strstr(slurp(), "nft delete table ip idrive7_render\n") != NULL, "rule out goes through a file: %s", slurp());
+
+    /* a slow nft (3 s a load) never holds the loop: each tick returns at once, the beat goes on, so the guard (1.5 s
+     * without a beat while the rule may be in) does not kill us; the divert is in once nft is done */
+    setenv("NFT_SLOW", "3", 1);
+    double t0 = ms(), worst = 0;
+    int was = loads();
+    touch_tick(1);
+    while (touch_busy()) {
+        double a = ms(); touch_tick(1); double b = ms();
+        if (b - a > worst) worst = b - a;
+        usleep(5000);
+    }
+    touch_tick(1);
+    unsetenv("NFT_SLOW");
+    CHECK(ms() - t0 >= 2900 && worst < 100, "slow nft: %.0f ms in all, the longest tick %.0f ms", ms() - t0, worst);
+    CHECK(loads() == was + 1 && loaded, "slow nft: the rule is in once it answered");
+    tick(0);
+
+    /* nft says the load worked but the table is not there: not diverted, tried again only after 5 s, and with
+     * nothing claimed any more the rule is still taken out (it may be in all the same) */
+    setenv("NFT_NOTABLE", "1", 1);
+    was = loads();
+    int out_was = outs();
+    tick(1);
+    CHECK(!loaded && loads() == was + 1, "table missing after the load: counted as diverted");
+    tick(1);
+    CHECK(loads() == was + 1, "a failed load was tried again at once");
+    unsetenv("NFT_NOTABLE");
+    tick(0);
+    CHECK(outs() == out_was + 1, "a failed load left the rule's table to chance: %d outs", outs() - out_was);
 
     struct sockaddr_in a = { .sin_family = AF_INET, .sin_port = htons(PORT_IN), .sin_addr.s_addr = htonl(INADDR_LOOPBACK) };
     struct sockaddr_in h = { .sin_family = AF_INET, .sin_port = htons(PORT_HMI), .sin_addr.s_addr = htonl(INADDR_LOOPBACK) };
@@ -134,10 +177,12 @@ int main(void)
     CHECK(route(two, n1 + n2) == (ssize_t)n2 && nsent == 1, "mixed datagram: forwarded part");
 
     /* the renderer dies with the rule in: its guard takes it out */
-    touch_tick(1);
+    failed = -1e9;                                            /* past the retry pause of the failed load above */
+    tick(1);
+    int lo = loads(), oo = outs();
     close(beat);
     int out_after = 0;
-    for (int i = 0; i < 100 && !out_after; i++) { usleep(20000); out_after = loads() == 2 && outs() == 3; }
+    for (int i = 0; i < 100 && !out_after; i++) { usleep(20000); out_after = loads() == lo && outs() == oo + 1; }
     CHECK(out_after, "renderer gone: the guard left the rule in");
     CHECK(!strstr(slurp(), "touchroute"), "a script names IterioDev's table");
     while (wait(NULL) > 0) {}

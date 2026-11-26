@@ -523,9 +523,18 @@ static int in_front(const client *c) {
     return gate_reported() && gate_front(c->uid);
 }
 
+/* The HMI shows something over the app that takes the input (gate.h "covered": a popup, its menu, the voice
+ * assistant, a screen opened from there). A layer app is taken off while it is: its layer is over the HMI and would
+ * hide what the HMI shows, and touch and the controller (which follow shown()) go back to the HMI with it. In the
+ * HMI's box the picture stays under the popup, as on any stock page. */
+static int covered(const client *c) {
+    return gate_applies(c) && !gate_unavailable() && gate_covered(c->uid);
+}
+
 static int shown(const client *c) {
     if (c->mode == MODE_EMBED) return c == embed_owner && embed_visible() && c->frames_shown > 0;
-    return c->cl && c->visible && c->frames_shown > 0 && !c->stale && in_front(c) && !yielding && !popup_yielding();
+    return c->cl && c->visible && c->frames_shown > 0 && !c->stale && in_front(c) && !covered(c) && !yielding &&
+           !popup_yielding();
 }
 
 /* where the app's logical (0, 0) + placement offset sits on the screen */
@@ -1977,6 +1986,7 @@ int main(int argc, char **argv) {
         /* controller held: keep its file fresh; a video's next frame: look every 5 ms.
            ponytail: polling the frame file's header, an eventfd from the player if it ever costs */
         int wait_ms = video_on ? 5 : ctl_gate_on ? 100 : 250;
+        if (touch_on && touch_busy() && wait_ms > 20) wait_ms = 20;   /* nft's answer, seen within 20 ms */
         for (int i = 0; i < MAX_CLIENTS; i++) if (clients[i]) {   /* in time for a capped app's waiting frame */
             uint64_t us = cap_wait(clients[i], tnow);
             if (us && (int)(us / 1000) + 1 < wait_ms) wait_ms = (int)(us / 1000) + 1;

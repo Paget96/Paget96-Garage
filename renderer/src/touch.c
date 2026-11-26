@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+ * Based on mgu-render (idrive7-apps kit/renderd), GPL-3.0-or-later, Copyright (C) 2026 Robert Nisipeanu and
+ * IterioDev. nft beside the loop and the file-less rule_out follow mgu-store's mgu-render 0.6.14 and 0.6.16. */
 /*
  * Touch routing (touch.h), from IterioDev's mgu-renderd src/touch.c (the renderer it
  * extends is idrive7-apps kit/renderd, MIT, Copyright (c) 2026 cauliflowermossgrape). The rule's interface and
@@ -24,6 +28,7 @@
  *
  * Fail open: no claim -> no rule. A guard process (forked at start) gets a heartbeat; when the renderer dies it
  * removes the rule, when it hangs with the rule in place (no beat for GUARD_MS) it removes the rule and kills it.
+ * nft itself runs as a child the loop checks each turn (job_start), so a slow nft never stops the beat.
  *
  * PDU (Hmi8 CHmiTouchScreenDevice::decodeTouchScreenPduData): 16-byte header, big-endian id + length + 8-byte
  * timestamp; touchscreen data = id 0xB0048002, payload [12] >> 4 word type (0/1/2/4/8: the car's display sends
@@ -35,16 +40,18 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include "touch.h"
 
 /* re-injections of the other renderers: IterioDev's (30569), the Store's mgu-render (30571), the kit's (30573) */
-enum { PORT_HMI = 30567, PORT_OTHER_OUT = 30569, PORT_STORE_OUT = 30571, PORT_KIT_OUT = 30573, GUARD_MS = 1500 };
+enum { PORT_HMI = 30567, PORT_OTHER_OUT = 30569, PORT_STORE_OUT = 30571, PORT_KIT_OUT = 30573, GUARD_MS = 1500, JOB_MS = 10000, RETRY_MS = 5000 };
 static int port_in = 30572, port_out = 30573;
 /* one after the other renderers' -300 (still before conntrack's -200, so notrack holds): with both rules in, theirs
  * see a touch first. The Store's overlays are drawn over our apps, so a touch on one is its own; what it doesn't
@@ -69,31 +76,79 @@ static int ax, ay, aw, ah;                     /* area apps may claim; aw 0 = wh
 static unsigned be16(const unsigned char *p) { return p[0] << 8 | p[1]; }
 static unsigned be32(const unsigned char *p) { return (unsigned)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 
-/* the script goes to nft in a file: the nft of some units (MainApp 6.5.5 cars) cannot read one from "-" */
-static int nft(const char *script)
+/* nft runs beside the render loop, never in it: one job at a time, a shell started with posix_spawn in its own
+ * process group, looked at (waitpid WNOHANG) every loop turn and killed with its group after JOB_MS. A slow or
+ * failing nft only delays the divert; the loop keeps drawing and beating to the guard. Run inline (system()), an
+ * nft slower than GUARD_MS while the rule was in made the guard kill the renderer each time an app gave up its
+ * touch area (the same bug class mgu-store's mgu-render fixed in 0.6.16). */
+enum { JOB_NONE, JOB_CLEAN, JOB_IN, JOB_OUT };
+static int job;                                /* the one running, JOB_NONE when idle */
+static pid_t job_pid;
+static double job_t;
+static int job_killed;
+static char job_file[40];                      /* the script's file while JOB_IN runs */
+static double failed = -1e9;                   /* when a load last failed */
+static int stray;                              /* a failed or killed load may have put the rule in all the same */
+
+static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
+
+static int job_start(int kind, const char *cmd)
 {
-    char path[] = "/tmp/mgu-render-nft-XXXXXX", cmd[64];
-    int fd = mkstemp(path);
-    if (fd < 0) return -1;
-    size_t n = strlen(script);
-    int ok = write(fd, script, n) == (ssize_t)n;
-    close(fd);
-    snprintf(cmd, sizeof cmd, "nft -f %s 2>&1", path);
-    ok = ok && system(cmd) == 0;
-    unlink(path);
-    return ok ? 0 : -1;
+    posix_spawnattr_t at;
+    sigset_t dfl;
+    posix_spawnattr_init(&at);
+    sigemptyset(&dfl); sigaddset(&dfl, SIGPIPE);              /* ignored here; nft gets the default */
+    posix_spawnattr_setsigdefault(&at, &dfl);
+    posix_spawnattr_setpgroup(&at, 0);                        /* its own group: a timeout kills nft too */
+    posix_spawnattr_setflags(&at, POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETPGROUP);
+    char *argv[] = { "sh", "-c", (char *)cmd, NULL };
+    int r = posix_spawn(&job_pid, "/bin/sh", NULL, &at, argv, environ);
+    posix_spawnattr_destroy(&at);
+    if (r) return -1;
+    job = kind; job_t = now_ms(); job_killed = 0;
+    return 0;
 }
-/* in, and there: a load nft reports done without the table is a failure */
-static int rule_in(void)
+
+/* The load: the firewall's accept, the script given to nft in a file (the nft of some units, MainApp 6.5.5 cars,
+ * cannot read one from "-", and nftables 0.7 still exits 0 then), and the table must be there afterwards: an nft
+ * that reports a load done is not proof. */
+static int rule_in_start(void)
 {
-    if (open_fw[0] && system(open_fw) != 0) fprintf(stderr, "[mgu-render] touch: opening the firewall for %d failed\n", PORT_IN);
-    char s[768], check[96];
+    char s[768], cmd[sizeof open_fw + 320];
     snprintf(s, sizeof s, "table %s\ndelete table %s\ntable %s {\n"
         "chain pre {\ntype filter hook prerouting priority %d; policy accept;\n%s\n}\n}\n", table, table, table, PRIORITY, rule);
-    snprintf(check, sizeof check, "nft list table %s >/dev/null 2>&1", table);
-    return nft(s) == 0 && system(check) == 0 ? 0 : -1;
+    snprintf(job_file, sizeof job_file, "/tmp/p96-renderd-nft-XXXXXX");
+    int fd = mkstemp(job_file);
+    if (fd < 0) { job_file[0] = 0; return -1; }
+    size_t n = strlen(s);
+    int ok = write(fd, s, n) == (ssize_t)n;
+    close(fd);
+    char fw[sizeof open_fw + 128] = "";
+    if (open_fw[0])
+        snprintf(fw, sizeof fw, "{ %s; } || echo '[mgu-render] touch: opening the firewall for %d failed' >&2; ", open_fw, PORT_IN);
+    int len = snprintf(cmd, sizeof cmd, "%snft -f %s 2>&1 && nft list table %s >/dev/null 2>&1", fw, job_file, table);
+    if (!ok || len >= (int)sizeof cmd || job_start(JOB_IN, cmd) < 0) { unlink(job_file); job_file[0] = 0; return -1; }
+    return 0;
 }
-static void rule_out(void) { char s[160]; snprintf(s, sizeof s, "table %s\ndelete table %s\n", table, table); nft(s); }
+/* Out with no file: taking the rule out must work with /tmp full (a script file there would fail first and leave
+ * the rule in). An absent table is not an error here. */
+static void rule_out_cmd(char *cmd, size_t n) { snprintf(cmd, n, "nft delete table %s >/dev/null 2>&1", table); }
+static void rule_out(void) { char cmd[96]; rule_out_cmd(cmd, sizeof cmd); if (system(cmd)) { /* no table: fine */ } }
+static int rule_out_start(int kind) { char cmd[96]; rule_out_cmd(cmd, sizeof cmd); return job_start(kind, cmd); }
+
+/* the running job: -1 still running, else 0 done and succeeded, 1 failed (or killed after JOB_MS) */
+static int job_poll(void)
+{
+    int st;
+    pid_t r = waitpid(job_pid, &st, WNOHANG);
+    if (r == 0) {
+        if (!job_killed && now_ms() - job_t > JOB_MS) { kill(-job_pid, SIGKILL); job_killed = 1; }
+        return -1;
+    }
+    if (job_file[0]) { unlink(job_file); job_file[0] = 0; }
+    job = JOB_NONE;
+    return job_killed || r < 0 || !WIFEXITED(st) || WEXITSTATUS(st) ? 1 : 0;
+}
 
 int touch_ports(int in_port, const char *name)
 {
@@ -163,7 +218,6 @@ int touch_init(const char *iface, const char *saddr, const int area[4])
     if (touch_rules(iface, saddr) < 0) return -1;
     aw = 0;
     if (area && area[2] > 0 && area[3] > 0) { ax = area[0]; ay = area[1]; aw = area[2]; ah = area[3]; }
-    rule_out();                                               /* a leftover from a crash before this start */
     struct sockaddr_in a = { .sin_family = AF_INET, .sin_port = htons(PORT_IN), .sin_addr.s_addr = htonl(INADDR_ANY) };
     struct sockaddr_in o = { .sin_family = AF_INET, .sin_port = htons(PORT_OUT), .sin_addr.s_addr = htonl(INADDR_LOOPBACK) };
     in = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
@@ -180,6 +234,7 @@ int touch_init(const char *iface, const char *saddr, const int area[4])
     if (g < 0) { close(p[1]); return -1; }
     beat = p[1];
     fcntl(beat, F_SETFL, O_NONBLOCK);
+    if (rule_out_start(JOB_CLEAN) < 0) { /* a leftover from a crash: the guard took it out */ }
     if (aw) fprintf(stderr, "[mgu-render] touch routing on %s, apps may claim %d,%d %dx%d\n", iface, ax, ay, aw, ah);
     else fprintf(stderr, "[mgu-render] touch routing on %s, apps may claim the whole screen\n", iface);
     return 0;
@@ -187,29 +242,63 @@ int touch_init(const char *iface, const char *saddr, const int area[4])
 
 int touch_fd(void) { return in; }
 
-static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
-
 void touch_tick(int claimed)
 {
-    static double last_beat, failed;
+    static double last_beat;
+    static int failing;
     if (!rule[0]) return;
     double t = now_ms();
-    if (claimed != loaded) {
-        if (!claimed) { rule_out(); loaded = 0; fprintf(stderr, "[mgu-render] touch: nothing claimed, straight to the HMI\n"); }
-        else if (t - failed > 5000) {                         /* nft missing / refusing: not every loop turn */
-            if (rule_in() == 0) { loaded = 1; fprintf(stderr, "[mgu-render] touch: diverted (an app claims an area)\n"); }
-            else { failed = t; fprintf(stderr, "[mgu-render] touch: loading the nft rule failed, touch stays the HMI's\n"); }
+    if (job) {
+        int was = job, r = job_poll();
+        if (r >= 0) {
+            if (was == JOB_IN && !r) {
+                if (!loaded || failing) fprintf(stderr, "[mgu-render] touch: diverted (an app claims an area)\n");
+                loaded = 1; failing = 0; stray = 0;
+            } else if (was == JOB_IN) {
+                failed = t; stray = 1;
+                if (!failing) fprintf(stderr, "[mgu-render] touch: loading the nft rule failed%s, touch stays the HMI's; "
+                                      "trying again every 5 s\n", job_killed ? " (no answer in 10 s)" : "");
+                failing = 1;
+            } else if (was == JOB_OUT && r) {
+                fprintf(stderr, "[mgu-render] touch: taking the nft rule out failed%s; trying again\n",
+                        job_killed ? " (no answer in 10 s)" : "");
+            } else if (was == JOB_OUT) {
+                if (loaded) fprintf(stderr, "[mgu-render] touch: nothing claimed, straight to the HMI\n");
+                loaded = 0; stray = 0;
+            }
+            last_beat = 0;
+        }
+    }
+    claimed = claimed != 0;
+    if (!job && (claimed != loaded || (!claimed && stray))) {
+        if (!claimed) { if (rule_out_start(JOB_OUT) < 0) fprintf(stderr, "[mgu-render] touch: nft could not be started\n"); }
+        else if (t - failed > RETRY_MS) {                     /* nft missing / refusing: not every loop turn */
+            if (rule_in_start() < 0) {
+                failed = t;
+                if (!failing) fprintf(stderr, "[mgu-render] touch: loading the nft rule failed, touch stays the HMI's; trying again every 5 s\n");
+                failing = 1;
+            }
         }
         last_beat = 0;
     }
     if (t - last_beat < 100) return;
     last_beat = t;
-    if (write(beat, loaded ? "1" : "0", 1) < 0) { /* full pipe: the guard is behind, it reads the latest */ }
+    /* '1' while the rule is or may be in: the loop never waits for nft, so a missing beat is a hang */
+    if (write(beat, loaded || stray || job == JOB_IN ? "1" : "0", 1) < 0) { /* full pipe: the guard is behind, it reads the latest */ }
 }
+
+int touch_busy(void) { return job != JOB_NONE; }
 
 void touch_forget(int slot) { if (owner == slot) owner = GONE; }
 
-void touch_stop(void) { if (loaded) rule_out(); loaded = 0; }
+/* at exit: a running nft is stopped, the rule taken out here, and the guard, seeing the renderer gone, takes it
+ * out too (it does that whatever it last heard) */
+void touch_stop(void)
+{
+    if (job) { kill(-job_pid, SIGKILL); waitpid(job_pid, NULL, 0); if (job_file[0]) unlink(job_file); job_file[0] = 0; job = JOB_NONE; }
+    if (loaded || stray) rule_out();
+    loaded = stray = 0;
+}
 
 /* one finger PDU: 1 = it is an app's (sent to it, or dropped), 0 = forward to the HMI */
 static int route_finger(const unsigned char *p)

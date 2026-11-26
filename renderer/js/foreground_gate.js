@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: GPL-3.0-only
+// Changes Copyright (c) 2026 Danijel Markov (Paget96). Paget96 Garage, p96-renderd. See NOTICE.
+// Based on mgu-render's foreground_gate.js (idrive7-apps kit/renderd and robertnisipeanu/mgu-store), GPL-3.0-or-later,
+// Copyright (C) 2026 Robert Nisipeanu and IterioDev. The retry and the covered report follow mgu-store's.
 /*
  * Foreground gate for mgu-render: reports which apps' screens the HMI
  * shows in front, so the renderer shows an app's surface only then. The renderer
@@ -21,6 +25,17 @@
  *
  *   foreground [uid ...]
  *
+ * An app in front is covered while the HMI shows something over it that takes
+ * the input (a popup, the header menu, the voice assistant, a screen opened
+ * from there): the HMI takes the focus from the app's states. The covered apps
+ * in front, on each change (an app newly covered once it has stayed so for
+ * COVER_SETTLE_MS):
+ *
+ *   covered [uid ...]
+ *
+ * An instance whose proxy fails (the HMI still starting) is tried again every
+ * RETRY_MS, and one that becomes available has its stack read at once.
+ *
  *   node foreground_gate.js [--someip /usr/lib/someip.node]
  *       [--interface <RemoteHmiApplication interface json>] [--apps /var/opt/public/oap]
  *
@@ -33,6 +48,8 @@ const fs = require('fs');
 const path = require('path');
 
 const MAX_APP_JSON = 65536;
+const RETRY_MS = 5000;          // an instance whose proxy failed is tried again this often
+const COVER_SETTLE_MS = 150;    // an app counts as covered once none of its states had the focus this long
 
 const INTERFACES = [
     '/usr/lib/oap-mainapp/src-gen/de_bmw_infotainment_hmi_remote_RemoteHmiApplication.json',
@@ -172,64 +189,157 @@ function hasRootApp(stack) {
         : !!stack && Object.prototype.hasOwnProperty.call(stack, 'ROOT_APP');
 }
 
+/* The state ids an applicationStack lists, under any key. */
+function stackStates(stack) {
+    const lists = stack instanceof Map ? Array.from(stack.values()) : Object.keys(stack || {}).map((k) => stack[k]);
+    return [].concat.apply([], lists.filter(Array.isArray));
+}
+
+/* A notify event's value (parameter 0), when it is a boolean. */
+function eventFlag(ev) {
+    const params = ev && ev.parameterMap;
+    const v = params instanceof Map ? params.get(0) : params && params[0];
+    return v && typeof v.booleanValue === 'boolean' ? v.booleanValue : undefined;
+}
+
 function startGate(opts) {
-    const { someip, interfaceConfig, appsDir, write, log } = opts;
+    const someip = opts.someip, interfaceConfig = opts.interfaceConfig, appsDir = opts.appsDir;
+    const write = opts.write, log = opts.log;
+    const retryMs = opts.retryMs || RETRY_MS;
+    const settleMs = opts.settleMs === undefined ? COVER_SETTLE_MS : opts.settleMs;
     const front = new Map();   // instance name -> its stack has ROOT_APP
     const shown = new Map();   // instance name in front -> its uuid
+    const focus = new Map();   // instance name -> { states, focused (state ids with the HMI focus), lost }
     let apps = readApps(appsDir, log);
     let last = null;
+    let lastCovered = 'covered';
+    let settle = null;
 
-    const report = () => {
+    const focusOf = (name) => {
+        if (!focus.has(name)) {
+            focus.set(name, { states: new Set(), focused: new Set(), lost: false });
+        }
+        return focus.get(name);
+    };
+    const uidsOf = (names) => {
         const uids = new Set();
-        shown.forEach((uuid) => {
+        names.forEach((name) => {
+            const uuid = shown.get(name);
             if (apps.has(uuid)) {
                 uids.add(apps.get(uuid));
             }
         });
-        const line = ['foreground'].concat([...uids].sort((a, b) => a - b)).join(' ');
+        return Array.from(uids).sort((a, b) => a - b);
+    };
+    /* An app newly covered is reported once it has stayed so for settleMs (a page opening in the app moves the
+     * focus from one state to the next in one burst); one no longer covered at once. */
+    const reportCovered = (settled) => {
+        const covered = Array.from(shown.keys()).filter((name) => {
+            const f = focus.get(name);
+            return f && f.lost && f.focused.size === 0;
+        });
+        const uids = uidsOf(covered);
+        const line = ['covered'].concat(uids).join(' ');
+        clearTimeout(settle);
+        settle = null;
+        if (line === lastCovered) {
+            return;
+        }
+        const was = lastCovered.split(' ').slice(1).map(Number);
+        if (!settled && uids.some((uid) => was.indexOf(uid) < 0)) {
+            settle = setTimeout(() => {
+                settle = null;
+                reportCovered(true);
+            }, settleMs);
+            return;
+        }
+        lastCovered = line;
+        write(`${line}\n`);
+    };
+    const report = () => {
+        const line = ['foreground'].concat(uidsOf(Array.from(shown.keys()))).join(' ');
         if (line !== last) {
             last = line;
             write(`${line}\n`);
         }
+        reportCovered(false);
     };
     const fail = (name) => (e) => log(`${name}: ${e && e.message || e}`);
 
-    /* The stack is subscribed once per instance, whether offered yet or not;
-     * the uuid is read each time the instance comes to the front, as an
-     * instance number is reused once its app is gone. */
-    const watch = (name) => someip.buildProxy(interfaceConfig, name).then((proxy) => proxy.init().then(() => {
+    /* One instance: its stack and focus are subscribed once, whether offered yet or not; the uuid is read each
+     * time it comes to the front, as an instance number is reused once its app is gone. When it becomes
+     * available its stack is read at once: the HMI does not always send a stack it set before then. A proxy
+     * that cannot be built or started (the HMI still starting after an iDrive start) is tried again every
+     * retryMs; before, such an instance was never watched until the renderer restarted, so its app never came
+     * to the front. The first failure is logged, the retries only when one works. */
+    const watch = (name, tries) => someip.buildProxy(interfaceConfig, name).then((proxy) => proxy.init().then(() => {
         const leave = () => {
             front.set(name, false);
+            focus.delete(name);
             if (shown.delete(name)) {
                 report();
             }
         };
+        const onStack = (stack) => {
+            if (!hasRootApp(stack)) {
+                leave();
+                return;
+            }
+            stackStates(stack).forEach((id) => focusOf(name).states.add(id));
+            front.set(name, true);
+            proxy.getValue('uuid').then((uuid) => {
+                if (front.get(name)) {
+                    apps = readApps(appsDir, log);
+                    shown.set(name, uuid);
+                    report();
+                }
+            }).catch(fail(name));
+        };
         proxy.subscribeToAvailability((available) => {
             if (!available) {
                 leave();
+            } else {
+                proxy.getValue('applicationStack').then(onStack).catch(fail(name));
             }
         });
-        return proxy.subscribe({
-            name: 'applicationStack',
-            onReceive: (stack) => {
-                if (!hasRootApp(stack)) {
-                    leave();
-                    return;
-                }
-                front.set(name, true);
-                proxy.getValue('uuid').then((uuid) => {
-                    if (front.get(name)) {
-                        apps = readApps(appsDir, log);
-                        shown.set(name, uuid);
-                        report();
+        /* The HMI takes the focus from the app's states while it shows something over it that takes the input
+         * (a popup, the header menu, the voice assistant, a screen opened from there): FOCUS false for the
+         * state's id, true when it comes back. Its states are the ids in its stack and those it sends VISIBLE
+         * for. A failing focus subscription leaves the app never covered, as before. */
+        Promise.resolve().then(() => proxy.subscribe({
+            name: 'notify',
+            onReceive: (ev) => {
+                const f = focusOf(name);
+                const flag = eventFlag(ev);
+                if (ev && ev.eventType === 'VISIBLE') {
+                    f.states.add(ev.sourceId);
+                } else if (ev && ev.eventType === 'FOCUS' && flag !== undefined && f.states.has(ev.sourceId)) {
+                    if (flag) {
+                        f.focused.add(ev.sourceId);
+                        f.lost = false;
+                    } else {
+                        f.focused.delete(ev.sourceId);
+                        f.lost = true;
                     }
-                }).catch(fail(name));
+                    reportCovered(false);
+                }
             }
-        });
-    })).catch(fail(name));
+        })).catch(fail(name));
+        return proxy.subscribe({ name: 'applicationStack', onReceive: onStack });
+    })).then(() => {
+        if (tries) {
+            log(`${name}: watched after ${tries} ${tries === 1 ? 'retry' : 'retries'}`);
+        }
+    }, (e) => {
+        if (!tries) {
+            fail(name)(e);
+            log(`${name}: trying again every ${retryMs / 1000} s`);
+        }
+        setTimeout(() => watch(name, tries + 1), retryMs);
+    });
 
     report();
-    Object.keys(interfaceConfig.instances).forEach(watch);
+    Object.keys(interfaceConfig.instances).forEach((name) => watch(name, 0));
 }
 
 if (require.main === module) {
@@ -262,4 +372,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { startGate, readApps, hasRootApp, findInterface };
+module.exports = { startGate, readApps, hasRootApp, findInterface, stackStates, eventFlag, RETRY_MS, COVER_SETTLE_MS };

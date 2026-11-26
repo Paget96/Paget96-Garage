@@ -78,6 +78,23 @@ int main(void)
     CHECK(gate_fd() < 0 && open_fds() == base, "stop closes its pipes");
     gate_stop();
     CHECK(kills == 1 && !bad_kills && !bad_waits, "a second stop does nothing");
+    kills = 0;
+
+    /* the reports: "covered" names apps in front the HMI covers, and leaves the front set as it is */
+    CHECK(gate_start("printf 'foreground 12240 12244\\ncovered 12244\\n' >&3; cat > /dev/null") == 0, "a reporting gate starts");
+    for (int i = 0; i < 200 && !gate_covered(12244); i++) { usleep(5000); gate_read(); }
+    CHECK(gate_reported() && gate_front(12240) && gate_front(12244), "both apps in front");
+    CHECK(gate_covered(12244) && !gate_covered(12240), "only the covered one is covered");
+    gate_stop();
+    CHECK(gate_start("printf 'foreground 12240\\ncovered 12240\\ncovered\\n' >&3; cat > /dev/null") == 0, "a second gate starts");
+    for (int i = 0; i < 200 && !gate_front(12240); i++) { usleep(5000); gate_read(); }
+    usleep(50000); gate_read();
+    CHECK(gate_front(12240) && !gate_covered(12240), "an empty covered line uncovers it, the app stays in front");
+    gate_stop();
+    CHECK(gate_start("printf 'coveredness 1\\n' >&3; cat > /dev/null") == 0, "a third gate starts");
+    for (int i = 0; i < 100 && gate_any_front(); i++) { usleep(5000); gate_read(); }
+    CHECK(gate_reported() && !gate_covered(1) && !gate_any_front(), "a word that only starts with covered is not a covered report");
+    gate_stop();
 
     if (fails) { printf("test_gate: %d failed\n", fails); return 1; }
     puts("test_gate: all passed");
