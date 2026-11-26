@@ -4,8 +4,9 @@
 """Draw a Paget96 Garage app icon on the one shared template.
 
 Every Paget96 Garage icon uses this template and no other style (owner, 2026-11-26 19:28 to 19:33, set "B2"):
-the iDrive 7 rounded square filled with an orange gradient, the glyph drawn in dark lines, its details in a
-light cream orange, a small soft shadow under the glyph. Every glyph is drawn at the size that gives it the
+the iDrive 7 rounded square in three tones split on the diagonal (owner, 20:02, set "T1": orange, deep orange
+and graphite towards the bottom right), the glyph in white lines with its details in light cream, a soft shadow
+under the glyph, a faint light from the top like glass and a thin light edge. Every glyph is drawn at the size that gives it the
 same visual size as the others, with the same line weight (owner, 19:29: "sve ikonice moraju da budu
 srazmerne"). Drawn at 4x and scaled down to 140 x 140 px. The spec is in docs/ICONS.md.
 
@@ -18,7 +19,7 @@ needs Pillow on the developer's machine, never on the head unit.
 
 <glyph> is a name from GLYPHS below; a new app adds its glyph there.
 --mask takes a glyph drawn as a white-on-transparent PNG (any square size):
-its alpha becomes the dark glyph, without details.
+its alpha becomes the white glyph, without details.
 """
 import math
 import os
@@ -31,17 +32,23 @@ SS = 4
 S = SIZE * SS
 MAX_BYTES = 128 * 1024
 
-BG_TOP = (255, 158, 70)       # the orange gradient, top
-BG_BOTTOM = (232, 92, 20)     # and bottom
-INK = (28, 18, 10)            # the glyph's lines
-DETAIL = (255, 205, 160)      # its details: the needle, the beat, the flap, the star, the car
+# the three tones, from the top left to the bottom right: (gradient top, gradient bottom) and where each ends
+# along the diagonal (share of the way from the top left corner to the bottom right one)
+BANDS = [((255, 150, 60), (235, 95, 20), 0.62),    # orange
+         ((200, 70, 10), (150, 45, 5), 0.78),      # deep orange
+         ((48, 52, 62), (22, 24, 30), None)]       # graphite
+INK = (250, 250, 252)         # the glyph's lines
+DETAIL = (255, 214, 170)      # its details: the needle, the beat, the flap, the star, the car
 CORNER = 0.235                # rounded square corner radius, share of the side (the iDrive 7 shape)
 STROKE = 0.06                 # line weight, share of the side, the same in every icon
 BOX = 0.58                    # every glyph's box has the area of a square this share of the side ...
 MAX_SIDE = 0.68               # ... and no side longer than this share
-SHADOW_BLUR = 0.012
-SHADOW_ALPHA = 0.35
-SHADOW_DY = 0.012
+SHADOW_BLUR = 0.02
+SHADOW_ALPHA = 0.45
+SHADOW_DX = 0.008
+SHADOW_DY = 0.02
+GLOSS = 38                    # the light from the top, alpha at the top edge, fading out by the middle
+EDGE_ALPHA = 0.25             # the thin light edge
 
 
 def _gradient(size, c1, c2):
@@ -169,17 +176,42 @@ def mask_layer(path):
     return im
 
 
+def _background():
+    base = Image.new('RGBA', (S, S))
+    lo = -2.0
+    for top, bottom, hi in BANDS:
+        hi = 3.0 if hi is None else hi
+        m = Image.new('L', (S, S), 0)
+        # the band between the lines x + y = lo * 2S and x + y = hi * 2S
+        a, b = lo * 2 * S, hi * 2 * S
+        ImageDraw.Draw(m).polygon([(a - 2 * S, 2 * S), (a + 2 * S, -2 * S), (b + 2 * S, -2 * S), (b - 2 * S, 2 * S)], fill=255)
+        base.paste(_gradient(S, top, bottom), (0, 0), m)
+        lo = hi
+    return base
+
+
 def icon(gl):
     r = int(S * CORNER)
-    base = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    base.paste(_gradient(S, BG_TOP, BG_BOTTOM), (0, 0), _squircle(S, r))
+    shape = _squircle(S, r)
+    out = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    out.paste(_background(), (0, 0), shape)
+    light = Image.new('L', (S, S), 0)
+    ld = ImageDraw.Draw(light)
+    for i in range(S // 2):
+        ld.line([(0, i), (S, i)], fill=int(GLOSS * (1 - i / (S / 2))))
+    gloss = Image.new('RGBA', (S, S), (255, 255, 255, 0))
+    gloss.putalpha(ImageChops.multiply(light, shape))
+    out = Image.alpha_composite(out, gloss)
     sh = gl.getchannel('A').filter(ImageFilter.GaussianBlur(S * SHADOW_BLUR)).point(lambda v: int(v * SHADOW_ALPHA))
     si = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     si.putalpha(sh)
-    si = ImageChops.offset(si, 0, int(S * SHADOW_DY))
-    base = Image.alpha_composite(base, si)
-    base = Image.alpha_composite(base, gl)
-    return base.resize((SIZE, SIZE), Image.LANCZOS)
+    out = Image.alpha_composite(out, ImageChops.offset(si, int(S * SHADOW_DX), int(S * SHADOW_DY)))
+    out = Image.alpha_composite(out, gl)
+    edge = ImageChops.subtract(shape, _squircle(S, r - 3, int(S * 0.008)))
+    e = Image.new('RGBA', (S, S), (255, 255, 255, 0))
+    e.putalpha(edge.point(lambda v: int(v * EDGE_ALPHA)))
+    out = Image.alpha_composite(out, e)
+    return out.resize((SIZE, SIZE), Image.LANCZOS)
 
 
 def save(im, out):
