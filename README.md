@@ -9,7 +9,7 @@ a rooted head unit next to BMW's own apps, read what the car already reports, an
 modern look: dark glass cards, orange accents, live numbers. Every app in this repository is
 installed and updated from the MGU Store.
 
-> **Status, November 2026:** **Health** is built and being tested on the car. **Datalog** is being built.
+> **Status, November 2026:** **Health** is built; testing on a car is next. **Datalog** is being built.
 > **Exhaust** and **Standby** are designed (previews below). Nothing has been tested on a car yet, so
 > treat everything here as a preview until the first release.
 
