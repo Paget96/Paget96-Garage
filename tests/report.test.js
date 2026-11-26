@@ -179,22 +179,20 @@ test('Settings: the Send a report button; the report pages: their buttons, the V
     });
 });
 
-test('every app: Full screen in app.json the same as the Display card (default on), and the report wired in', () => {
-    const row = UI.DISPLAY_SETTINGS.filter((s) => s.key === 'layout')[0];
-    assert.ok(row && row.default === 'full');
+test('every app: always full screen (no Full screen row, the kit\'s layout setting defaults to full), and the report wired in', () => {
+    assert.ok(!UI.DISPLAY_SETTINGS.some((s) => s.key === 'layout'));
     APPS.forEach((id) => {
         const s = spec(id).settings.filter((x) => x.key === 'layout')[0];
-        assert.ok(s, id + ': no layout setting');
-        assert.deepStrictEqual([s.label, s.type, s.default, s.options], [row.label, row.type, row.default, row.options], id);
+        assert.ok(s && s.default === 'full', id + ': layout setting');
         const src = fs.readdirSync(path.join(ROOT, 'apps', id)).filter((f) => /\.js$/.test(f))
             .map((f) => fs.readFileSync(path.join(ROOT, 'apps', id, f), 'utf8')).join('\n');
         ['UI.attach(ctx)', 'forApp(ctx', 'UI.reportPage(', 'onReport', 'REPORT_TOPIC'].forEach((k) => assert.ok(src.indexOf(k) >= 0, id + ': no ' + k));
     });
 });
 
-test('Full screen is not offered on the Software renderer (it would do nothing there)', () => {
+test('Full screen is never offered: the apps are always full screen (owner, 2026-11-26 21:37)', () => {
     const rows = (vals) => { const r = new Recorder(UI.W, UI.H); UI.settingsPage(r, [], vals, () => {}, { title: 'X' }); return r.targets.map((q) => q.key).join(' '); };
-    assert.ok(/set\|layout/.test(rows({})));
+    assert.ok(!/set\|layout/.test(rows({})));
     assert.ok(!/set\|layout/.test(rows({ renderer: 'software' })));
 });
 

@@ -86,6 +86,10 @@ const FULL = {
     // part of the app's 1600 x 520 drawing shown: the tab bar (y < 38) moves to the header and
     // the side margins are trimmed a little, so the content can be scaled up further
     src: { x: 12, y: 38, w: 1576, h: 482 },
+    // Paget96 Garage (owner, 2026-11-26 21:37): no kit header or bar; the page sits under the HMI's status strip, right of
+    // the back arrow column, with its own side menu in the rail logical px left of x 0. Set by the app ({ rail, top }:
+    // top is the logical y shown at the strip's bottom); null keeps the kit's own layout.
+    bare: null,
 };
 const LAYOUTS = ['full', 'standard'];
 const CTL_RETRIES = 3, CTL_RETRY_MS = 30000;   // connecting again for the controller (_ctlRetry)
@@ -525,6 +529,11 @@ class Display {
         // the header as far as the HMI's status corner shows through it (iDrive 7); iDrive 8 has none in the
         // app's area: the whole row is the app's, as a tap there must not count as the HMI's (mgu-render closes)
         const he = HMI.status.h ? this.headEnd : W;
+        if (this.own() && FULL.bare && HMI.status.h) {
+            // no header: the page under the status strip; the strip and the back column stay the HMI's
+            this.gpu.claim([{ x: hx, y: HMI.status.h, w: W - hx, h: pl.h - HMI.status.h }].map(logical));
+            return;
+        }
         if (this.own()) {
             // header (tabs), page and the slim bar: the back column and the status corner stay the HMI's
             this.gpu.claim([{ x: hx, y: 0, w: he - hx, h: this.headH() }, { x: hx, y: this.headH(), w: W - hx, h: pl.h - this.headH() }].map(logical));
@@ -615,6 +624,17 @@ class Display {
                     if (this.reaches) pl.oy = pl.oyTop;     // as the last frame was (it may draw in screen pixels, r.place)
                 }
             }
+        }
+        const B = FULL.bare;
+        if (B && pl.full && HMI.status.h) {
+            // the page fills the area under the status strip: as wide as the screen allows with the rail beside it
+            const top = HMI.status.h, aw = pl.w - HMI.left;
+            const s = Math.floor(aw / (PAGE.w + (B.rail || 0)) * 1000) / 1000;
+            pl.scale = s;
+            pl.ox = HMI.left + Math.round((B.rail || 0) * s);
+            pl.oy = Math.round(top + PAGE_GAP - (B.top || 0) * s);
+            pl.extra = Math.max(0, Math.floor((pl.h - PAGE_GAP - pl.oy) / s - PAGE.h));
+            delete pl.oyTop; delete pl.oyMid;
         }
         this.place = pl;
         this.gpu.place(pl);
@@ -842,6 +862,7 @@ class Display {
         const pl = this.place, t = this.theme(), W = pl.w, H = pl.h;
         const c = this.chromeRec || (this.chromeRec = new Recorder(W, H));
         c.reset();
+        if (FULL.bare && HMI.status.h) { this._drawBare(c, r, t); return; }
         const tb = this.own() ? this._tabList() : r.chrome.tabs || { tabs: [], sel: -1, badges: [] };
         // compact header in the HMI strip's own black, only as wide as its name, tabs and badges:
         // right of it the HMI's strip shows through (radio station, phone signal, status icons)
@@ -893,6 +914,24 @@ class Display {
         r.xf(1, 0, 0).append(c).xf();
     }
 
+    /** The chrome with no header (FULL.bare): the controller's marks on the page; the status strip and back column show through. */
+    _drawBare(c, r, t) {
+        const pl = this.place, W = pl.w, hx = HMI.left - pl.x;
+        this.headEnd = hx; c.tabRects = [];
+        const k = pl.scale, onPage = (key) => !this.sheet && key && (this.pageTargets || []).find((q) => 'tgt:' + q.key === key);
+        const pt = onPage(this.focusKey), pp = Date.now() - this.pressedT < 300 && onPage(this.pressed);
+        if (pp) c.roundRect(pp.x * k + pl.ox, pp.y * k + pl.oy, pp.w * k, pp.h * k, (pp.r != null ? pp.r : pp.h / 2) * k, G.withAlpha(t.sel || t.accent, 0.35));
+        if (pt) {
+            const S = t.sel || t.accent, fx = pt.x * k + pl.ox, fy = pt.y * k + pl.oy, fw = pt.w * k, fh = pt.h * k, fr = (pt.r != null ? pt.r : pt.h / 2) * k;
+            c.roundRect(fx, fy, fw, fh, fr, G.withAlpha('#ffffff', 0.08));
+            c.strokeRoundRect(fx - 8, fy - 8, fw + 16, fh + 16, fr + 8, 6, G.withAlpha(S, 0.55));
+            c.strokeRoundRect(fx - 4, fy - 4, fw + 8, fh + 8, fr + 4, 2.5, '#ffffff');
+        }
+        c.clip(0, 0, W, HMI.status.h).clear(0).noclip();
+        if (hx > 0) c.clip(0, 0, hx, HMI.colEnd - pl.y).clear(0).noclip();
+        r.xf(1, 0, 0).append(c).xf();
+    }
+
     /** A bar button's text changed (ui.text): its width, and so the bar's layout, follow. */
     label(id, text) {
         if (!(this.screen && (this.screen.buttons || []).some((b) => b[0] === id))) return;
@@ -923,7 +962,7 @@ class Display {
      * bar buttons still exist in the HMI under the surface, for focus and taps, but aren't drawn).
      */
     barH() {
-        if (this.screen && (this.screen.bar === false || this.screen.chrome === false)) return 0;
+        if (FULL.bare || (this.screen && (this.screen.bar === false || this.screen.chrome === false))) return 0;
         // the kit's bar with nothing left on it (its buttons on the page, Settings a tab): no bar
         return this.ownable() && !this.buttons().length ? 0 : FULL.barH;
     }
@@ -933,7 +972,7 @@ class Display {
         if (this.place) this._place();
     }
     /** Header height: 0 for "chrome": false (the app draws the whole screen itself, e.g. a game). */
-    headH() { return this.screen && this.screen.chrome === false ? 0 : FULL.headH; }
+    headH() { return FULL.bare || (this.screen && this.screen.chrome === false) ? 0 : FULL.headH; }
 
     /**
      * The HMI's bar buttons in screen pixels, unscrolled: [{ id, label, x, w }]. Where the kit runs

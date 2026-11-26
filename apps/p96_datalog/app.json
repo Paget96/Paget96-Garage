@@ -2,7 +2,7 @@
   "id": "p96_datalog",
   "title": "Datalog",
   "description": "Paget96 Garage: 402 m runs with splits and weather corrected times, dyno sheet, boost and wastegate, air, tyres, temperatures, run log and compare",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "vendor": "Paget96",
   "author": "Danijel Markov (Paget96)",
   "loggingId": "P96D",
