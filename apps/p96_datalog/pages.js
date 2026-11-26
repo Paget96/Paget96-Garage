@@ -146,13 +146,15 @@ function trend(a, k) {
 function pageNow(cv, m, t) {
     const v = m.v, U = units(m), h = m.h1, log = m.log(), now = m.lastT || Date.now();
     const target = m.setting('boostTarget'), boost = m.has('boost'), ring = boost || m.has('speed');
+    // the ring with room for its scale labels on both sides, so it touches neither the menu nor the cards
+    const RP = 48, rr = Math.min(150, Math.round(UI.hh() * 0.3)), RING = { r: rr, cx: L + RP + rr, right: L + 2 * (RP + rr) };
     if (!boost && ring) {
         // no boost to show (an electric car, a car without the engine unit's values): the speed ring in its place
-        UI.ring(cv, 196, T + Math.round(UI.hh() / 2), Math.min(170, Math.round(UI.hh() * 0.3)), { value: U.speed(v.speed), min: 0, max: U.speed(250), decimals: 0, unit: U.speedU, label: 'Speed', color: 'accent',
+        UI.ring(cv, RING.cx, T + Math.round(UI.hh() / 2), RING.r, { value: U.speed(v.speed), min: 0, max: U.speed(250), decimals: 0, unit: U.speedU, label: 'Speed', color: 'accent',
             scale: { step: U.imp ? 50 : 50, decimals: 0 }, info: INFO.run });
     }
     if (boost) {
-        UI.ring(cv, 196, T + Math.round(UI.hh() / 2), Math.min(170, Math.round(UI.hh() * 0.3)), {
+        UI.ring(cv, RING.cx, T + Math.round(UI.hh() / 2), RING.r, {
             value: U.press(v.boost), min: U.press(-1) < 0 ? U.press(-1) : -1, max: U.press(E.limits(m.car(), (k) => m.setting(k)).boostMax), decimals: U.pressD,
             unit: U.pressU + ', target ' + fix(U.press(target), U.pressD), label: 'Boost', color: 'accent',
             scale: U.imp ? { step: 10, decimals: 0 } : { step: 0.5, decimals: 1 }, target: U.press(target), info: INFO.boost,
@@ -193,7 +195,7 @@ function pageNow(cv, m, t) {
     // with the boost ring: 3 x 2 cards beside it; without: 4 x 2 over the whole width
     // (three cards or fewer: one row, each the full height, so the page is not half empty)
     // (four cards beside the ring: two by two, so none is left alone on a row)
-    const cols = ring ? (cards.length === 4 ? 2 : 3) : 4, x0 = ring ? 390 : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), one = cards.length <= cols, gh = one ? UI.hh() : Math.floor((UI.hh() - 14) / 2);
+    const cols = ring ? (cards.length === 4 ? 2 : 3) : 4, x0 = ring ? RING.right : L, gap = 18, w = Math.floor((R - x0 - (cols - 1) * gap) / cols), one = cards.length <= cols, gh = one ? UI.hh() : Math.floor((UI.hh() - 14) / 2);
     cards.slice(0, cols * 2).forEach((g, i) => UI.stat(cv, x0 + (i % cols) * (w + gap), T + Math.floor(i / cols) * (gh + 14), w, gh, g));
 }
 

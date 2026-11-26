@@ -42,6 +42,29 @@ function unitName(addr) {
     return u ? u[0] + ' (' + u[1] + ')' : 'Unit 0x' + hex2(addr);
 }
 
+/*
+ * What a fault costs the score (owner, 2026-11-26: "mora da se zna kakva greska utice na score i koliko"). A fault in a
+ * unit the car drives, brakes, steers or protects with counts whole; one in a body or comfort unit a quarter; one in
+ * the cluster, head unit or telematics nothing, because those hold the faults that retrofits and coding leave
+ * (a coded M cluster, a swapped head unit) and none of them changes how the car runs. A bus message fault (code
+ * starting C, D or E, BMW's network range) counts a quarter of its unit's share (unsure: the range is from fault lists
+ * read on cars, not from a spec). Info memory never counts.
+ */
+const UNIT_WEIGHT = {
+    0x01: 1, 0x12: 1, 0x13: 1, 0x18: 1, 0x1D: 1, 0x29: 1, 0x30: 1, 0x38: 1, 0x76: 1,
+    0x60: 0, 0x61: 0, 0x63: 0,
+};
+const FAULT_BASE = { active: 15, perm: 10, stored: 4 };
+/** { cost, kind ('active', 'perm', 'stored', 'info'), why } for one fault: what it takes off the score. */
+function faultCost(d) {
+    if (!d || d.mem === 'info') return { cost: 0, kind: 'info', why: 'info memory, not a fault' };
+    const kind = d.mem === 'perm' ? 'perm' : (d.status & 1) ? 'active' : 'stored';
+    let w = d.addr in UNIT_WEIGHT ? UNIT_WEIGHT[d.addr] : 0.25, why = w === 1 ? 'a unit the car drives with' : w === 0
+        ? 'display or infotainment unit, coding and retrofit faults live here' : 'body or comfort unit';
+    if (w > 0 && /^[CDE]/i.test(String(d.code || ''))) { w *= 0.25; why = 'a missing bus message'; }
+    return { cost: FAULT_BASE[kind] * w, kind: kind, why: why };
+}
+
 /* ---------- fault replies ---------- */
 
 const hex6 = (n) => ('000000' + (n >>> 0).toString(16).toUpperCase()).slice(-6);
@@ -492,10 +515,12 @@ function score(inp) {
     const fl = (inp.faults || []).filter((d) => d.mem !== 'info');
     if (inp.faults == null) add('faults', 'Faults', 'dim', 0);
     else {
-        const act = fl.filter((d) => d.status & 1).length, perm = fl.filter((d) => d.mem === 'perm').length;
-        const stored = fl.length - act - perm;
-        const cost = Math.min(40, act * 15) + Math.min(20, perm * 10) + Math.min(16, stored * 4);
-        add('faults', 'Faults', act ? 'bad' : fl.length ? 'warm' : 'ok', cost);
+        // each fault weighed by its unit (faultCost); colour from the faults that count
+        const sum = { active: 0, perm: 0, stored: 0 };
+        fl.forEach((d) => { const c = faultCost(d); sum[c.kind] += c.cost; });
+        const cost = Math.min(40, sum.active) + Math.min(20, sum.perm) + Math.min(16, sum.stored);
+        const hard = fl.some((d) => { const c = faultCost(d); return c.kind === 'active' && c.cost >= FAULT_BASE.active; });
+        add('faults', 'Faults', hard ? 'bad' : cost >= 1 ? 'warm' : 'ok', cost);
     }
     const warn = inp.batteryWarn || 12.4;
     if (inp.battery == null) add('battery', '12 V', 'dim', 0);
@@ -748,6 +773,7 @@ function derive(S, values, textOf) {
 }
 
 module.exports = {
+    faultCost, UNIT_WEIGHT,
     derive, CAPS, ALL_CAPS, has, found, pagesFor,
     DAY, WEEK, UNITS, unitName, parseDtcReply, parsePermanent, faultState, statusWords, byUnit, listOf,
     fkey, addScan, markCleared, historyRows, EVENT_WORDS,

@@ -213,7 +213,8 @@ function faultRow(cv, S, d, x, y, w, h, A) {
     const how = state === 'info' ? 'kept by the unit for its makers, not a fault' : seen
         ? 'seen ' + (seen.count === 1 ? 'once' : seen.count + ' times') + ', ' + (seen.lastDays != null ? (seen.lastDays === 0 ? 'today' : seen.lastDays + ' days ago') : '') + (seen.km != null ? ', ' + M.fmtThousands(seen.km) + ' km' : '')
         : M.statusWords(d.status).slice(0, 2).join(', ').toLowerCase();
-    cv.text(M.unitName(d.addr) + '   .   ' + how, x + 20, y + 93, 16, C.dim, { literal: true });
+    const fc = M.faultCost(d), pts = Math.round(fc.cost);
+    cv.text(M.unitName(d.addr) + '   .   ' + how + '   .   ' + (state === 'info' ? 'no effect on the score' : pts ? '-' + pts + ' score' : 'no effect on the score'), x + 20, y + 93, 16, C.dim, { literal: true });
     pillRight(cv, x + w - 20, y + 14, { active: 'ACTIVE', stored: 'STORED', pending: 'PENDING', history: 'HISTORY', info: 'INFO', perm: 'PERMANENT' }[state], c, false);
     cv.text('details, freeze frame  >', x + w - 20, y + h - 14, 15, C.orange, { align: 'right', literal: true });
     if (cv.target) cv.target(x, y, w, h, () => A.detail(d), 'fault|' + d.addr + '|' + d.code + '|' + d.mem, 18);
@@ -230,21 +231,23 @@ function faultDetail(cv, S, V, A, t, rx, rw) {
     if (cv.target) cv.target(x, TOP + 14, bw, 48, A.back, 'detailback', 24);
     cv.text(d.code + '   ' + M.unitName(d.addr), x, TOP + 92, 16, C.dim, { font: 'bold', spacing: 1, literal: true });
     cv.text(fit(cv, T.faultText(d.code, M.unitName(d.addr)), 24, rw - 60, 'bold'), x, TOP + 124, 24, C.text, { font: 'bold', literal: true });
+    const fcd = M.faultCost(d), ptsd = Math.round(fcd.cost);
+    cv.text(fit(cv, (ptsd ? 'Takes ' + ptsd + ' off the score: ' : 'No effect on the score: ') + fcd.why, 16, rw - 60), x, TOP + 150, 16, ptsd ? C.dim : C.green, { literal: true });
     // status
-    cv.text('STATUS', x, TOP + 166, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
-    M.statusWords(d.status).slice(0, 4).forEach((s, i) => { cv.circle(x + 6, TOP + 190 + i * 28, 5, i ? C.dim : C.amber); cv.text(s, x + 20, TOP + 196 + i * 28, 17, C.text, { literal: true }); });
+    cv.text('STATUS', x, TOP + 178, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+    M.statusWords(d.status).slice(0, 4).forEach((s, i) => { cv.circle(x + 6, TOP + 202 + i * 28, 5, i ? C.dim : C.amber); cv.text(s, x + 20, TOP + 208 + i * 28, 17, C.text, { literal: true }); });
     // freeze frame
     const fx = x + 360;
-    cv.text('FREEZE FRAME (WHEN IT WAS STORED)', fx, TOP + 166, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
+    cv.text('FREEZE FRAME (WHEN IT WAS STORED)', fx, TOP + 178, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
     const snap = (S.snapshots || {})[d.code] || (V.context && V.context.rows ? V.context : null);
-    if (V.context && V.context.reading) cv.text('Reading from ' + M.unitName(d.addr) + '...', fx, TOP + 196, 17, C.dim, { literal: true });
+    if (V.context && V.context.reading) cv.text('Reading from ' + M.unitName(d.addr) + '...', fx, TOP + 208, 17, C.dim, { literal: true });
     else if (snap && snap.rows && snap.rows.length) {
         snap.rows.slice(0, 8).forEach((r, i) => {
-            const cx = fx + (i % 2) * 300, cy = TOP + 196 + Math.floor(i / 2) * 30;
+            const cx = fx + (i % 2) * 300, cy = TOP + 208 + Math.floor(i / 2) * 30;
             cv.text(r[0], cx, cy, 16, C.dim, { literal: true });
             cv.text(r[1], cx + 270, cy, 17, C.text, { font: 'bold', align: 'right', literal: true });
         });
-    } else cv.text(d.mem === 'perm' ? 'Permanent faults carry no freeze frame here.' : 'The unit kept no freeze frame for it.', fx, TOP + 196, 17, C.dim, { literal: true });
+    } else cv.text(d.mem === 'perm' ? 'Permanent faults carry no freeze frame here.' : 'The unit kept no freeze frame for it.', fx, TOP + 208, 17, C.dim, { literal: true });
     // events
     const f = S.log && S.log.faults && S.log.faults[M.fkey(d.addr, d)];
     const evs = f ? f.events.slice(-3) : [];

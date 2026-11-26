@@ -155,23 +155,36 @@ test('tyres: a slow leak in one while the others hold, and a low one', () => {
 });
 
 /* ---------- score ---------- */
-test('score: the demo car is 86, good', () => {
+test('score: the demo car is 89, good', () => {
     const s = DEMO.state(Date.now());
     const fl = M.listOf(s.units, 'fault').concat(M.listOf(s.units, 'perm'));
     const sc = M.score({ faults: fl, battery: s.battery.rest, oil: 'ok', service: M.cbsItems(s.cbs, s.at), tyres: M.tyreCheck(s.pressures, s.cold), cc: 0 });
-    assert.strictEqual(sc.value, 86);
+    assert.strictEqual(sc.value, 89);
     assert.strictEqual(sc.word, 'GOOD');
 });
 test('score: active faults cost much, capped; unknown checks cost nothing; floors at 0', () => {
-    const act = (k) => { const a = []; for (let i = 0; i < k; i++) a.push({ status: 0x09, mem: 'fault' }); return a; };
+    const act = (k) => { const a = []; for (let i = 0; i < k; i++) a.push({ addr: 0x12, status: 0x09, mem: 'fault' }); return a; };
     assert.strictEqual(M.score({ faults: act(1) }).value, 85);
     assert.strictEqual(M.score({ faults: act(5) }).value, 60);
     assert.strictEqual(M.score({}).value, null);
     assert.strictEqual(M.score({}).word, 'NOT CHECKED');
-    const worst = M.score({ faults: act(9).concat([{ status: 8, mem: 'perm' }, { status: 8, mem: 'perm' }, { status: 8, mem: 'fault' }, { status: 8, mem: 'fault' }, { status: 8, mem: 'fault' }, { status: 8, mem: 'fault' }]),
+    const worst = M.score({ faults: act(9).concat([{ addr: 0x12, status: 8, mem: 'perm' }, { addr: 0x12, status: 8, mem: 'perm' }, { addr: 0x12, status: 8, mem: 'fault' }, { addr: 0x12, status: 8, mem: 'fault' }, { addr: 0x12, status: 8, mem: 'fault' }, { addr: 0x12, status: 8, mem: 'fault' }]),
         battery: 11.5, oil: 'low', service: [{ color: 'bad' }, { color: 'bad' }], tyres: { color: 'warm', low: 'RL', leak: 'RL' }, cc: 5 });
     assert.strictEqual(worst.value, 0);
     assert.strictEqual(worst.color, 'bad');
+});
+
+test('score: a fault costs by its unit; cluster, head unit and coding faults cost nothing', () => {
+    const f = (addr, code, status) => ({ addr: addr, code: code || '120408', status: status == null ? 0x09 : status, mem: 'fault' });
+    assert.strictEqual(M.faultCost(f(0x12)).cost, 15);
+    assert.strictEqual(M.faultCost(f(0x60)).cost, 0);
+    assert.strictEqual(M.faultCost(f(0x63)).cost, 0);
+    assert.strictEqual(M.faultCost(f(0x40)).cost, 3.75);
+    assert.strictEqual(M.faultCost(f(0x12, 'CD0487')).cost, 3.75);
+    assert.strictEqual(M.faultCost({ addr: 0x12, mem: 'info', status: 9 }).cost, 0);
+    // the owner's car: three active cluster faults and stored ones in the head unit no longer take 56 off
+    const mine = [f(0x60), f(0x60), f(0x60), f(0x63, '1', 8), f(0x63, '2', 8), f(0x60, '3', 8), f(0x60, '4', 8)];
+    assert.strictEqual(M.score({ faults: mine }).value, 100);
 });
 
 /* ---------- report and QR ---------- */
