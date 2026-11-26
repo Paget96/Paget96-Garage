@@ -1,6 +1,6 @@
-# Design: the Garage look
+# Design: the Paget96 Garage look
 
-Every Garage app looks like this (owner, 2026-11-26 16:54 to 16:56: layout B, top tabs; later the same
+Every Paget96 Garage app looks like this (owner, 2026-11-26 16:54 to 16:56: layout B, top tabs; later the same
 day: scrolling tabs, the two buttons top right, round ends everywhere). The rule: "Every app interface
 must be modern, never as plain as the upstream iDrive apps."
 

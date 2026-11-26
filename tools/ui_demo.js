@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Draws the Garage UI reference page (docs/design/ui-B-final.png) with lib/ui.js, through the
+ * Draws the Paget96 Garage UI reference page (docs/design/ui-B-final.png) with lib/ui.js, through the
  * same path the head unit's software fallback uses (record.js Recorder played into canvas.js),
  * and writes docs/design/ui-demo.png, so the library can be checked against the reference.
  * It also times a frame recording, the part the GPU path pays every frame.

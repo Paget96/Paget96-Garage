@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when an app is not documented the Garage way (owner rule, 2026-11-26).
+"""Fail when an app is not documented the Paget96 Garage way (owner rule, 2026-11-26).
 
 For every apps/<id>/ with an app.json:
   - README.md has a section for it: a heading '### <Name>' or an anchor '<a id="<id>">'

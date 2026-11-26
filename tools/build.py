@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Garage apps with the vendored upstream kit.
+"""Build Paget96 Garage apps with the vendored upstream kit.
 
     python tools/build.py <app id> [...] [--language xx] [--preview-only]
 

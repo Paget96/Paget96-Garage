@@ -1,6 +1,6 @@
 # Icons
 
-Every Garage icon uses one template, so the apps read as one family (owner, 2026-11-26 16:50 and
+Every Paget96 Garage icon uses one template, so the apps read as one family (owner, 2026-11-26 16:50 and
 16:53: "e ovo vec mi se svidja, sve narandzasto"). No other style.
 
 ![Sample](icons/sample.png)

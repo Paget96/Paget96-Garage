@@ -1,5 +1,7 @@
 # Paget96 Garage
 
+![Paget96 Garage](docs/brand/banner.png)
+
 <!-- hero GIF: docs/media/hero.gif (960 px wide, under 3 MB), added with the first app -->
 
 Paget96 Garage is a set of apps for the BMW iDrive 7 head unit (MGU), made by Paget96. They run on
@@ -26,10 +28,10 @@ installed and updated from the MGU Store.
 The Store builds each app on the head unit straight from this repository.
 
 1. Open the MGU Store on the head unit.
-2. Settings, **Add source**, then type `Paget96/garage`.
+2. Settings, **Add source**, then type `Paget96/Paget96-Garage`.
 3. Pick an app from the list and install it.
 
-Updates arrive in the Store like any other source's. Garage apps draw through the GPU renderer from
+Updates arrive in the Store like any other source's. Paget96 Garage apps draw through the GPU renderer from
 [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) (a default Store source); the
 Store installs it with the first app that needs it.
 
@@ -44,7 +46,7 @@ describes.
 
 | | App | What it does |
 |---|---|---|
-| | *coming* | The first apps are being moved into Garage. |
+| | *coming* | The first Paget96 Garage apps are on the way. |
 
 <!--
 One row per app, in this form:
@@ -79,7 +81,7 @@ from the head unit. For a local build, put your own copy in `oap-sdk/` (ignored 
 ```
 python tools/build.py <app id>      # dist/<id>@<version>.tgz
 python tools/check_docs.py          # every app documented, icons in spec, no em dashes
-node tools/ui_demo.js               # the Garage UI reference page, docs/design/ui-demo.png
+node tools/ui_demo.js               # the Paget96 Garage UI reference page, docs/design/ui-demo.png
 python tools/make_icon.py clock apps/<id>/icon.png
 ```
 
@@ -90,13 +92,13 @@ How the pieces fit:
   [NOTICE](NOTICE)). It is vendored, not a submodule, because the MGU Store does not fetch
   submodules. Refresh it with `python tools/sync_upstream_kit.py <idrive7-apps checkout> [<commit>]`.
 - `tools/build.py` stages a tree upstream's build understands and runs it.
-- `lib/ui.js` is the Garage look on top of the kit ([docs/DESIGN.md](docs/DESIGN.md)).
+- `lib/ui.js` is the Paget96 Garage look on top of the kit ([docs/DESIGN.md](docs/DESIGN.md)).
 - `mgu-repo.json` tells the MGU Store how to build each app.
 - Icons follow one template ([docs/ICONS.md](docs/ICONS.md)).
 
 ## Contributing
 
-Issues and pull requests are welcome. Anything that is useful beyond Garage (a fix in the kit, a
+Issues and pull requests are welcome. Anything that is useful beyond Paget96 Garage (a fix in the kit, a
 new signal) goes to [idrive7-apps](https://github.com/cauliflowermossgrape/idrive7-apps) as a pull
 request first, and comes here with the next kit sync. App ids start with `p96_`. Text never uses
 an em dash or an en dash.

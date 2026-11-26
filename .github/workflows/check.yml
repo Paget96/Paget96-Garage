@@ -17,7 +17,7 @@ jobs:
         run: python tools/check_docs.py
       - name: Node 8 syntax
         run: for f in lib/*.js tools/*.js $(ls apps/*/*.js 2>/dev/null); do node --check "$f" || exit 1; done
-      - name: Garage UI renders
+      - name: Paget96 Garage UI renders
         run: node tools/ui_demo.js /tmp/ui-demo.png
       - name: Python 3.12 syntax
         run: python -m py_compile tools/*.py

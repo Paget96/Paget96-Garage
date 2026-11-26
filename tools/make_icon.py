@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw a Paget96 Garage app icon on the one shared template.
 
-Every Garage icon uses this template and no other style (owner, 2026-11-26):
+Every Paget96 Garage icon uses this template and no other style (owner, 2026-11-26):
 a dark glass squircle with a vertical gradient, a faint orange edge, the glyph
 in orange with amber accents, a soft orange glow and a small drop shadow,
 drawn at 4x and scaled down to 140 x 140 px. The spec is in docs/ICONS.md.
@@ -89,8 +89,26 @@ def _wrench(d, c, s, w, col, acc):
     d.ellipse([c - s * 0.98, c + s * 0.62, c - s * 0.62, c + s * 0.98], fill=acc)
 
 
+def _garage(d, c, s, w, col, acc):
+    # the Paget96 Garage brand mark: a garage roof and an open door with a gauge glowing inside
+    rw = s * 1.05
+    d.line([c - rw, c - s * 0.15, c, c - s * 0.95, c + rw, c - s * 0.15], fill=col, width=w, joint='curve')
+    for x, y in ((c - rw, c - s * 0.15), (c, c - s * 0.95), (c + rw, c - s * 0.15)):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
+    x0, x1, y0, y1 = c - s * 0.78, c + s * 0.78, c - s * 0.08, c + s * 0.95
+    d.line([x0, y1, x0, y0, x1, y0, x1, y1], fill=col, width=w, joint='curve')
+    for x, y in ((x0, y1), (x1, y1)):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=col)
+    gr = s * 0.42
+    gy = y1 - s * 0.12
+    d.arc([c - gr, gy - gr, c + gr, gy + gr], 180, 360, fill=acc, width=int(w * 0.8))
+    a = math.radians(-50)
+    d.line([c, gy, c + gr * 0.8 * math.cos(a), gy + gr * 0.8 * math.sin(a)], fill=acc, width=int(w * 0.8))
+    d.ellipse([c - w * 0.7, gy - w * 0.7, c + w * 0.7, gy + w * 0.7], fill=col)
+
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage}
 
 
 def glyph_layer(name):
