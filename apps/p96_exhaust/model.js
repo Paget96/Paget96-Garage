@@ -331,7 +331,8 @@ function found(caps, k, yes) {
 }
 const TABS = ['Now', 'Flap', 'Flap log', 'OPF', 'Filter care', 'Cold start', 'Sound', 'Better sound', 'History', 'Setup'];
 /** The tab names for this engine: the filter page is OPF on a petrol and DPF on a diesel (lib/engine.js). */
-function tabsFor(p) { const n = E.filterName(p); return TABS.map((t) => (t === 'OPF' ? (n === 'filter' ? 'Filter' : n) : t)); }
+// the filter pages say which filter (OPF on a petrol, DPF on a diesel): a car has about ten filters
+function tabsFor(p) { const n = E.filterName(p); return TABS.map((t) => (t === 'OPF' ? (n === 'filter' ? 'Filter' : n) : t === 'Filter care' && n !== 'filter' ? n + ' care' : t)); }
 /**
  * The pages this car has something for (indexes into TABS). An electric car (engine false) has no exhaust: only Now,
  * which says so (owner rule 2026-11-26 19:03: pages that make no sense hide).

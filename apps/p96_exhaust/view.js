@@ -387,7 +387,7 @@ function opf(cv, S, V, A, t) {
 function care(cv, S, V, A, t) {
     const lw = 760, dv = M.drives(S.drives, S.at), withAsh = has(S, 'ash');
     const w = withAsh ? lw : X1 - X0;
-    UI.card(cv, X0, TOP, w, UI.hh(), 'Your drives and the filter', { info: info('drives') });
+    UI.card(cv, X0, TOP, w, UI.hh(), 'Your drives and the ' + fname(), { info: info('drives') });
     const bx = X0 + 20, bw = w - 40;
     const warn = dv.warn, c = warn ? [255, 186, 70] : [70, 210, 130];
     cv.roundRect(bx, TOP + 52, bw, 80, 18, c.concat([34]));
@@ -406,7 +406,7 @@ function care(cv, S, V, A, t) {
     if (!withAsh) return;
     // ash over km, the line to "about full" (an estimate)
     const rx = X0 + lw + 14, rw = X1 - rx, af = M.ashFuture(S.ash, M.ASH_FULL);
-    UI.card(cv, rx, TOP, rw, UI.hh(), 'Filter life (ash)', { info: info('ash') });
+    UI.card(cv, rx, TOP, rw, UI.hh(), fname() + ' life (ash)', { info: info('ash') });
     const px = rx + 70, pw = rw - 330, py = TOP + 60, ph = 196, lo = 0, hi = 60, kmMax = Math.max(1000, S.kmNow || 1000);
     for (let g = 0; g <= 60; g += 15) {
         const yy = py + ph - g / hi * ph;
@@ -421,7 +421,8 @@ function care(cv, S, V, A, t) {
     if (pts.length > 1) UI.curve(cv, pts, 3, '#969ea8');
     if (af && af.kmLeft != null && pts.length) {
         const end = pts[pts.length - 1];
-        for (let i = 1; i <= 6; i++) cv.circle(end[0] + i * 10, end[1] - i * 1.2, 2.5, C.green);
+        // the trend dots stay inside the chart, clear of the numbers beside it
+        for (let i = 1; i <= 6 && end[0] + i * 10 <= px + pw; i++) cv.circle(end[0] + i * 10, end[1] - i * 1.2, 2.5, C.green);
     }
     const tx = px + pw + 30;
     cv.text(af ? Math.round(af.now) + ' g now' : '--', tx, TOP + 98, 24, C.text, { font: 'bold', literal: true });
