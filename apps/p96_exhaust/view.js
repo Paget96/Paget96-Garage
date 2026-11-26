@@ -464,19 +464,19 @@ function soundPage(cv, S, V, A, t) {
     const fs = flapShown(S), lv = M.sound(S.setup, has(S, 'flap') ? fs : 'OEM', S.v && S.v.load != null && S.v.load < 25, S.engine);
     const parts = ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 214, { setup: S.setup, flap: has(S, 'flap') ? fs : 'OEM', t: t, labels: true, numbers: false,
         temps: { cat: S.v && S.v.egt, opf: S.v && S.v.pfTemp }, rpm: S.v && S.v.rpm != null ? S.v.rpm : null, boost: S.v && S.v.boost, key: 'ex|sound' });
-    parts.forEach((p, i) => {
-        const l = lv[i] ? UI.glide('ex|lvl|' + p.key, lv[i].level, null, 8) : 0;
+    parts.forEach((p) => {
+        const lvl = M.levelAt(lv, p.key), l = lvl != null ? UI.glide('ex|lvl|' + p.key, lvl, null, 8) : 0;
         ART.wave(cv, p.x, TOP + 104, 100, l, t);
         cv.text(Math.round(l * 100) + ' %', p.x, TOP + 56, 15, C.text, { font: 'bold', align: 'center', literal: true });
     });
-    cv.text('Each cylinder fires a pressure pulse. The turbo and the filters smooth the pulses, the silencers take most of the loudness. An open flap lets more through.',
+    cv.text('Each cylinder fires a pressure pulse. The turbo and the filters smooth the pulses, the silencers take most of the loudness. The flap in the rear silencer: closed, through the silencer; open, the shortest way out.',
         X0 + 20, TOP + UI.hh() - 40, 15, C.dim, { literal: true });
     cv.text('The percentages illustrate each part, following your Setup page: not a measurement.', X0 + 20, TOP + UI.hh() - 16, 15, C.dim, { literal: true });
 }
 
 /* ---------- Better sound ---------- */
 function better(cv, S, V, A, t) {
-    const v = S.v || {}, tp = M.tips({ engine: S.engine, hasFlap: has(S, 'flap'), hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
+    const v = S.v || {}, tp = M.tips({ engine: S.engine, hasFlap: has(S, 'flap') && (S.setup || {}).flaps !== 'removed', hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
         egt: has(S, 'egt') ? v.egt : null, load: has(S, 'load') ? v.load : null, rpm: has(S, 'rpm') ? v.rpm : null, mode: has(S, 'mode') ? v.mode : null });
     const lw = 960;
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Better sound, no changes to the car', { info: info('tips') });

@@ -279,11 +279,14 @@ test('catalyst warm-up: the time to 300 °C', () => {
 });
 
 /* ---------- sound, tips, the flap log ---------- */
-test('sound: each part damps, a closed flap more, the setup counts', () => {
+test('sound: each part damps; the flap is the rear silencer\'s way out, closed through it, open past it', () => {
     const s = M.sound(M.SETUP_DEFAULT, 'OPEN').map((p) => Math.round(p.level * 100));
-    assert.deepStrictEqual(s, [100, 70, 62, 50, 30, 30, 18]);
+    assert.deepStrictEqual(s, [100, 70, 62, 50, 30, 25]);
     const closed = M.sound(M.SETUP_DEFAULT, 'CLOSED');
-    assert.ok(closed[closed.length - 1].level < 0.18);
+    assert.strictEqual(Math.round(closed[closed.length - 1].level * 100), 18);
+    // removed: always the short way out, whatever the flap page says
+    assert.strictEqual(Math.round(M.sound(Object.assign({}, M.SETUP_DEFAULT, { flaps: 'removed' }), 'CLOSED').slice(-1)[0].level * 100), 25);
+    assert.strictEqual(M.levelAt(closed, 'flap'), closed[closed.length - 1].level);
     const noOpf = M.sound(Object.assign({}, M.SETUP_DEFAULT, { opf: 'none', flaps: '0' }), 'OPEN');
     assert.deepStrictEqual(noOpf.map((p) => p.key), ['engine', 'turbo', 'cat', 'mid', 'rear']);
 });

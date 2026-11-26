@@ -64,8 +64,9 @@ function layout(setup, x0, x1, sc, p) {
     if (s.opf !== 'none' && !(p && p.filter === null && p.fuel)) parts.push(['opf', E.filterName(p && p.fuel ? p : { filter: 'opf' })]);
     if (p && p.scr) parts.push(['scr', 'SCR (AdBlue)']);
     if (s.mid !== 'none') parts.push(['mid', s.mid === 'straight' ? 'Straight pipe' : 'Middle silencer']);
-    if (s.flaps !== '0' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
+    // the flap is in the rear silencer's way out: closed, the gas goes through the silencer; open, the short way out
     parts.push(['rear', two ? 'Rear silencers' : 'Rear silencer']);
+    if (s.flaps !== '0' && s.flaps !== 'removed' && !(p && p.fuel && !p.flaps && s.flaps === M.SETUP_DEFAULT.flaps)) parts.push(['flap', s.flaps === '2' || (p && p.flaps === 2) ? 'Flaps' : 'Flap']);
     const span = x1 - x0, n = parts.length, m0 = 60 * sc, m1 = 120 * sc;
     return parts.map((q, i) => ({ key: q[0], name: q[1], x: x0 + m0 + (span - m0 - m1) * i / (n - 1), w: WIDTHS[q[0]] * sc, pipeOnly: q[0] === 'mid' && s.mid === 'straight' }));
 }
@@ -362,7 +363,7 @@ const ART = {
     sound(cv, x, y, w, h, t) {
         const parts = exhaustPath(cv, x + 10, x + w - 10, y + h / 2 + 50, { t: t, flap: 'OPEN', labels: false, numbers: false, temps: { cat: 640, opf: 560 } });
         const lv = M.sound(M.SETUP_DEFAULT, 'OPEN');
-        parts.forEach((p, i) => { const l = lv[i] ? lv[i].level : 0.2; wave(cv, p.x, y + 90, 50, l * 0.9, t); });
+        parts.forEach((p) => { const lvl = M.levelAt(lv, p.key), l = lvl != null ? lvl : 0.2; wave(cv, p.x, y + 90, 50, l * 0.9, t); });
         cv.text('loud at the engine, quiet at the tail pipe', x + w / 2, y + h - 24, 15, DIM, { align: 'center', literal: true });
     },
     tips(cv, x, y, w, h, t) {

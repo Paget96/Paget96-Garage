@@ -221,7 +221,8 @@ const SETUP = [
     // none: many cars have no middle silencer at all (the owner's G20 B48: the OPF sits in the middle of the car)
     { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['none', 'None'], ['resdelete', 'Resonator delete'], ['straight', 'Straight pipe']] },
     { key: 'rear', name: 'Rear silencer', choices: [['stock', 'Stock'], ['aftermarket', 'Aftermarket'], ['valved', 'Valved aftermarket']] },
-    { key: 'flaps', name: 'Flaps', choices: [['0', 'None'], ['1', 'One'], ['2', 'Two']] },
+    // removed: some take the flap out and leave the rear silencer open for good (owner, 2026-11-26)
+    { key: 'flaps', name: 'Flaps', choices: [['0', 'None'], ['1', 'One'], ['2', 'Two'], ['removed', 'Removed, always open']] },
 ];
 const SETUP_DEFAULT = { downpipe: 'stock', cat: 'stock', opf: 'stock', mid: 'stock', rear: 'stock', flaps: '1' };
 
@@ -242,9 +243,19 @@ function sound(setup, flap, fresh, eng) {
     if (s.opf !== 'none' && !(eng && eng.fuel && !eng.filter)) add('opf', E.filterName(eng && eng.fuel ? eng : { filter: 'opf' }), fresh ? 0.86 : 0.806);
     if (eng && eng.scr) add('scr', 'SCR (AdBlue)', 0.95);
     if (s.mid !== 'none') add('mid', 'Middle silencer', s.mid === 'straight' ? 1 : s.mid === 'resdelete' ? 0.85 : 0.6);
-    if (s.flaps !== '0') add('flap', 'Flap', flap === 'OPEN' ? 1 : flap === 'CLOSED' ? 0.62 : 0.85);
-    add('rear', 'Rear silencer', s.rear === 'aftermarket' ? 0.75 : s.rear === 'valved' ? (flap === 'OPEN' ? 0.8 : 0.6) : 0.6);
+    // the flap sits in the rear silencer (owner, 2026-11-26 23:30): closed, the gas goes through the silencer and is
+    // damped; open (or removed), it takes the shortest way out past it. So it changes the rear silencer's share,
+    // it is not a damper of its own.
+    const open = s.flaps === 'removed' || (s.flaps !== '0' && flap === 'OPEN'), shut = s.flaps !== 'removed' && s.flaps !== '0' && flap === 'CLOSED';
+    const rearKeep = open ? (s.rear === 'stock' ? 0.85 : 0.92) : shut || s.flaps === '0' ? (s.rear === 'aftermarket' ? 0.75 : 0.6) : (s.rear === 'aftermarket' ? 0.82 : 0.72);
+    add('rear', s.flaps === '0' ? 'Rear silencer' : s.flaps === 'removed' ? 'Rear silencer, flap removed' : 'Rear silencer and flap', rearKeep);
     return parts;
+}
+
+/** The sound level at a drawn part (art.js layout key): the flap shows what leaves the rear silencer it opens. */
+function levelAt(lv, key) {
+    const e = (lv || []).filter((q) => q.key === (key === 'flap' ? 'rear' : key))[0];
+    return e ? e.level : null;
 }
 
 /**
@@ -383,6 +394,7 @@ function kindsFor(caps) {
     return R.KIND_ORDER.filter((k) => !need[k] || has(caps, need[k]));
 }
 
-module.exports = { CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
+module.exports = {
+    levelAt, CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
     LIGHT_OFF, COLD_COOLANT, coldWeek, SETUP, SETUP_DEFAULT, sound, tips, flapWeek, hm, ago, clock, fmtThousands, loadDays,
     CAPS, ALL_CAPS, has, found, TABS, tabsFor, pagesFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };
