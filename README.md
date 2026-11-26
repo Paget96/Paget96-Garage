@@ -2,19 +2,23 @@
 
 ![Paget96 Garage](docs/brand/banner.png)
 
-<!-- hero GIF: docs/media/hero.gif (960 px wide, under 3 MB), added with the first app -->
+![Health working](docs/media/p96_health/demo.gif)
 
 Paget96 Garage is a set of apps for the BMW iDrive 7 head unit (MGU), made by Paget96. They run on
 a rooted head unit next to BMW's own apps, read what the car already reports, and show it in one
 modern look: dark glass cards, orange accents, live numbers. Every app in this repository is
 installed and updated from the MGU Store.
 
-> **Status:** the repository is being set up. The first apps are coming; nothing is installable yet.
+> **Status, November 2026:** **Health** is built and being tested on the car. **Datalog** is being built.
+> **Exhaust** and **Standby** are designed (previews below). Nothing has been tested on a car yet, so
+> treat everything here as a preview until the first release.
 
 ## Contents
 
 - [Install](#install)
 - [The apps](#the-apps)
+- [Coming next](#coming-next)
+- [How every app works](#how-every-app-works)
 - [Building](#building)
 - [Contributing](#contributing)
 - [Credits](#credits)
@@ -147,6 +151,73 @@ Follow ambient lighting, Demo data. Then Health's own: Nightly battery check (on
 resting voltage that counts as low, 12.4 V by default), Tyre warning at (how much lower than the other three a tyre
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
+
+## Coming next
+
+These are design previews: drawn to show the look and the pages before the app is built. The numbers
+in them are made up.
+
+### Datalog (being built)
+
+Times and performance for a closed track or strip: 402 m, 201 m and half mile runs, 0 to 100 and
+60 to 100, trap speed, a weather corrected time next to the real one, a dyno sheet from one pull,
+boost explained (manifold pressure minus outside pressure), the three air temperatures (outside,
+after the filter, before the throttle), tyres cold to hot, engine and gearbox temperatures, a log
+and a side by side compare.
+
+| Now | Runs | Dyno |
+|---|---|---|
+| ![](docs/media/preview/datalog/now.png) | ![](docs/media/preview/datalog/runs.png) | ![](docs/media/preview/datalog/dyno.png) |
+
+| Correction | Boost | How boost works |
+|---|---|---|
+| ![](docs/media/preview/datalog/correction.png) | ![](docs/media/preview/datalog/boost.png) | ![](docs/media/preview/datalog/boost-explained.gif) |
+
+### Exhaust (designed)
+
+The exhaust from the engine to the tail pipe: live temperatures on every part, the exhaust flap with
+your own rules (open above an engine speed, in Sport, at full throttle; closed on a cold start or at
+night), the particulate filter with its regenerations, how the sound is made and what damps it, and
+tips for a better sound without changing anything. A setup page records what your exhaust has.
+
+| Now | Flap and its rules |
+|---|---|
+| ![](docs/media/preview/exhaust/now.png) | ![](docs/media/preview/exhaust/flap.png) |
+
+| Particulate filter | How the sound is made | Setup |
+|---|---|---|
+| ![](docs/media/preview/exhaust/opf.png) | ![](docs/media/preview/exhaust/sound.gif) | ![](docs/media/preview/exhaust/setup.png) |
+
+### Standby (designed)
+
+A calm screen for waiting and night driving: a big clock whose digits never move, the outside
+temperature with an ice warning, the 12 V battery, range, doors and windows, seat and wheel heating
+and the climate, at a glance. At night it dims to a warm dark colour.
+
+| Clock | At night | Glance |
+|---|---|---|
+| ![](docs/media/preview/standby/clock.png) | ![](docs/media/preview/standby/night.png) | ![](docs/media/preview/standby/glance.png) |
+
+## How every app works
+
+Every Paget96 Garage app follows the same rules, so once you know one, you know them all.
+
+- **One look.** Dark glass cards, the app name and a small clock top left, page tabs on top that
+  scroll when there are many, How to use (?) and Settings (gear) top right.
+- **One app per topic.** No thirty small apps: each app holds everything about its topic.
+- **Every card explains itself.** Tap a card with an (i) for what it shows, where the value comes from
+  and what is normal, with a picture or an animation.
+- **Every chart has its values.** Axes with numbers and units; rings show their scale.
+- **Smooth.** Everything moves at 60 fps: values glide, nothing jumps. Frame rate and renderer can be
+  changed in Settings (60 fps is the default).
+- **Only what your car has.** A card, page or button appears only when your car reports that value or
+  has that function.
+- **Colours mean something.** Green is fine, amber look at it soon, red now. The accent follows your
+  front ambient light, but data colours never change.
+- **Read first.** The apps read what the car already reports. The only things they ever change, and
+  only when you tap and confirm: clearing the fault memory and resetting a service item (Health),
+  and the exhaust flap (Exhaust).
+- **Your popups stay on top.** An app must never cover the car's own popups (work in progress).
 
 ## Building
 
