@@ -124,14 +124,17 @@ function boostArt(cv, x, y, w, h, t) {
         cv.circle(px, ty, 4.5, C.blue);
     }
     const gap = 28 - 16 * f, n = Math.floor((tx1 - tc - 50) / gap);
+    // speeds that change run on phases (speed x time added each frame), so a change of speed never jumps (2026-11-26 20:17)
+    const pk = 'dl|boostArt|' + Math.round(x) + '|' + Math.round(y);
+    const run = UI.phase(pk + '|air', 40 + 60 * f, t * 1000), spin = UI.phase(pk + '|spin', 3 + 14 * f, t * 1000);
     for (let i = 0; i < n; i++) {
-        const px = tc + 40 + ((i * gap + t * (40 + 60 * f)) % (n * gap));
+        const px = tc + 40 + ((i * gap + run) % (n * gap));
         cv.circle(px, ty, 4.5, C.orange);
     }
     cv.circle(tc, ty, 32, '#1a1c22');
     cv.arc(tc, ty, 30, 33, 0, 360, GREY);
     for (let k = 0; k < 5; k++) {
-        const a = t * (3 + 14 * f) + k * 1.2566;
+        const a = spin + k * 1.2566;
         cv.line(tc, ty, tc + 22 * Math.cos(a), ty + 22 * Math.sin(a), 3, GREY);
     }
     lbl(cv, 'outside air', (tx0 + tc - 32) / 2, ty + 40, C.blue, 14);
@@ -203,9 +206,11 @@ function wastegateArt(cv, x, y, w, h, t) {
     cv.line(bx0, py, bx0, by, 22, TRACK); cv.line(bx0, by, bx1, by, 22, TRACK); cv.line(bx1, by, bx1, py, 22, TRACK);
     // the gas: hot until it gives its energy to the turbine; through the flap it stays hot
     const A = [[ex, py], [out, py]], B = [[ex, py], [bx0, py], [bx0, by], [bx1, by], [bx1, py], [out, py]];
+    const pk = 'dl|wgArt|' + Math.round(x) + '|' + Math.round(y);
+    const gas = UI.phase(pk + '|gas', 0.18 + 0.22 * flow, t * 1000), turn = UI.phase(pk + '|spin', 2 + 16 * flow * (1 - share), t * 1000);
     for (let i = 0; i < 22; i++) {
         const bypass = ((i * 0.618034) % 1) < share;
-        const u = (t * (0.18 + 0.22 * flow) + i / 22) % 1;
+        const u = (gas + i / 22) % 1;
         const p = along(bypass ? B : A, u);
         const past = bypass ? false : p[0] > tx;
         cv.circle(p[0], p[1], 5, past ? '#c8a078' : '#ff6e3c');
@@ -213,7 +218,7 @@ function wastegateArt(cv, x, y, w, h, t) {
     // the turbine, faster with more gas through it
     cv.circle(tx, py, tr, '#1a1c22');
     cv.arc(tx, py, tr - 2, tr + 1, 0, 360, GREY);
-    const spin = t * (2 + 16 * flow * (1 - share));
+    const spin = turn;
     for (let k = 0; k < 6; k++) { const a = spin + k * 1.0472; cv.line(tx, py, tx + 30 * Math.cos(a), py + 30 * Math.sin(a), 3, GREY); }
     lbl(cv, 'turbine', tx, py + tr + 20, C.dim, 13);
     // the flap: hinged at the left of the bypass foot, flat when shut, standing up when open

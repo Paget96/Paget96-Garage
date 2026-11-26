@@ -417,11 +417,11 @@ function battery(cv, S, V, A, t) {
     // the cards this car has, side by side over the width
     const cards = [];
     if (volts) cards.push((x, w) => UI.stat(cv, x, TOP, w, ch, { label: 'Resting voltage', value: b.rest, decimals: 2, unit: 'V', sub: b.rest != null ? 'after the night, ' + bv.word.toLowerCase() : 'open Health before starting',
-        color: bv.color, history: nights, minSpan: 2, spanLabel: '-14 d', nowLabel: 'today', info: info('rest') }));
+        color: bv.color, history: nights, slots: 14, minSpan: 2, spanLabel: '-14 d', nowLabel: 'today', info: info('rest') }));
     if (volts && b.startMin != null) cards.push((x, w) => UI.stat(cv, x, TOP, w, ch, { label: 'Lowest at start', value: b.startMin, decimals: 1, unit: 'V', sub: sv.text, color: sv.color,
-        history: starts, minSpan: 2, spanLabel: '-14 d', nowLabel: 'today', info: info('start') }));
+        history: starts, slots: 14, minSpan: 2, spanLabel: '-14 d', nowLabel: 'today', info: info('start') }));
     if (soc) cards.push((x, w) => UI.stat(cv, x, TOP, w, ch, { label: 'Charge (car)', value: b.soc, decimals: 0, unit: '%', sub: 'what the car reports', color: b.soc == null ? 'dim' : b.soc >= 70 ? 'ok' : 'warm',
-        history: b.socHist, minSpan: 4, spanLabel: '-12 h', nowLabel: 'now', info: info('charge') }));
+        history: b.socHist, slots: 12, minSpan: 4, spanLabel: '-12 h', nowLabel: 'now', info: info('charge') }));
     if (volts) cards.push((x, w) => {
         UI.card(cv, x, TOP, w, ch, 'Verdict', { info: info('verdict') });
         cv.text(bv.word, x + 20, TOP + 84, 36, col(bv.color), { font: 'bold', literal: true });

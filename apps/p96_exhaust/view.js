@@ -120,14 +120,14 @@ function now(cv, S, V, A, t) {
     const fs = flapShown(S), ang = UI.glide('ex|flapangle', fs === 'OPEN' ? 0 : fs === 'CLOSED' ? 90 : 45, null, 10);
     const fs2 = flapShown(S, 1), ang2 = UI.glide('ex|flapangle2', fs2 === 'OPEN' ? 0 : fs2 === 'CLOSED' ? 90 : 45, null, 10);
     ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 114, { setup: S.setup, engine: S.engine, temps: { cat: has(S, 'egt') ? v.egt : null, opf: has(S, 'pfTemp') ? v.pfTemp : null },
-        flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, flow: v.rpm ? Math.min(1.6, v.rpm / 2500) : 0.4 });
+        flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, rpm: v.rpm == null ? null : v.rpm, boost: v.boost, key: 'ex|now' });
     const h = S.hist || {}, y = TOP + 210, ch = HH - 210 + 0;
     const cards = [];
     if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: 'model from the engine unit',
-        color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, info: info('egt') }));
+        color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') }));
     if (has(S, 'load')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' load', value: v.load, decimals: 0, unit: '%',
         sub: (v.soot != null ? 'soot ' + v.soot.toFixed(1) + ' g' : '') + (has(S, 'ash') && v.ash != null ? ', ash ' + Math.round(v.ash) + ' g' : ''),
-        color: v.load != null && v.load >= 80 ? 'warm' : 'ok', history: h.load, minSpan: 4, seq: h.seq, info: info('opfLoad') }));
+        color: v.load != null && v.load >= 80 ? 'warm' : 'ok', history: h.load, minSpan: 4, seq: h.seq, every: 1000, info: info('opfLoad') }));
     else if (has(S, 'soot')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' soot', value: v.soot, decimals: 1, unit: 'g', sub: 'in the particulate filter', color: 'ok', info: info('opfLoad') }));
     if (has(S, 'adblue')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'AdBlue tank', value: v.adblue, decimals: 0, unit: '%',
         sub: v.adblue == null ? 'reading' : v.adblue < 15 ? 'low: top up soon' : 'for the SCR catalyst', color: v.adblue != null && v.adblue < 15 ? 'warm' : 'info', info: info('adblue') }));
@@ -140,7 +140,7 @@ function now(cv, S, V, A, t) {
         cv.text(fit(cv, (d ? d.reason : '') + ', ' + F.stateWords(vw).replace(/^simulated: .*/, 'simulated'), 16, w - 40), x + 20, y + ch - 13, 16, fs === 'OPEN' ? C.green : C.dim, { literal: true });
     });
     if (has(S, 'rpm')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Engine', value: v.rpm, decimals: 0, unit: 'rpm', smooth: true,
-        sub: has(S, 'engLoad') && v.engLoad != null ? 'load ' + Math.round(v.engLoad) + ' %' : (v.gear ? 'gear ' + v.gear : ''), color: '#ecf0f5', history: h.rpm, minSpan: 200, seq: h.seq, info: info('engine') }));
+        sub: has(S, 'engLoad') && v.engLoad != null ? 'load ' + Math.round(v.engLoad) + ' %' : (v.gear ? 'gear ' + v.gear : ''), color: '#ecf0f5', history: h.rpm, minSpan: 200, seq: h.seq, every: 1000, info: info('engine') }));
     row(cv, y, cards);
 }
 
@@ -451,7 +451,7 @@ function soundPage(cv, S, V, A, t) {
     UI.card(cv, X0, TOP, X1 - X0, HH, 'How the sound is made, and what damps it', { info: info('sound') });
     const fs = flapShown(S), lv = M.sound(S.setup, has(S, 'flap') ? fs : 'OEM', S.v && S.v.load != null && S.v.load < 25, S.engine);
     const parts = ART.exhaustPath(cv, X0 + 50, X1 - 20, TOP + 214, { setup: S.setup, flap: has(S, 'flap') ? fs : 'OEM', t: t, labels: true, numbers: false,
-        temps: { cat: S.v && S.v.egt, opf: S.v && S.v.pfTemp }, flow: S.v && S.v.rpm ? Math.min(1.6, S.v.rpm / 2500) : 0.4 });
+        temps: { cat: S.v && S.v.egt, opf: S.v && S.v.pfTemp }, rpm: S.v && S.v.rpm != null ? S.v.rpm : null, boost: S.v && S.v.boost, key: 'ex|sound' });
     parts.forEach((p, i) => {
         const l = lv[i] ? UI.glide('ex|lvl|' + p.key, lv[i].level, null, 8) : 0;
         ART.wave(cv, p.x, TOP + 104, 100, l, t);

@@ -70,7 +70,7 @@ mgu.run({
         /* ---------- live values ---------- */
         const live = { outside: null, volts: null, charge: null, range: null, fuelL: null, fuelAvg: null, speed: null, carNight: null,
             doors: null, windows: null, locked: null, seats: {}, wheel: null, climate: null, ac: null, blower: null, left: false };
-        const hist = { outside: [], volts: [] };
+        const hist = { outside: [], volts: [], seq: 0 };
         let lastCar = 0;
         const put = (k, v) => { live[k] = v; if (v !== null && v !== undefined) { seen.mark(k); lastCar = now(); } };
         const onOff = (x) => (x === true || x === 1 || /(_EIN|_ON|^EIN|^ON)$/.test(String(x)) ? true : x === false || x === 0 || /(_AUS|_OFF|^AUS|^OFF)$/.test(String(x)) ? false : null);
@@ -184,6 +184,7 @@ mgu.run({
                 histAt = t;
                 const d = usingDemo() ? M.Demo.values(t, demoCar()) : live;
                 ['outside', 'volts'].forEach((k) => { hist[k].push(M.isNum(d[k]) ? d[k] : null); if (hist[k].length > HIST_N) hist[k].shift(); });
+                hist.seq++;
             }
             readVolts();
         }, 250);
@@ -196,12 +197,12 @@ mgu.run({
                 if (!demoDrives) demoDrives = M.Demo.drives(t);
                 d.outsideHist = hist.outside.length > 1 ? hist.outside : [d.outside + 1.5, d.outside];
                 d.voltsHist = hist.volts.length > 1 ? hist.volts : [d.volts, d.volts];
-                d.drives = demoDrives;
+                d.drives = demoDrives; d.histSeq = hist.seq;
                 d.has = (k) => d[k] !== undefined && d[k] !== null;
                 return d;
             }
             const v = Object.assign({}, live);
-            v.outsideHist = hist.outside; v.voltsHist = hist.volts; v.drives = drives;
+            v.outsideHist = hist.outside; v.voltsHist = hist.volts; v.histSeq = hist.seq; v.drives = drives;
             v.has = (k) => seen.has(k) && live[k] !== null && live[k] !== undefined;
             return v;
         }

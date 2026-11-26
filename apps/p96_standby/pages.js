@@ -165,12 +165,12 @@ function glanceCards(v) {
     if (v.has('outside')) {
         const r = M.iceRisk(v.outside);
         out.push({ kind: 'stat', g: { label: 'Outside', value: v.outside, decimals: 0, unit: '°C', sub: r ? r.text : '', color: iceColour(v.outside),
-            history: v.outsideHist, minSpan: 2, spanLabel: '-10 min', info: INFO.outside } });
+            history: v.outsideHist, minSpan: 2, spanLabel: '-10 min', seq: v.histSeq, slots: 60, every: 10000, info: INFO.outside } });
     }
     if (v.has('volts')) {
         out.push({ kind: 'stat', g: { label: '12 V battery', value: v.volts, decimals: 1, unit: 'V', color: voltColour(v.volts),
             sub: (v.volts >= 12.4 ? 'healthy' : v.volts >= 12.2 ? 'getting low' : 'low, charge it') + (v.has('charge') ? ', charge ' + f(v.charge) + ' %' : ''),
-            history: v.voltsHist, minSpan: 2, spanLabel: '-10 min', info: INFO.battery } });
+            history: v.voltsHist, minSpan: 2, spanLabel: '-10 min', seq: v.histSeq, slots: 60, every: 10000, info: INFO.battery } });
     } else if (v.has('charge')) {
         out.push({ kind: 'stat', g: { label: '12 V battery', value: v.charge, unit: '%', sub: 'the car\'s own charge figure', color: v.charge >= 70 ? 'ok' : 'warm', info: INFO.battery } });
     }

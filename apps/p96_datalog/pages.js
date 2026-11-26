@@ -56,6 +56,8 @@ function units(m) {
         temp: (c) => (isNum(c) ? (imp ? c * 9 / 5 + 32 : c) : null), tempU: imp ? '°F' : '°C',
         dtemp: (c) => (isNum(c) ? (imp ? c * 9 / 5 : c) : null),
         baro: (kPa) => (isNum(kPa) ? (imp ? kPa * 0.2953 : kPa * 10) : null), baroU: imp ? 'inHg' : 'hPa', baroD: imp ? 2 : 0,
+        // the least a small chart's range spans, per unit (owner, 2026-11-26 20:16): a wobble of a degree or a hPa stays small
+        tempSpan: imp ? 10 : 6, baroSpan: imp ? 0.3 : 10, pressSpan: imp ? 7 : 0.5,
         dist: (len) => (imp ? { 201: '1/8 mile', 402: '1/4 mile', 804: '1/2 mile' }[len] : M.LENGTH_NAME[len]),
     };
 }
@@ -161,24 +163,24 @@ function pageNow(cv, m, t) {
     // [the value the card needs, the card]: only the ones this car reports, in this order, as many as fit
     const cards = [
         ['kPa', { label: 'Ambient pressure', value: U.baro(v.kPa), decimals: U.baroD, unit: U.baroU, sub: trend(h.kPa, 0.05), color: 'dim',
-            history: h.kPa.map(U.baro), minSpan: U.imp ? 0.1 : 4, info: INFO.ambient, seq: m.seq1 }],
+            history: h.kPa.map(U.baro), minSpan: U.baroSpan, info: INFO.ambient, seq: m.seq1 }],
         ['intake', { label: 'Intake air', value: U.temp(v.intake), decimals: 0, unit: U.tempU, color: 'ok',
             sub: isNum(outsideGap) ? 'after filter, ' + signed(U.dtemp(outsideGap), 0) + ' vs outside' : 'after the filter',
-            history: h.intake.map(U.temp), info: INFO.intake, seq: m.seq1 }],
+            history: h.intake.map(U.temp), minSpan: U.tempSpan, info: INFO.intake, seq: m.seq1 }],
         [null, { label: 'Run', value: running ? log.elapsed(now) : last ? last.result[M.finalKey(last.length)] : null, decimals: 2, unit: 's',
             sub: running ? 'RUNNING  ' + Math.round(U.speed(v.speed) || 0) + ' ' + U.speedU : rw.text, color: rw.color,
             history: running ? null : lastSpeeds, spanLabel: 'last run', nowLabel: U.speedU, minSpan: 20, smooth: !running, info: INFO.run }],
         ['charge', { label: 'Charge air', value: U.temp(v.charge), decimals: 0, unit: U.tempU, color: M.zone('charge', v.charge),
             sub: isNum(chargeGap) ? signed(U.dtemp(chargeGap), 0) + ' over intake' : 'before the throttle',
-            history: h.charge.map(U.temp), info: INFO.charge, seq: m.seq1 }],
+            history: h.charge.map(U.temp), minSpan: U.tempSpan, info: INFO.charge, seq: m.seq1 }],
         ['oil', { label: 'Engine oil', value: U.temp(v.oil), decimals: 0, unit: U.tempU, color: M.zone('oil', v.oil), sub: M.zoneWords('oil', v.oil),
-            history: h.oil.map(U.temp), info: INFO.oil, seq: m.seq1 }],
+            history: h.oil.map(U.temp), minSpan: U.tempSpan, info: INFO.oil, seq: m.seq1 }],
         ['gearbox', { label: 'Gearbox', value: U.temp(v.gearbox), decimals: 0, unit: U.tempU, color: M.zone('gearbox', v.gearbox), sub: M.zoneWords('gearbox', v.gearbox),
-            history: h.gearbox.map(U.temp), info: INFO.gearbox, seq: m.seq1 }],
+            history: h.gearbox.map(U.temp), minSpan: U.tempSpan, info: INFO.gearbox, seq: m.seq1 }],
         ['coolant', { label: 'Coolant', value: U.temp(v.coolant), decimals: 0, unit: U.tempU, color: M.zone('coolant', v.coolant), sub: M.zoneWords('coolant', v.coolant),
-            history: h.coolant.map(U.temp), info: INFO.coolant, seq: m.seq1 }],
+            history: h.coolant.map(U.temp), minSpan: U.tempSpan, info: INFO.coolant, seq: m.seq1 }],
         ['outside', { label: 'Outside air', value: U.temp(v.outside), decimals: 0, unit: U.tempU, sub: 'mirror sensor', color: 'info',
-            history: h.outside.map(U.temp), info: INFO.outside, seq: m.seq1 }],
+            history: h.outside.map(U.temp), minSpan: U.tempSpan, info: INFO.outside, seq: m.seq1 }],
         ['tyres', (function () {
             const tp = (v.tyres || {}).p || {}, ks = M.WHEELS.filter((k) => isNum(tp[k]));
             const lo = ks.length ? ks.reduce((a, k) => (tp[k] < tp[a] ? k : a), ks[0]) : null;
@@ -319,9 +321,9 @@ function pageDyno(cv, m) {
 /* ---------- Correction ---------- */
 
 function airChart(cv, m, x, y, w, h, info) {
-    const U = units(m), last = m.log().last;
+    const U = units(m), last = m.log().last, lastRun = !!(last && last.trace && last.trace.length > 2);
     let series, xl;
-    if (last && last.trace && last.trace.length > 2) {
+    if (lastRun) {
         const rl = runLabels(last.trace[last.trace.length - 1][0]);
         series = [
             { name: 'outside', color: 'info', values: traceOver(last, 'outside', rl.end).map(U.temp) },
@@ -340,7 +342,8 @@ function airChart(cv, m, x, y, w, h, info) {
     const key = { outside: 'outside', 'after filter': 'intake', 'before throttle': 'charge' };
     series = series.filter((sr) => m.has(key[sr.name]));
     UI.chart(cv, x, y, w, h, series, { label: last ? 'Air temperatures over the last run' : 'Air temperatures, last minute', yTicks: 3, yUnit: U.tempU,
-        xLabels: xl, legend: 'right', note: series.length > 1 ? 'gaps: engine bay heat and intercooler heat soak' : '', info: info, fill: false });
+        xLabels: xl, legend: 'right', note: series.length > 1 ? 'gaps: engine bay heat and intercooler heat soak' : '', info: info, fill: false,
+        minSpan: U.tempSpan, seq: lastRun ? null : m.seq1, slots: lastRun ? null : 60, every: 1000 });
 }
 function pageCorrection(cv, m) {
     const v = m.v, U = units(m), h = m.h1, ch = 180;
@@ -349,10 +352,10 @@ function pageCorrection(cv, m) {
     const vs = (g) => (isNum(g) ? ', ' + signed(U.dtemp(g), 0) + ' vs outside' : '');
     // only the cards this car reports; the correction card needs the intake air and the outside pressure
     const cards = [
-        ['outside', { label: 'Outside air', value: U.temp(v.outside), decimals: 0, unit: U.tempU, sub: 'mirror sensor, reference', color: 'info', history: h.outside.map(U.temp), info: INFO.outside }],
-        ['intake', { label: 'Intake air', value: U.temp(v.intake), decimals: 0, unit: U.tempU, sub: 'after filter' + vs(gapOut), color: 'ok', history: h.intake.map(U.temp), info: INFO.intake }],
-        ['charge', { label: 'Charge air', value: U.temp(v.charge), decimals: 0, unit: U.tempU, sub: 'before throttle' + vs(gapCh), color: 'warm', history: h.charge.map(U.temp), info: INFO.charge }],
-        ['kPa', { label: 'Ambient pressure', value: U.baro(v.kPa), decimals: U.baroD, unit: U.baroU, sub: 'from the engine unit', color: C.text, history: h.kPa.map(U.baro), minSpan: U.imp ? 0.1 : 4, info: INFO.ambient }],
+        ['outside', { label: 'Outside air', value: U.temp(v.outside), decimals: 0, unit: U.tempU, sub: 'mirror sensor, reference', color: 'info', history: h.outside.map(U.temp), minSpan: U.tempSpan, info: INFO.outside }],
+        ['intake', { label: 'Intake air', value: U.temp(v.intake), decimals: 0, unit: U.tempU, sub: 'after filter' + vs(gapOut), color: 'ok', history: h.intake.map(U.temp), minSpan: U.tempSpan, info: INFO.intake }],
+        ['charge', { label: 'Charge air', value: U.temp(v.charge), decimals: 0, unit: U.tempU, sub: 'before throttle' + vs(gapCh), color: 'warm', history: h.charge.map(U.temp), minSpan: U.tempSpan, info: INFO.charge }],
+        ['kPa', { label: 'Ambient pressure', value: U.baro(v.kPa), decimals: U.baroD, unit: U.baroU, sub: 'from the engine unit', color: C.text, history: h.kPa.map(U.baro), minSpan: U.baroSpan, info: INFO.ambient }],
     ].filter((c) => m.has(c[0])).map((c) => c[1]);
     const corr = m.has('intake') && m.has('kPa'), n = cards.length + (corr ? 1 : 0), gap = 14, cw = (CW - (n - 1) * gap) / Math.max(1, n);
     cards.forEach((g, i) => UI.stat(cv, L + i * (cw + gap), T, cw, ch, Object.assign({ seq: m.seq1 }, g)));
@@ -422,9 +425,9 @@ function pageBoost(cv, m) {
     const target = m.setting('boostTarget');
     const cards = [
         { label: m.has('boost2') ? 'Boost, bank 1' : 'Boost', value: U.press(v.boost), decimals: U.pressD, unit: U.pressU,
-            sub: m.has('boost2') ? 'bank 2 ' + (isNum(v.boost2) ? fix(U.press(v.boost2), U.pressD) + ' ' + U.pressU : '--') : m.car().turbos === 2 ? 'two turbos, one manifold' : 'manifold minus outside', color: 'accent', history: h.boost.map(U.press), minSpan: 0.5, info: INFO.boost },
-        { label: 'Manifold pressure', value: U.press(v.manifold), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'what the engine gets', color: C.text, history: h.manifold.map(U.press), minSpan: 0.5, info: INFO.manifold },
-        { label: 'Outside pressure', value: U.press(v.ambient), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'weather and altitude', color: 'info', history: h.ambient.map(U.press), minSpan: 0.5, info: INFO.ambient },
+            sub: m.has('boost2') ? 'bank 2 ' + (isNum(v.boost2) ? fix(U.press(v.boost2), U.pressD) + ' ' + U.pressU : '--') : m.car().turbos === 2 ? 'two turbos, one manifold' : 'manifold minus outside', color: 'accent', history: h.boost.map(U.press), minSpan: U.pressSpan, info: INFO.boost },
+        { label: 'Manifold pressure', value: U.press(v.manifold), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'what the engine gets', color: C.text, history: h.manifold.map(U.press), minSpan: U.pressSpan, info: INFO.manifold },
+        { label: 'Outside pressure', value: U.press(v.ambient), decimals: U.pressD, unit: U.pressU + ' abs', sub: 'weather and altitude', color: 'info', history: h.ambient.map(U.press), minSpan: U.pressSpan, info: INFO.ambient },
     ];
     cards.forEach((g, i) => UI.stat(cv, L + i * (cw + gap), T, cw, ch, Object.assign({ seq: m.seq1 }, g)));
     const x = L + 3 * (cw + gap), tpw = wg ? cw : R - x;
@@ -437,7 +440,8 @@ function pageBoost(cv, m) {
     if (wg) wastegateCard(cv, m, L + 4 * (cw + gap), T, R - (L + 4 * (cw + gap)), ch);
     // pressure over the last run, else the last minute; the wastegate on its own axis on the right (0 to 100 %)
     let series, xl, label;
-    if (last && last.trace && last.trace.length > 2) {
+    const lastRun = !!(last && last.trace && last.trace.length > 2);
+    if (lastRun) {
         const rl = runLabels(last.trace[last.trace.length - 1][0]);
         series = [
             { name: 'manifold (abs)', color: C.text, values: traceOver(last, 'manifold', rl.end).map(U.press) },
@@ -462,6 +466,7 @@ function pageBoost(cv, m) {
     const withWg = series.some((q) => q.axis === 'right');
     UI.chart(cv, L, T + ch + 14, CW, CH - ch - 14, series, { label: withWg ? label + ' and the wastegate' : label, yTicks: 4, yUnit: U.pressU, xLabels: xl, legend: 'right',
         note: withWg ? null : 'boost = manifold minus outside', info: withWg ? INFO.pressureWgChart : INFO.pressureChart, fill: false,
+        minSpan: U.pressSpan, seq: lastRun ? null : m.seq1, slots: lastRun ? null : 60, every: 1000,
         right: withWg ? { min: 0, max: 100, unit: '%', color: WG_COL } : null });
 }
 
@@ -528,7 +533,8 @@ function pageTemps(cv, m) {
         { k: 'gearbox', name: 'gearbox', color: 'info', values: h.gearbox.map(U.temp) },
         { k: 'charge', name: 'charge air', color: 'warm', values: h.charge.map(U.temp) },
         { k: 'coolant', name: 'coolant', color: C.text, values: h.coolant.map(U.temp) },
-    ].filter((sr) => m.has(sr.k)).slice(0, 3), { label: 'Last 10 minutes', yTicks: 5, yUnit: U.tempU, xLabels: ['-10 min', '-8', '-6', '-4', '-2', 'now'], info: INFO.tempsChart, fill: false, seq: m.seq10 });
+    ].filter((sr) => m.has(sr.k)).slice(0, 3), { label: 'Last 10 minutes', yTicks: 5, yUnit: U.tempU, xLabels: ['-10 min', '-8', '-6', '-4', '-2', 'now'], info: INFO.tempsChart, fill: false,
+        seq: m.seq10, slots: 120, every: 5000, minSpan: U.tempSpan });
 }
 
 /* ---------- Log ---------- */

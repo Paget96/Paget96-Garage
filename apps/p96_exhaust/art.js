@@ -112,7 +112,9 @@ function engineBlock(cv, X, cy, S, p, rows, hot) {
 /**
  * The exhaust from the engine to the tail pipe, centred on cy, from x0 to x1. o = { setup, engine (lib/engine.js
  * profile, else the one set with setEngine), temps: { cat, opf }, flap ('OPEN', 'CLOSED', 'OEM'), flapAngle (0 open ..
- * 90 closed, gliding), t (s), flow (0..1.5, gas speed), labels, numbers }. Two turbos, two banks or two flaps: two
+ * 90 closed, gliding), t (s), rpm (the car's engine speed: the gas and the turbo follow it), boost (bar, the turbo
+ * spins a little faster), flow (0..1.5, a fixed gas speed for the explanations, when no rpm is given), key, labels,
+ * numbers }. Two turbos, two banks or two flaps: two
  * pipes, one above the other, each with its own parts and flap. The gas: dots coloured by temperature, moving; behind
  * a closed flap fewer of them.
  */
@@ -121,7 +123,13 @@ function exhaustPath(cv, x0, x1, cy, o) {
     const p = o.engine !== undefined ? o.engine : ENGINE;
     // the full drawing is made for about 1450 px; narrower (a popup, How to use) it shrinks, labels in two rows
     const sc = Math.min(1, (x1 - x0) / 1450), small = sc < 0.8;
-    const parts = layout(o.setup, x0, x1, sc, p), t = o.t || 0, flow = o.flow == null ? 1 : o.flow;
+    const parts = layout(o.setup, x0, x1, sc, p), t = o.t || 0, byRpm = o.rpm !== undefined;
+    const flow = byRpm ? (o.rpm > 0 ? o.rpm / 2500 : 0.4) : o.flow == null ? 1 : o.flow;
+    // the gas and the turbo run on phases that add speed x time each frame (owner, 2026-11-26 20:17: "trokira"):
+    // time x speed jumped whenever a new rpm came in. A new speed eases in over 300 ms.
+    const key = o.key || 'p96ex|' + Math.round(x0) + '|' + Math.round(cy), now = t * 1000;
+    const gas = UI.phase(key + '|gas', byRpm ? UI.flowRate(o.rpm) : 0.25 * Math.max(0.2, flow), now);
+    const spin = UI.phase(key + '|spin', byRpm ? UI.turboRate(o.rpm, o.boost) : 2.5 * Math.max(0.3, flow), now);
     const px0 = parts[0].x - 30 * sc, px1 = x1 - 30 * sc, S = (v) => v * sc;
     const two = pipeRows(p, o.setup) === 2, k = two ? 0.58 : 1, rows = two ? [cy - S(30), cy + S(30)] : [cy];
     const nFlaps = !p || !p.fuel ? ((o.setup || {}).flaps === '2' ? 2 : 1) : Math.max(1, p.flaps || 1);
@@ -139,7 +147,7 @@ function exhaustPath(cv, x0, x1, cy, o) {
                 const ty = two && p && p.turbos !== 2 ? cy : ry;
                 cv.circle(X, ty, K(34), '#16181c');
                 cv.arc(X, ty, K(31), K(35), 0, 360, col);
-                const a = t * 6.28 * 2.5 * Math.max(0.3, flow) + ri * 0.7;
+                const a = spin * 6.2832 + ri * 0.7;
                 for (let j = 0; j < 5; j++) { const aa = a + j * 1.2566; cv.line(X, ty, X + K(24) * Math.cos(aa), ty + K(24) * Math.sin(aa), 3, col); }
             } else if (q.key === 'flap') {
                 if (ri >= nFlaps) return;
@@ -166,7 +174,7 @@ function exhaustPath(cv, x0, x1, cy, o) {
     const flapP = parts.filter((q) => q.key === 'flap')[0], n = 24, gx0 = parts[0].x + S(64), len = px1 - gx0;
     rows.forEach((ry, ri) => {
         for (let i = 0; i < n; i++) {
-            const f = (t * 0.25 * Math.max(0.2, flow) + i / n + ri * 0.5 / n) % 1, x = gx0 + f * len;
+            const f = (gas + i / n + ri * 0.5 / n) % 1, x = gx0 + f * len;
             const fl = ri === 1 && o.flap2 ? o.flap2 : o.flap;
             if (flapP && ri < nFlaps && x > flapP.x + S(20) && fl === 'CLOSED' && i % 2) continue;
             cv.circle(x, ry, Math.max(3, S(5) * (two ? 0.8 : 1)), heat(tempAt(f, o.temps)));
