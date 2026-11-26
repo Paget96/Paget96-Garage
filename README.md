@@ -9,8 +9,8 @@ a rooted head unit next to BMW's own apps, read what the car already reports, an
 modern look: dark glass cards, orange accents, live numbers. Every app in this repository is
 installed and updated from the MGU Store.
 
-> **Status, November 2026:** **Health** is built; testing on a car is next. **Datalog** is built as well.
-> **Exhaust** and **Standby** are designed (previews below). Nothing has been tested on a car yet, so
+> **Status, November 2026:** **Health** is built; testing on a car is next. **Datalog** and **Standby** are built as well.
+> **Exhaust** is designed (preview below). Nothing has been tested on a car yet, so
 > treat everything here as a preview until the first release.
 
 ## Contents
@@ -52,6 +52,7 @@ describes.
 |---|---|---|
 | <img src="apps/p96_health/icon.png" width="48"> | [Health](#p96_health) | One look at the whole car: faults with their history, 12 V battery, service, tyres, fluids, a score and a report to share |
 | <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, boost, the air, tyres, temperatures, a log and two runs compared |
+| <img src="apps/p96_standby/icon.png" width="48"> | [Standby](#p96_standby) | A calm clock for waiting and night drives, the car at a glance, this drive and today |
 
 <!--
 One row per app, in this form:
@@ -225,6 +226,58 @@ resting voltage that counts as low, 12.4 V by default), Tyre warning at (how muc
 may be, 0.1 bar), Units, Our intervals (strict or as the car), and the interval of each of our items (engine oil,
 spark plugs, air filter, gearbox oil, coolant), which you can also change by tapping the item on the Service page.
 
+<a id="p96_standby"></a>
+### Standby
+
+A calm screen for waiting in the car and for night drives: a big clock whose digits never move, the
+date, the outside temperature with an ice warning, the 12 V battery and the range. After a few
+seconds the menu fades out and only the clock stays; a tap brings it back. At night the clock dims to
+a warm dark colour. Standby only reads.
+
+![Standby working](docs/media/p96_standby/standby.gif)
+
+| Page | Screenshot |
+|---|---|
+| Clock | ![](docs/media/p96_standby/clock.png) |
+| Clock, the menu faded out | ![](docs/media/p96_standby/clock-quiet.png) |
+| Clock at night | ![](docs/media/p96_standby/night.png) |
+| Glance | ![](docs/media/p96_standby/glance.png) |
+| Last drive | ![](docs/media/p96_standby/drive.png) |
+| Card info | ![](docs/media/p96_standby/popup.png) |
+| How to use | ![](docs/media/p96_standby/help.png) |
+| Settings | ![](docs/media/p96_standby/settings.png) |
+
+#### Pages
+
+- **Clock:** every digit in a slot as wide as the widest digit, so nothing shifts when a minute
+  passes. Under it the date, outside (blue when ice is possible), the 12 V battery and the range.
+- **Glance:** outside with the ice warning (possible below 3 °C, likely below 0 °C), the 12 V battery,
+  range and fuel, doors (windows and the lock where the car sends them), seat and steering wheel
+  heating, the climate.
+- **Last drive:** this drive or the last one (distance, time, average, fuel, outside) and every drive
+  of today on one line.
+
+#### What it reads from the car
+
+Broadcast signals only (outside, 12 V charge, range and fuel, the trip computer's average, speed, day
+or night, door switches, seat and wheel heating, climate, A/C, blower, locked and left), plus one
+read: the 12 V voltage from the engine unit's battery sensor (22 5853) through the kit's read-only
+link, every 10 seconds and only while Clock or Glance is shown. A card appears only once your car
+has sent its value. Details: [apps/p96_standby/README.md](apps/p96_standby/README.md).
+
+#### Limits
+
+- Windows and the central lock are found by field names that are not confirmed yet; without them the
+  card shows the doors only.
+- A drive's distance comes from the speed signal, not the odometer. Fuel is the trip computer's
+  average, in l/100 km only.
+
+#### Settings
+
+The Display block (the same in every Paget96 Garage app), then Clock (24 h or 12 h), Night dimming
+(Auto, On, Off; Auto follows the car's day and night, else 20:00 to 07:00) and Hide the menu after
+(5, 10 or 30 seconds, or Never).
+
 ## Coming next
 
 These are design previews: drawn to show the look and the pages before the app is built. The numbers
@@ -244,16 +297,6 @@ tips for a better sound without changing anything. A setup page records what you
 | Particulate filter | How the sound is made | Setup |
 |---|---|---|
 | ![](docs/media/preview/exhaust/opf.png) | ![](docs/media/preview/exhaust/sound.gif) | ![](docs/media/preview/exhaust/setup.png) |
-
-### Standby (designed)
-
-A calm screen for waiting and night driving: a big clock whose digits never move, the outside
-temperature with an ice warning, the 12 V battery, range, doors and windows, seat and wheel heating
-and the climate, at a glance. At night it dims to a warm dark colour.
-
-| Clock | At night | Glance |
-|---|---|---|
-| ![](docs/media/preview/standby/clock.png) | ![](docs/media/preview/standby/night.png) | ![](docs/media/preview/standby/glance.png) |
 
 ## How every app works
 

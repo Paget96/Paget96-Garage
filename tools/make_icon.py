@@ -166,8 +166,30 @@ def _datalog(d, c, s, w, col, acc):
         d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=acc)
 
 
+def _standby(d, c, s, w, col, acc):
+    # Standby: a clock face with its hands, and a crescent moon over its top left with a gap around it
+    im = d._image
+    cx, cy, r = c + s * 0.15, c + s * 0.17, s * 0.74
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col, width=w)
+    d.line([cx, cy, cx, cy - r * 0.6], fill=acc, width=int(w * 0.8))
+    d.line([cx, cy, cx + r * 0.45, cy + r * 0.14], fill=acc, width=int(w * 0.8))
+    for x, y in ((cx, cy - r * 0.6), (cx + r * 0.45, cy + r * 0.14)):
+        d.ellipse([x - w * 0.4, y - w * 0.4, x + w * 0.4, y + w * 0.4], fill=acc)
+    d.ellipse([cx - w * 0.6, cy - w * 0.6, cx + w * 0.6, cy + w * 0.6], fill=col)
+    mx, my, mr = c - s * 0.65, c - s * 0.67, s * 0.46
+    moon = Image.new('L', im.size, 0)
+    md = ImageDraw.Draw(moon)
+    md.ellipse([mx - mr, my - mr, mx + mr, my + mr], fill=255)
+    bx, by, br = mx + mr * 0.5, my - mr * 0.38, mr * 0.84
+    md.ellipse([bx - br, by - br, bx + br, by + br], fill=0)
+    gap = moon.filter(ImageFilter.MaxFilter(2 * int(w * 0.55) + 1))
+    clear = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    im.paste(clear, (0, 0), gap)
+    im.paste(Image.new('RGBA', im.size, col), (0, 0), moon)
+
+
 # name -> draw(d, centre, radius, stroke, colour, accent); add new apps' glyphs here
-GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog}
+GLYPHS = {'clock': _clock, 'flag': _flag, 'gauge': _gauge, 'wrench': _wrench, 'garage': _garage, 'health': _health, 'log': _log, 'datalog': _datalog, 'standby': _standby}
 
 
 def glyph_layer(name):

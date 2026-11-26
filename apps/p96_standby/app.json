@@ -1,0 +1,109 @@
+{
+  "id": "p96_standby",
+  "title": "Standby",
+  "description": "A calm clock for waiting and night drives: digits that never move, outside with an ice warning, 12 V battery, range, doors, seat and wheel heating, climate, this drive and today",
+  "version": "1.0.0",
+  "vendor": "custom",
+  "loggingId": "PGS1",
+  "iconGlyph": "clock",
+  "mguHmi": ["ID7"],
+  "requires": { "idrive7-renderd": "2.1.18", "mgu-inputgate": "1.1.0" },
+  "signals": {
+    "de.bmw.infrastructure.EnvironmentalInformation": {
+      "_optional": "the outside temperature and the ice warning",
+      "ExteriorTemperature": "s"
+    },
+    "de.bmw.infotainment.vehicle.CDS": {
+      "_optional": "the 12 V battery's charge in % as the car sends it",
+      "statusBattery2": "rs"
+    },
+    "de.bmw.infotainment.KombiIF": {
+      "_optional": "range, fuel in the tank, the trip computer's average consumption",
+      "statusRangeTankStatus": "rs",
+      "statusBordcomputerAverage": "rs"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "_optional": "speed, for this drive and today",
+      "statusCarSpeed2": "rs"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle": {
+      "_optional": "the car's day or night, for the night colour",
+      "statusDayNightChangeOver": "rs"
+    },
+    "de.bmw.body.DoorsWindowsRoofMirrors": {
+      "_optional": "doors, and windows and the lock where the car sends them",
+      "CentralLockingSystemAndPanelStatus": "s"
+    },
+    "de.bmw.infotainment.climate.Climate": {
+      "_optional": "seat heating levels",
+      "statusSeatHeatingDR": "rs",
+      "statusSeatHeatingPS": "rs"
+    },
+    "de.bmw.body.steeringwheelcomfort.SteeringWheelClimate": {
+      "_optional": "steering wheel heating on or off",
+      "heatingState": "rs"
+    },
+    "de.bmw.infotainment.climate.climatemaster.ClimateMaster": {
+      "_optional": "climate control and A/C on or off",
+      "statusClimateSystemOn": "rs",
+      "statusAirCondAC": "rs"
+    },
+    "de.bmw.infotainment.climate.Climate2": {
+      "_optional": "the blower level",
+      "statusAirConditionDRStatus": "rs"
+    },
+    "de.bmw.infrastructure.VehicleCondition": {
+      "_optional": "the car locked and left: no request to any unit, so it can sleep",
+      "VehicleCondition": "s"
+    },
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": {
+      "_optional": "one read-only request to the engine unit: the 12 V voltage, only while Clock or Glance is shown",
+      "_instances": "SystemFunctionsInternalTasuInst1",
+      "_methods": [
+        "sendTasuRequest"
+      ],
+      "_broadcasts": [
+        "sendTasuResponse"
+      ]
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "title": "Standby",
+      "buttons": [
+        ["BTN_PAGE", "Next page"],
+        ["BTN_PREV", "Previous page"],
+        ["BTN_SETTINGS", "Settings"]
+      ]
+    }
+  ],
+  "settings": [
+    {"key": "renderer", "label": "Renderer", "type": "choice", "default": "auto",
+     "options": [["auto", "GPU"], ["software", "Software"]]},
+    {"key": "fps", "label": "Frame rate", "type": "choice", "default": 60,
+     "options": [[15, "15"], [30, "30"], [60, "60 fps"]]},
+    {"key": "followAmbient", "label": "Follow ambient lighting", "type": "bool", "default": true},
+    {"key": "demo", "label": "Demo data", "type": "choice", "default": "auto",
+     "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "clock", "label": "Clock", "type": "choice", "default": "24",
+     "options": [["24", "24 h"], ["12", "12 h"]]},
+    {"key": "night", "label": "Night dimming", "type": "choice", "default": "auto",
+     "options": [["auto", "Auto"], ["on", "On"], ["off", "Off"]]},
+    {"key": "menuDelay", "label": "Hide the menu after", "type": "choice", "default": 10,
+     "options": [[5, "5 s"], [10, "10 s"], [30, "30 s"], [0, "Never"]]}
+  ],
+  "config": {
+    "comment": "raw -> value * factor + offset, BMW's own scalings as in upstream's apps. dme: the 12 V voltage from the engine unit's battery sensor (IBS) with UDS 0x22 5853 (0.001 V) through the kit's read-only link, which refuses anything that is not a read; read every 10 s only while Clock or Glance is on the screen, never when the car is locked and left.",
+    "scaling": {
+      "ambient": {"factor": 0.5, "offset": -40, "invalid": 255}
+    },
+    "dme": {
+      "ecu": 18,
+      "volts": [
+        {"did": "5853", "bytes": 2, "at": 0, "factor": 0.001, "offset": 0, "min": 6, "max": 16, "note": "IBS battery voltage, 0.001 V"}
+      ]
+    }
+  }
+}
