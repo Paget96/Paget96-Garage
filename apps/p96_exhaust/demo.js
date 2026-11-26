@@ -32,6 +32,7 @@ function setupFor(car) {
     s.flaps = String(car.flaps || 0);
     if (!car.filter) s.opf = 'none';
     if (car.diesel) s.mid = 'stock';
+    if (car.turbos === 2 || car.banks === 2) s.flapPos = 'before';      // an M car's flapped bypass on the pipes in
     return s;
 }
 /** The last 60 s of a value, one sample a second, ending at t. */

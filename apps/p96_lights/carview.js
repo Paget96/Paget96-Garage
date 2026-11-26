@@ -2,7 +2,8 @@
 'use strict';
 /**
  * carview.js - the car as a see-through line drawing after a G20 saloon, nose up, seen from straight above or tilted
- * (a finger drags it: pitch leans the view back over the boot, roll turns it about its length to show a side), with its
+ * (a finger turns it round like a 3D model: yaw spins it about the upright, pitch leans the view back, roll about its
+ * length), with its
  * ambient lights glowing inside at their places. Only the cabin: from the windscreen's foot to the rear window's, with
  * its dash, steering wheel, console, seats and door cards, so the lights' places read.
  *
@@ -10,7 +11,7 @@
  *     box       { x, y, w, h }: the car fits its height, centred
  *     lights    [{ part, x, y, x2, y2, fault }] (lin.js), x 0..1 across from the driver's side, y 0..1 from the dash
  *     colourOf  (light) -> { rgb, bright } | null (null: the car's own colour, drawn dim grey)
- *     opts      { rhd (the driver on the right), pitch (0 straight above .. MAX_PITCH, degrees), roll (-MAX_ROLL .. MAX_ROLL) }
+ *     opts      { rhd (the driver on the right), yaw (degrees, any), pitch (0 straight above .. MAX_PITCH), roll (-MAX_ROLL .. MAX_ROLL) }
  *
  * The car in metres: x forward, y to the left, z up, the middle at 0. Lines nearer the eye are brighter.
  */
@@ -114,18 +115,23 @@ const INSIDE = (() => {
 const LINES = carLines();
 
 /** The view: a point -> [screen x, screen y (down), depth (larger: nearer the eye)], before fitting. */
-function viewer(pitchDeg, rollDeg) {
+function viewer(pitchDeg, rollDeg, yawDeg) {
     const p = pitchDeg * Math.PI / 180, r = rollDeg * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p), cr = Math.cos(r), sr = Math.sin(r);
-    return ([x, y, z]) => {
+    const w = (yawDeg || 0) * Math.PI / 180, cw = Math.cos(w), sw = Math.sin(w);
+    return ([x0, y0, z]) => {
+        const x = x0 * cw - y0 * sw, y = x0 * sw + y0 * cw;          // spun about the upright
         const y1 = y * cr - z * sr, z1 = y * sr + z * cr;           // rolled about its length
         return [-y1, -(x * cp + z1 * sp), z1 * cp - x * sp];          // leaned back over the boot
     };
 }
 
 /** The cabin's light at fx across, fy from the dash, in metres: upper ones at the dash and the doors' tops, lower ones at the floor. */
-function lightPoint(fx, fy, part) {
-    return [1.25 - fy * 2.9, (0.5 - fx) * 2 * W * 0.86, part === 'upper' ? (fy < 0.2 ? 0.98 : 0.92) : 0.38];
+function lightPoint(fx, fy, part, roof) {
+    const x = 1.25 - fy * 2.9;
+    // a light in the headliner (a sunroof's frame, the one by the rear reading lamps) sits up under the roof
+    return [x, (0.5 - fx) * 2 * W * 0.86, roof ? top(x) - 0.06 : part === 'upper' ? (fy < 0.2 ? 0.98 : 0.92) : 0.38];
 }
+const isRoof = (l) => /Sunroof|Roof/.test((l && l.name) || '');
 
 const glow = (rgb, bright, a) => { const f = 0.25 + 0.75 * Math.max(0, Math.min(100, bright)) / 100; return [rgb[0], rgb[1], rgb[2], Math.round(255 * a * f)]; };
 const COL = { inside: [140, 148, 160], sill: [210, 216, 224], body: [236, 240, 246], edge: [236, 240, 246], mesh: [150, 158, 170], glass: [140, 182, 225], wheel: [190, 196, 204], lamp: [255, 255, 255], tail: [255, 50, 60] };
@@ -134,9 +140,9 @@ const WID = { inside: 1.2, sill: 1.6, body: 2, edge: 1.8, mesh: 1, glass: 1.6, w
 function drawCarView(cv, t, box, lights, colourOf, opts) {
     const o = opts || {};
     const pitch = Math.max(0, Math.min(MAX_PITCH, o.pitch || 0)), roll = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, o.roll || 0));
-    const pr = viewer(pitch, o.rhd ? -roll : roll);
-    // a scale that stays as the view turns: the car's length fits the box's height from straight above
-    const k = Math.min(box.h / ((XF - XR) * 1.12), box.w / (2 * W * 1.45)), cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    const pr = viewer(pitch, o.rhd ? -roll : roll, o.rhd ? -(o.yaw || 0) : o.yaw || 0);
+    // a scale that stays as the view turns: the car's length fits the box whichever way it points
+    const k = Math.min(box.h, box.w) / ((XF - XR) * 1.12), cx = box.x + box.w / 2, cy = box.y + box.h / 2;
     const S = (p) => { const q = pr([p[0] - XM, p[1], p[2]]); return [cx + (o.rhd ? -q[0] : q[0]) * k, cy + (q[1] + 0.55 * Math.sin(pitch * Math.PI / 180)) * k, q[2]]; };
     // its shadow on the ground, then the body's mass: the plan at the belt filled dark
     const strip = (f, z, c) => { for (let i = 0; i < 24; i++) { const xa = XF - (XF - XR) * i / 24, xb = XF - (XF - XR) * (i + 1) / 24; cv.quad([S([xa, f(xa), z]), S([xa, -f(xa), z]), S([xb, -f(xb), z]), S([xb, f(xb), z])].map((q) => [q[0], q[1]]), c); } };
@@ -155,7 +161,7 @@ function drawCarView(cv, t, box, lights, colourOf, opts) {
     // round it (where a footwell or a door pocket lights), the lamp itself a dot in the middle
     const drawLights = () => {
         const pool = (l, c) => {
-            const [x, y, z] = lightPoint(l.x, l.y, l.part), rgb = c.rgb, br = c.bright, r = 0.17;
+            const [x, y, z] = lightPoint(l.x, l.y, l.part, isRoof(l)), rgb = c.rgb, br = c.bright, r = 0.17;
             for (let ring = 3; ring >= 1; ring--) {
                 const rr = r * ring / 3, pts = [];
                 for (let a = 0; a < 16; a++) { const q = a / 16 * Math.PI * 2; pts.push(S([x + rr * Math.cos(q), y + rr * 0.8 * Math.sin(q), 0.08])); }
@@ -167,15 +173,15 @@ function drawCarView(cv, t, box, lights, colourOf, opts) {
             const c = colourOf(l), rgb = c ? c.rgb : [90, 96, 104], br = c ? c.bright : 30;
             if (c && br <= 0) return;
             if (l.x2 != null) {
-                const a = S(lightPoint(l.x, l.y, l.part)), b = S(lightPoint(l.x2, l.y2, l.part));
+                const a = S(lightPoint(l.x, l.y, l.part, isRoof(l))), b = S(lightPoint(l.x2, l.y2, l.part, isRoof(l)));
                 if (c) [[22, 0.12], [13, 0.26], [8, 0.5]].forEach(([w, al]) => cv.line(a[0], a[1], b[0], b[1], w, glow(rgb, br, al)));
                 cv.line(a[0], a[1], b[0], b[1], 4, glow(rgb, br, c ? 1 : 0.6));
                 if (c) cv.line(a[0], a[1], b[0], b[1], 1.5, glow(rgb.map((v) => Math.round(v + (255 - v) * 0.7)), br, 0.95));
             } else {
-                const p = c ? pool(l, c) : S(lightPoint(l.x, l.y, l.part));
+                const p = c ? pool(l, c) : S(lightPoint(l.x, l.y, l.part, isRoof(l)));
                 cv.circle(p[0], p[1], 4, glow(c ? rgb.map((v) => Math.round(v + (255 - v) * 0.5)) : rgb, br, c ? 1 : 0.6));
             }
-            if (l.fault) { const p = S(lightPoint(l.x, l.y, l.part)); cv.circle(p[0], p[1], 6, t.warn || '#ffb000'); }
+            if (l.fault) { const p = S(lightPoint(l.x, l.y, l.part, isRoof(l))); cv.circle(p[0], p[1], 6, t.warn || '#ffb000'); }
         });
     };
     // the far lines, the lights inside, then the near lines over them (see-through)

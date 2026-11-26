@@ -32,7 +32,7 @@ function shot(name, set, t) {
 v.ambient.lights = require('../apps/p96_lights/lin').sample().concat(Object.keys(require('../apps/p96_lights/lin').PLACES).map((k) => ({ name: require('../apps/p96_lights/lin').PLACES[k][0] })).filter((l) => /Sunroof|seat back|Console|B-pillar|blade/.test(l.name)));
 v.carAmbient = 4; v.ambient.n = v.ambient.lights.length;
 shot('ambient', { tab: 0 });
-v.view = { pitch: 35, roll: -25 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.view = null; v.regionColours = {}; shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
+v.view = { yaw: 35, pitch: 38, roll: 0 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.view = null; v.regionColours = {}; shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
 v.live = { on: true, rows: [['Left headlight, channel 1', '75 %', true], ['Left headlight, channel 9', '41 %', true], ['Right headlight, channel 1', '75 %', true], ['Body controller outputs on', '6', false]] };
 shot('outside', { tab: 3 });
 shot('help', { page: 'help', topic: 1 }, 1); shot('settings', { page: 'settings' });

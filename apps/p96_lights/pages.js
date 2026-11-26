@@ -42,7 +42,7 @@ const APP_ROWS = [
 const REGIONS = [
     ['dash', 'Dash', /^Dash/], ['frontDoors', 'Front doors', /front door (line|decor)|door backlit decor/], ['rearDoors', 'Rear doors', /rear door (line|decor)/],
     ['pockets', 'Door pockets', /pocket/], ['handles', 'Door handles', /handle/], ['console', 'Console', /Console|Centre stack|Gear selector|Cupholder/],
-    ['seats', 'Seat backs', /seat back/], ['roof', 'Roof', /Sunroof/], ['pillars', 'B-pillars', /B-pillar/], ['blades', 'Light blades', /Light blade/],
+    ['seats', 'Seat backs', /seat back/], ['roof', 'Roof', /Sunroof|Roof/], ['pillars', 'B-pillars', /B-pillar/], ['blades', 'Light blades', /Light blade/],
 ];
 function regionOf(light) { const n = (light && light.name) || ''; const r = REGIONS.filter((q) => q[2].test(n))[0]; return r ? r[0] : 'other'; }
 /** The regions this car has: [[key, label]], All first. lights: the body controller's list (none yet: All only). */
@@ -121,6 +121,9 @@ function gateLine(v, what) {
 
 /* ---------- Ambient ---------- */
 
+/** Where the turnable car is drawn on the Ambient page (main.js takes a finger there). */
+function viewBox() { return { x: L + 70, y: T + 66, w: 640 - 140, h: UI.hh() - 176 }; }
+
 function pageAmbient(cv, v, st, t, act) {
     const lw = 640, s = (v.ambient && v.ambient.scene) || {}, up = s.upper || { rgb: COLOURS[4][1], bright: 70 };
     UI.card(cv, L, T, lw, UI.hh(), 'Ambient light', { info: INFO.ambient });
@@ -137,14 +140,16 @@ function pageAmbient(cv, v, st, t, act) {
         return { rgb: rgb, bright: Math.round(up.bright * glow) };
     };
     const view = v.view || { pitch: 0, roll: 0 };
-    drawCarView(cv, t, { x: L + 70, y: T + 66, w: lw - 140, h: UI.hh() - 176 }, shown, colourOf, view);
-    // turning: left and right about its length, back over the boot and up again
+    drawCarView(cv, t, viewBox(), shown, colourOf, view);
+    // turning by the controller: a push round either way, leaning back further, straight above (a finger turns it freely)
     [['<', -1, 0], ['>', 1, 0], ['tilt', 0, 1], ['top', 0, -1]].forEach((b, i) => {
         const bx = L + 24 + i * 58, by = T + UI.hh() - 104, w = b[0].length > 1 ? 52 : 44;
         cv.roundRect(bx, by, w, 40, 20, '#2a2d34');
         cv.text(b[0], bx + w / 2, by + 26, b[0].length > 1 ? 13 : 20, C.accent, { font: 'bold', align: 'center', literal: true });
-        if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1] * 20, b[2] * 25), 'lturn|' + i, 20);
+        if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1], b[2]), 'lturn|' + i, 20);
     });
+    // that it turns by finger (owner, 2026-11-27 00:48), right of the buttons
+    cv.text('Drag with a finger to turn it', L + lw - 24, T + UI.hh() - 78, 13, C.dim, { align: 'right', literal: true });
     const g = gateLine(v, 'ambient');
     cv.text(g[0], L + 20, T + UI.hh() - 16, 14, g[1], lit);
     // what the car's own menu says now, and which lights the body controller has (read from the car)
@@ -167,7 +172,9 @@ function pageAmbient(cv, v, st, t, act) {
     });
     const gy = cy0 + 46;
     if (regs.length === 1) cv.text(v.armed ? 'Regions appear once the body controller has listed its lights' : 'Regions: listed from the car once armed', x + w - 20, cy0 + 20, 13, C.dim, { align: 'right', literal: true });
-    const cols = 4, gap = 14, sw = Math.floor((w - 40 - gap * (cols - 1)) / cols), sh = 56;
+    const cols = 4, gap = 14, sw = Math.floor((w - 40 - gap * (cols - 1)) / cols);
+    // the swatches give up height when the chips take two rows, so Effect, Brightness and the button keep clear of each other
+    const sh = Math.max(36, Math.min(56, Math.floor((T + UI.hh() - 74 - 74 - 14 - 2 * gap - gy) / 2)));
     COLOURS.forEach((c, i) => {
         const cx = x + 20 + (i % cols) * (sw + gap), cy = gy + Math.floor(i / cols) * (sh + gap), sel = !s.own && same(((v.regionColours || {})[reg] || up).rgb || up.rgb, c[1]);
         cv.roundRect(cx, cy, sw, sh, 18, [c[1][0], c[1][1], c[1][2], 230]);
@@ -178,8 +185,8 @@ function pageAmbient(cv, v, st, t, act) {
     const ry = gy + 2 * (sh + gap) + 14;
     cv.text('Effect', x + 20, ry + 6, 16, C.dim, lit);
     UI.segmented(cv, x + w - 20, ry, EFFECTS, s.kind || 'solid', act.effect, 'leffect');
-    cv.text('Brightness', x + 20, ry + 62, 16, C.dim, lit);
-    UI.stepper(cv, x + w - 20, ry + 56, up.bright, { unit: '%', decimals: 0, key: 'lbright', onMinus: () => act.bright(-10), onPlus: () => act.bright(10) });
+    cv.text('Brightness', x + 20, ry + 54, 16, C.dim, lit);
+    UI.stepper(cv, x + w - 20, ry + 48, up.bright, { unit: '%', decimals: 0, key: 'lbright', onMinus: () => act.bright(-10), onPlus: () => act.bright(10) });
     UI.button(cv, x + 20, T + UI.hh() - 64, 'The car\'s own colour', act.carOwn, { key: 'lown', filled: !!s.own });
 }
 
@@ -253,10 +260,11 @@ function pageOutside(cv, v, st, t, act) {
     OUTSIDE.forEach((r, i) => {
         const y = T + 56 + i * rh, cur = o[r.key];
         if (i) cv.fillRect(L + 20, Math.round(y - 4), lw - 40, 1, [255, 255, 255, 24]);
-        cv.text(r.label, L + 24, y + rh / 2 - 4, 19, C.text, { font: 'bold', literal: true });
-        cv.text(cur == null ? r.hint : 'the car now: ' + cur, L + 24, y + rh / 2 + 18, 14, cur == null ? C.dim : C.green, lit);
+        const mid = y - 4 + rh / 2;                                     // the row's middle: the words and the choice centred on it
+        cv.text(r.label, L + 24, mid - 3, 19, C.text, { font: 'bold', literal: true });
+        cv.text(cur == null ? r.hint : 'the car now: ' + cur, L + 24, mid + 17, 14, cur == null ? C.dim : C.green, lit);
         // a choice is kept, not sent: writing waits for the read of this car's coding (T34 step 3)
-        UI.segmented(cv, L + lw - 24, y + rh / 2 - 22, r.options, (v.outsideWant || {})[r.key] || null, (val) => act.outside(r.key, val), 'lout|' + r.key);
+        UI.segmented(cv, L + lw - 24, mid, r.options, (v.outsideWant || {})[r.key] || null, (val) => act.outside(r.key, val), 'lout|' + r.key);
     });
     UI.wrap(cv, 'A choice is kept here and not sent yet: writing needs this car\'s coding read first, then every change gets a full backup, a read back and a one-tap undo.', 15, lw - 40)
         .forEach((ln, i) => cv.text(ln, L + 20, T + UI.hh() - 34 + i * 20, 15, C.amber, lit));
@@ -325,4 +333,4 @@ function draw(cv, v, st, t, act) {
 const DEFAULTS = {};
 UI.DISPLAY_SETTINGS.concat(APP_ROWS, [E.DEMO_ROW]).forEach((r) => { DEFAULTS[r.key] = r.default; });
 
-module.exports = { MAX_PITCH, MAX_ROLL, regionOf, regionsOf, REGIONS, draw, TABS, TOPICS, APP_ROWS, PAGES, DEFAULTS, COLOURS, TITLE, carLamps, INFO, OUTSIDE };
+module.exports = { viewBox, MAX_PITCH, MAX_ROLL, regionOf, regionsOf, REGIONS, draw, TABS, TOPICS, APP_ROWS, PAGES, DEFAULTS, COLOURS, TITLE, carLamps, INFO, OUTSIDE };

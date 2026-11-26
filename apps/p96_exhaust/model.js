@@ -224,9 +224,13 @@ const SETUP = [
     { key: 'mid', name: 'Middle silencer', choices: [['stock', 'Stock'], ['none', 'None']] },
     { key: 'rear', name: 'Rear silencer', choices: [['stock', 'Stock'], ['aftermarket', 'Aftermarket'], ['valved', 'Valved aftermarket']] },
     // removed: some take the flap out and leave the rear silencer open for good (owner, 2026-11-26)
+    // where the flap sits (owner, 2026-11-27 00:25 and 00:44): after the rear silencer on its tail pipe (a G20 B48: on the
+    // right), or before it on the pipe in, a bypass round the silencer (a G80: each inlet splits, the flapped branch
+    // straight to its tail pipes); it depends on the car's pipes
+    { key: 'flapPos', name: 'Flap sits', choices: [['after', 'After the silencer'], ['before', 'Before it, on the pipe in']] },
     { key: 'flaps', name: 'Flaps', choices: [['0', 'None'], ['1', 'One'], ['2', 'Two'], ['removed', 'Removed, always open']] },
 ];
-const SETUP_DEFAULT = { cat: 'stock', opf: 'stock', mid: 'stock', rear: 'stock', flaps: '1' };
+const SETUP_DEFAULT = { cat: 'stock', opf: 'stock', mid: 'stock', rear: 'stock', flaps: '1', flapPos: 'after' };
 /** A saved setup from before the parts were merged: the downpipe's answer moves onto the catalyst, a resonator delete or
  * straight pipe becomes no middle silencer. */
 function migrateSetup(s) {

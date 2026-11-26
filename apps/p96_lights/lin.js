@@ -114,9 +114,13 @@ function releaseFrame(bus, nad) { return BUSES[bus].write.concat([nad, 0, 0, 0, 
 // A G20's 19 lights, for the picture before the car has answered (and the preview on the PC)
 const G20 = [[0, 0x0f], [0, 0x0e], [0, 0x0c], [0, 0x12], [0, 0x22], [0, 0x10], [0, 0x04],
     [1, 0x15], [1, 0x17], [1, 0x13], [1, 0x01], [1, 0x03], [1, 0x08], [1, 0x07], [1, 0x05], [1, 0x0b], [1, 0x21], [1, 0x09], [1, 0x02]];
+// the strip in the headliner by the rear reading lamps (the owner's G20, 2026-11-27 00:47); its module's code comes from
+// the car's own list once read, so the preview draws it by place only
+const ROOF_REAR = { loc: null, name: 'Roof by the rear reading lamps', part: 'upper', x: 0.38, y: 0.72, x2: 0.62, y2: 0.72 };
 const sample = () => {
     const n = [0, 0];
-    return G20.map(([bus, loc]) => Object.assign(place(loc), { bus, nad: ++n[bus], rgb: [120, 60, 254], bright: 100, fault: false }));
+    return G20.map(([bus, loc]) => Object.assign(place(loc), { bus, nad: ++n[bus], rgb: [120, 60, 254], bright: 100, fault: false }))
+        .concat([Object.assign({}, ROOF_REAR, { bus: 1, nad: ++n[1], rgb: [120, 60, 254], bright: 100, fault: false })]);
 };
 
 module.exports = { BDC, BUSES, PLACES, G11, BDC_G11, place, parseStatus, writeFrame, releaseFrame, sample };

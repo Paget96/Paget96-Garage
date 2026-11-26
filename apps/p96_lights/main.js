@@ -77,7 +77,7 @@ mgu.run({
         const st = { page: 'main', tab: 0, topic: 0, settings: {}, status: 'WAIT', statusColor: 'dim', demo: false, now: t0 };
         st.report = Report.forApp(ctx);
         const presets = PR.load(path.join(ctx.dataDir, 'presets.json'));
-        const V = { view: { pitch: 0, roll: 0 }, region: 'all', regionColours: {}, paused: null, outsideWant: settings.get('outsideWant') || {}, live: { on: false, rows: [], note: null }, preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
+        const V = { view: { yaw: 0, pitch: 30, roll: 0 }, region: 'all', regionColours: {}, paused: null, outsideWant: settings.get('outsideWant') || {}, live: { on: false, rows: [], note: null }, preset: 0, scene: { kind: 'solid', upper: { rgb: P.COLOURS[4][1], bright: 70 }, lower: { rgb: P.COLOURS[4][1], bright: 70 }, speed: 2 },
             flash: { pattern: 'both', rate: 'normal' }, playAt: null };
 
         const sendScene = () => { if (armed()) link().then(() => { if (lights && !allowed('ambient')) { if (V.scene.own) lights.carColour(); else lights.show(V.scene); } }); };
@@ -144,10 +144,11 @@ mgu.run({
             set: (k, v) => { settings.set(k, v, 'user'); if (k === 'arm' && v === 'on') link(); if (k === 'arm' && v !== 'on') stopAll('disarmed'); },
             stopAll: () => stopAll('Stop all'),
             region: (k) => { V.region = k; },
-            // turning the car on the Ambient page: dr about its length (degrees), dp leaning back (-1 dp: straight above)
-            turn: (dr, dp) => {
-                V.view = { roll: Math.max(-P.MAX_ROLL, Math.min(P.MAX_ROLL, V.view.roll + dr)), pitch: dp < 0 ? 0 : Math.max(0, Math.min(P.MAX_PITCH, V.view.pitch + dp)) };
-                if (dp < 0) V.view.roll = 0;
+            // the controller's buttons on the Ambient page: a push round (dir -1 or 1), leaning back (dp 1) or straight above (-1)
+            turn: (dir, dp) => {
+                SPIN.held = now();
+                if (dir) SPIN.vy = dir * 160;
+                if (dp) SPIN.pitch = dp < 0 ? 0 : Math.min(P.MAX_PITCH, SPIN.pitch + 15);
             },
             outside: (k, v) => { V.outsideWant = Object.assign({}, V.outsideWant, { [k]: v }); settings.set('outsideWant', V.outsideWant, 'user'); },
             live: () => { V.live.on = !V.live.on; V.live.rows = []; if (V.live.on) link(); },
@@ -209,12 +210,54 @@ mgu.run({
             };
         }
 
+        /* ---------- the car on the Ambient page turns like a 3D model (owner, 2026-11-27 00:45) ----------
+         * Left alone it goes round slowly and without end, leaning back and up again in a long slow wave; a finger turns
+         * it (across: round, up and down: leaning), lets go with the speed it had, and it eases back into its own turn. */
+        const SPIN = { vy: 14, pitch: 30, held: 0, drag: null, at: now() };
+        const CRUISE = 14, REST_MS = 2500;
+        function spin(t) {
+            const dt = Math.min(0.1, (t - SPIN.at) / 1000); SPIN.at = t;
+            if (SPIN.drag) return;
+            const free = t - SPIN.held > REST_MS, s = (t - t0) / 1000;
+            const cruise = CRUISE + 5 * Math.sin(s * 0.11);               // its own speed drifts a little, never backwards
+            SPIN.vy += (cruise - SPIN.vy) * Math.min(1, dt * (free ? 0.8 : 1.6));
+            V.view.yaw = (V.view.yaw + SPIN.vy * dt) % 360;
+            const want = free ? 30 + 16 * Math.sin(s * 0.23) + 5 * Math.sin(s * 0.07) : SPIN.pitch;
+            SPIN.pitch += (want - SPIN.pitch) * Math.min(1, dt * (free ? 0.5 : 4));
+            V.view.pitch = Math.max(0, Math.min(P.MAX_PITCH, SPIN.pitch));
+        }
+        if (ctx.onTouch) ctx.onTouch((phase, x, y) => {
+            const t = now();
+            if (phase === 1) {
+                const b = P.viewBox();
+                if (st.page !== 'main' || st.tab !== 0 || x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) return false;
+                SPIN.drag = { x: x, y: y, t: t }; SPIN.vy = 0;
+                return true;
+            }
+            const d = SPIN.drag;
+            if (!d) return false;
+            const dt = Math.max(1, t - d.t), dx = x - d.x, dy = y - d.y;
+            if (phase === 2) {
+                V.view.yaw = (V.view.yaw + dx * 0.45) % 360;
+                SPIN.pitch = Math.max(0, Math.min(P.MAX_PITCH, SPIN.pitch + dy * 0.3));
+                V.view.pitch = SPIN.pitch;
+                SPIN.vy = SPIN.vy * 0.5 + (dx * 0.45 / dt * 1000) * 0.5;      // what it carries on with when let go
+                SPIN.drag = { x: x, y: y, t: t };
+            } else {
+                if (t - d.t > 120) SPIN.vy = 0;                            // held still before letting go: it stays put
+                SPIN.vy = Math.max(-720, Math.min(720, SPIN.vy));
+                SPIN.drag = null; SPIN.held = t;
+            }
+            return true;
+        });
+
         const keys = Object.keys(P.DEFAULTS);
         let last = 0;
         async function render() {
             const t = now(), fps = Number(val('fps')) || 60;
             if (t - last < 1000 / fps - 4) return;
             last = t;
+            spin(t);
             keys.forEach((k) => { st.settings[k] = val(k); });
             st.demo = usingDemo(); st.now = t;
             st.status = armed() ? 'ARMED' : 'SIMULATED'; st.statusColor = armed() ? 'ok' : 'warm';
