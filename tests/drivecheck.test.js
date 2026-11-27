@@ -14,7 +14,8 @@ function drive(n, mod) {
         const w = Math.sin(i / 3);
         const s = { t: i * 2000, rpm: 2600 + 100 * w, load: 45 + 5 * w, coolant: 90, oil: 95, knock: 0.4,
             rough: [0.3 * w, -0.2, 0.4, -0.1 * w], ignition: [18.5 + 0.2 * w, 18.3, 18.6, 18.4], misfire: mis.slice(),
-            lambda: 1.0 + 0.005 * w, lambdaTarget: 1.0, vanosIn: 20 + w, vanosInTarget: 20, rail: 200, railTarget: 200, boost: 0.6, boostTarget: 0.62 };
+            lambda: 1.0 + 0.005 * w, lambdaTarget: 1.0, vanosIn: 20 + w, vanosInTarget: 20, rail: 200, railTarget: 200, boost: 0.6, boostTarget: 0.62,
+            volts: 14.3, speed: 90, outside: 10, intakeAir: 14, chargeAir: 30, gearbox: 80, tyres: [2.4, 2.4, 2.3, 2.3] };
         if (mod) mod(i, s, mis);
         dc.feed(s);
     }
@@ -23,8 +24,9 @@ function drive(n, mod) {
 test('a healthy drive: no findings, every check ok', () => {
     const dc = drive(300);
     assert.deepStrictEqual(dc.findings(), []);
-    dc.checks().filter((c) => c.key !== 'vanosEx').forEach((c) => assert.strictEqual(c.state, 'ok', c.key + ' ' + c.state));
+    dc.checks().filter((c) => c.state !== 'nodata').forEach((c) => assert.strictEqual(c.state, 'ok', c.key + ' ' + c.state));
     assert.strictEqual(dc.checks().filter((c) => c.key === 'vanosEx')[0].state, 'nodata');
+    ['charging', 'overheat', 'thermostat', 'intercooler', 'tyres', 'gearbox'].forEach((k) => assert.strictEqual(dc.checks().filter((c) => c.key === k)[0].state, 'ok', k));
 });
 test('cylinder 3 rough under load, again and again: a finding about cylinder 3', () => {
     const dc = drive(300, (i, s) => { if (i > 100 && i % 10 === 0) s.rough[2] = 25; });
@@ -60,6 +62,19 @@ test('misfires counted per cylinder', () => {
 test('a cold engine is not judged', () => {
     const dc = drive(200, (i, s) => { s.coolant = 40; if (i % 10 === 0) s.rough[0] = 30; });
     assert.ok(!dc.findings().some((f) => f.check === 'rough'));
+});
+test('electrics: not charged while driving is a finding', () => {
+    const dc = drive(120, (i, s) => { if (i > 30) s.volts = 12.4; });
+    assert.ok(dc.findings().some((f) => f.check === 'charging' && /not charged/.test(f.words)));
+});
+test('cooling: too hot, and a thermostat that stays open', () => {
+    assert.ok(drive(120, (i, s) => { if (i > 40) s.coolant = 118; }).findings().some((f) => f.check === 'overheat'));
+    assert.ok(drive(900, (i, s) => { s.coolant = 62; }).findings().some((f) => f.check === 'thermostat'));
+});
+test('air: the intercooler; mechanics: a tyre that loses pressure', () => {
+    assert.ok(drive(120, (i, s) => { if (i > 30) { s.chargeAir = 70; s.load = 75; } }).findings().some((f) => f.check === 'intercooler'));
+    const dc = drive(300, (i, s) => { s.tyres = [2.4, 2.4, 2.3 - i * 0.002, 2.3]; });
+    assert.ok(dc.findings().some((f) => f.check === 'tyres' && /rear left/.test(f.words)));
 });
 test('conditions: idle, bands', () => {
     assert.strictEqual(condition({ rpm: 750, load: 15 }), 'idle');

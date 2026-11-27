@@ -13,7 +13,12 @@
  *
  * sample = { t (ms), rpm, load (%), coolant (°C), oil (°C), rough: [per cylinder, rad/s²], ignition: [per cylinder, °],
  *            misfire: [per cylinder, counter], knock (° retard), lambda, lambdaTarget, vanosIn, vanosInTarget, vanosEx,
- *            vanosExTarget, rail (bar), railTarget, boost (bar), boostTarget }  any of it may be missing.
+ *            vanosExTarget, rail (bar), railTarget, boost (bar), boostTarget,
+ *            volts (12 V), speed (km/h), outside, intakeAir, chargeAir, gearbox (°C), tyres: [bar per wheel] }
+ *            any of it may be missing.
+ *
+ * Not only the cylinders (owner, 2026-11-27 02:49: "everything that can happen on the car: electrics, cooling and
+ * mechanics"): the groups are Engine, Fuel and air, Electrics, Cooling and Mechanics (GROUPS).
  *
  * The rules, all estimates (not a dealer diagnosis):
  *   - Only like with like: a value is compared in its condition (revs band x load band, warm engine), never across.
@@ -51,17 +56,24 @@ function where(cond) {
 
 /* the checks, in the order the page lists them */
 const CHECKS = [
-    ['rough', 'Cylinders run even'],
-    ['ignition', 'Ignition angle alike in every cylinder'],
-    ['misfire', 'No misfires'],
-    ['knock', 'No lasting knock retard'],
-    ['lambda', 'Mixture on its target'],
-    ['vanosIn', 'Intake camshaft on its target'],
-    ['vanosEx', 'Exhaust camshaft on its target'],
-    ['rail', 'Fuel pressure on its target'],
-    ['boost', 'Boost on its target'],
-    ['warmup', 'Oil follows the coolant'],
+    ['rough', 'Cylinders run even', 'engine'],
+    ['ignition', 'Ignition angle alike in every cylinder', 'engine'],
+    ['misfire', 'No misfires', 'engine'],
+    ['knock', 'No lasting knock retard', 'engine'],
+    ['vanosIn', 'Intake camshaft on its target', 'engine'],
+    ['vanosEx', 'Exhaust camshaft on its target', 'engine'],
+    ['lambda', 'Mixture on its target', 'fuel'],
+    ['rail', 'Fuel pressure on its target', 'fuel'],
+    ['boost', 'Boost on its target', 'fuel'],
+    ['intercooler', 'Charge air cooled by the intercooler', 'fuel'],
+    ['charging', 'Battery charged while the engine runs', 'electric'],
+    ['thermostat', 'Engine reaches its temperature', 'cooling'],
+    ['overheat', 'Engine stays below too hot', 'cooling'],
+    ['warmup', 'Oil follows the coolant', 'cooling'],
+    ['gearbox', 'Gearbox oil below too hot', 'mechanics'],
+    ['tyres', 'Tyres hold their pressure alike', 'mechanics'],
 ];
+const GROUPS = [['engine', 'Engine'], ['fuel', 'Fuel and air'], ['electric', 'Electrics'], ['cooling', 'Cooling'], ['mechanics', 'Mechanics']];
 /* actual against target: [actual, target, tolerance (absolute, or fraction of target when rel), unit, words] */
 const TRACK = {
     lambda: ['lambda', 'lambdaTarget', 0.05, '', 'the mixture'],
@@ -95,6 +107,10 @@ class DriveCheck {
         }
         this._misfire(s, cond);
         this._warmup(s);
+        this._charging(s, cond);
+        this._cooling(s, cond);
+        this._air(s, cond);
+        this._mechanics(s, cond);
         this.prev = s;
     }
 
@@ -162,6 +178,60 @@ class DriveCheck {
             this._event('warmup', 'warmup', 0, 'the oil stays much colder than the coolant (' + Math.round(s.oil) + ' against ' + Math.round(s.coolant) + ' °C)', s.t, s.coolant - s.oil, null, '°C');
     }
 
+    /* a condition held for a few samples in a row before it counts (a sensor's single odd reading is not one) */
+    _held(key, on, need) { const st = this.state[key] || (this.state[key] = { off: 0 }); st.off = on ? st.off + 1 : 0; return st.off >= (need || 2); }
+
+    /* electrics: with the engine running the alternator holds about 13.8 to 14.8 V; below 13 V the battery is drained
+     * while driving, above 15.2 V it is overcharged (the regulator). Intelligent alternators let it sag on a coast:
+     * judged only above 1 500 rpm, under load */
+    _charging(s, cond) {
+        if (s.volts == null || s.rpm == null || s.rpm < 600) return;
+        this.seen.charging = (this.seen.charging || 0) + 1;
+        const driven = s.rpm > 1500 && (s.load == null || s.load > 20);
+        if (this._held('chargeLow', driven && s.volts < 13.0, 3)) this._event('charging|low', 'charging', 0, 'the battery is not charged while the engine runs (' + s.volts.toFixed(1) + ' V): the alternator, its belt or the battery sensor', s.t, 13.6 - s.volts, cond, ' V');
+        if (this._held('chargeHigh', s.volts > 15.2, 3)) this._event('charging|high', 'charging', 0, 'the battery gets too much voltage (' + s.volts.toFixed(1) + ' V): the alternator\'s regulator', s.t, s.volts - 14.8, cond, ' V');
+    }
+
+    /* cooling: too hot; and a thermostat stuck open (never reaches 75 °C after 20 minutes of driving in the mild) */
+    _cooling(s, cond) {
+        if (s.coolant == null) return;
+        this.seen.overheat = (this.seen.overheat || 0) + 1;
+        if (this._held('hot', s.coolant > 113, 2)) this._event('overheat', 'overheat', 0, 'the engine runs too hot (' + Math.round(s.coolant) + ' °C): coolant level, the fan or the water pump', s.t, s.coolant - 110, cond, '°C');
+        if (s.speed == null) return;
+        this.seen.thermostat = (this.seen.thermostat || 0) + 1;
+        const st = this.state.drive || (this.state.drive = { moving: 0, at: null });
+        if (s.speed > 30) { if (st.at == null) st.at = s.t; } else if (st.at != null && s.speed < 5) st.at = null;
+        if (st.at != null && s.t - st.at > 20 * 60000 && (s.outside == null || s.outside > -10) && s.coolant < 75)
+            this._event('thermostat', 'thermostat', 0, 'the engine does not reach its temperature after 20 minutes of driving (' + Math.round(s.coolant) + ' °C): the thermostat may stay open', s.t, 90 - s.coolant, null, '°C');
+    }
+
+    /* air: the intercooler brings the charge air near the outside air at speed; far above it under load, the
+     * intercooler is blocked or the air is heat soaked */
+    _air(s, cond) {
+        if (s.chargeAir == null || s.outside == null) return;
+        this.seen.intercooler = (this.seen.intercooler || 0) + 1;
+        const moving = s.speed == null || s.speed > 50;
+        if (this._held('ic', moving && s.load != null && s.load > 50 && s.chargeAir - s.outside > 40, 3))
+            this._event('intercooler', 'intercooler', 0, 'the charge air stays ' + Math.round(s.chargeAir - s.outside) + ' °C above the outside air under load: the intercooler is blocked, dirty or the air heat soaked', s.t, s.chargeAir - s.outside - 25, cond, '°C');
+    }
+
+    /* mechanics: the gearbox oil too hot; one tyre losing pressure against the others over the drive */
+    _mechanics(s, cond) {
+        if (s.gearbox != null) {
+            this.seen.gearbox = (this.seen.gearbox || 0) + 1;
+            if (this._held('gb', s.gearbox > 125, 2)) this._event('gearbox', 'gearbox', 0, 'the gearbox oil runs too hot (' + Math.round(s.gearbox) + ' °C): towing, the track, or its cooler', s.t, s.gearbox - 120, cond, '°C');
+        }
+        const ty = nums(s.tyres);
+        if (ty.length === 4) {
+            this.seen.tyres = (this.seen.tyres || 0) + 1;
+            const st = this.state.tyres || (this.state.tyres = { start: null });
+            if (!st.start) st.start = ty.slice();
+            const drop = ty.map((p, i) => st.start[i] - p), m = median(drop);
+            const NAMES = ['front left', 'front right', 'rear left', 'rear right'];
+            drop.forEach((d, i) => { if (d - m > 0.15) this._event('tyres|' + i, 'tyres', 0, 'the ' + NAMES[i] + ' tyre loses pressure while the others hold (' + (d - m).toFixed(2) + ' bar this drive): a slow puncture or its valve', s.t, d - m, null, ' bar'); });
+        }
+    }
+
     _event(key, check, cyl, words, t, size, cond, unit) {
         const e = this.events[key] || (this.events[key] = { key: key, check: check, cyl: cyl, words: words, times: [], first: t, last: t, worst: 0, unit: unit, conds: {} });
         e.words = words; e.last = t;
@@ -182,16 +252,16 @@ class DriveCheck {
     /** One row per check: off (no values from this car), ok, watch (seen once or twice), out (a finding). */
     checks() {
         const f = this.findings();
-        return CHECKS.map(([key, label]) => {
-            if (!this.seen[key]) return { key: key, label: label, state: 'nodata', words: 'not reported by this car yet' };
+        return CHECKS.map(([key, label, group]) => {
+            if (!this.seen[key]) return { key: key, label: label, group: group, state: 'nodata', words: 'not reported by this car yet' };
             const mine = f.filter((x) => x.check === key);
-            if (mine.length) return { key: key, label: label, state: 'out', words: mine[0].words };
+            if (mine.length) return { key: key, label: label, group: group, state: 'out', words: mine[0].words };
             const some = Object.keys(this.events).some((k) => this.events[k].check === key);
-            return { key: key, label: label, state: some ? 'watch' : 'ok', words: some ? 'seen once or twice, watching' : 'in step, ' + this.seen[key] + ' readings' };
+            return { key: key, label: label, group: group, state: some ? 'watch' : 'ok', words: some ? 'seen once or twice, watching' : 'in step, ' + this.seen[key] + ' readings' };
         });
     }
 
     learned() { return this.L; }
 }
 
-module.exports = { DriveCheck, condition, where, CHECKS, TRACK, REPEAT, GAP_MS, WARM, LEARN_MIN };
+module.exports = { DriveCheck, condition, where, CHECKS, GROUPS, TRACK, REPEAT, GAP_MS, WARM, LEARN_MIN };
