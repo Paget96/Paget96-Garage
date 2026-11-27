@@ -115,8 +115,35 @@ const INSIDE = (() => {
     return out;
 })();
 const LINES = carLines(XF, XR, true);
-// the whole car, nose to tail, its outside only (the light shows: the lamps glow at their places)
-const EXT = carLines(L * 0.985, -L * 0.985, false);
+// the whole car the same way, nose to tail (the light shows), with what makes it a G20 from outside: the slim
+// headlights with their notch, the kidneys, the L of the tail lights, the wheels in their arches
+const FULL = carLines(L * 0.985, -L * 0.985, true).concat(g20Lines());
+function g20Lines() {
+    const out = [], P = (x, f, z, s) => [x, s * plan(x) * f, z];
+    [1, -1].forEach((s) => {
+        // headlight: a slim wedge from the kidney out to the corner, its lower edge notched up in the middle
+        out.push([[P(2.2, 0.42, 0.7, s), P(2.14, 0.66, 0.72, s), P(2.04, 0.9, 0.7, s), P(1.98, 0.97, 0.66, s), P(2.06, 0.82, 0.63, s),
+            P(2.12, 0.66, 0.66, s), P(2.16, 0.54, 0.62, s), P(2.2, 0.42, 0.7, s)], 'hl']);
+        // the kidney grille, one each side of the middle
+        out.push([[[2.255, s * 0.06, 0.64], [2.25, s * 0.3, 0.65], [2.25, s * 0.32, 0.5], [2.255, s * 0.07, 0.48], [2.255, s * 0.06, 0.64]], 'grille']);
+        // the front intakes low in the corners
+        out.push([[P(2.2, 0.55, 0.38, s), P(2.12, 0.82, 0.4, s), P(2.12, 0.82, 0.3, s), P(2.2, 0.55, 0.3, s), P(2.2, 0.55, 0.38, s)], 'mesh']);
+        // tail light: the L across the boot lid and round the corner onto the wing
+        out.push([[P(-2.19, 0.5, 0.92, s), P(-2.12, 0.86, 0.92, s), P(-1.98, 0.99, 0.9, s), P(-1.98, 0.99, 0.82, s), P(-2.12, 0.88, 0.8, s),
+            P(-2.16, 0.66, 0.85, s), P(-2.19, 0.5, 0.86, s), P(-2.19, 0.5, 0.92, s)], 'tl']);
+        // the wheels, each in its arch
+        [1.42, -1.38].forEach((x) => {
+            const ring = (r, f, kind) => { const pts = []; for (let a = 0; a <= 24; a++) { const q = a / 24 * Math.PI * 2; pts.push([x + r * Math.cos(q), s * plan(x) * f, 0.34 + r * Math.sin(q)]); } out.push([pts, kind]); };
+            ring(0.33, 1.0, 'wheel'); ring(0.2, 1.01, 'wheel');
+            const arch = []; for (let a = 0; a <= 16; a++) { const q = a / 16 * Math.PI; arch.push([x + 0.4 * Math.cos(q), s * plan(x) * 1.0, 0.34 + 0.4 * Math.sin(q)]); }
+            out.push([arch, 'body']);
+        });
+    });
+    // the boot lid's edge and the number plate
+    out.push([[[-2.2, 0.36, 0.98], [-2.22, 0, 0.99], [-2.2, -0.36, 0.98]], 'body']);
+    out.push([[[-2.24, 0.26, 0.74], [-2.24, -0.26, 0.74], [-2.24, -0.26, 0.62], [-2.24, 0.26, 0.62], [-2.24, 0.26, 0.74]], 'mesh']);
+    return out;
+}
 
 /** The view: a point -> [screen x, screen y (down), depth (larger: nearer the eye)], before fitting. */
 function viewer(pitchDeg, rollDeg, yawDeg) {
@@ -138,8 +165,8 @@ function lightPoint(fx, fy, part, roof) {
 const isRoof = (l) => /Sunroof|Roof/.test((l && l.name) || '');
 
 const glow = (rgb, bright, a) => { const f = 0.25 + 0.75 * Math.max(0, Math.min(100, bright)) / 100; return [rgb[0], rgb[1], rgb[2], Math.round(255 * a * f)]; };
-const COL = { inside: [140, 148, 160], sill: [210, 216, 224], body: [236, 240, 246], edge: [236, 240, 246], mesh: [150, 158, 170], glass: [140, 182, 225], wheel: [190, 196, 204], lamp: [255, 255, 255], tail: [255, 50, 60] };
-const WID = { inside: 1.2, sill: 1.6, body: 2, edge: 1.8, mesh: 1, glass: 1.6, wheel: 1.6, lamp: 3, tail: 3 };
+const COL = { hl: [200, 208, 220], tl: [150, 40, 46], grille: [200, 208, 220], inside: [140, 148, 160], sill: [210, 216, 224], body: [236, 240, 246], edge: [236, 240, 246], mesh: [150, 158, 170], glass: [140, 182, 225], wheel: [190, 196, 204], lamp: [255, 255, 255], tail: [255, 50, 60] };
+const WID = { hl: 1.8, tl: 2, grille: 1.6, inside: 1.2, sill: 1.6, body: 2, edge: 1.8, mesh: 1, glass: 1.6, wheel: 1.6, lamp: 3, tail: 3 };
 
 function drawCarView(cv, t, box, lights, colourOf, opts) {
     const o = opts || {};
@@ -151,14 +178,13 @@ function drawCarView(cv, t, box, lights, colourOf, opts) {
     const S = (p) => { const q = pr([p[0] - xm, p[1], p[2]]); return [cx + (o.rhd ? -q[0] : q[0]) * k, cy + (q[1] + 0.55 * Math.sin(pitch * Math.PI / 180)) * k, q[2]]; };
     // its shadow on the ground, then the body's mass: the plan at the belt filled dark
     const strip = (f, z, c) => { for (let i = 0; i < 24; i++) { const xa = xf - (xf - xr) * i / 24, xb = xf - (xf - xr) * (i + 1) / 24; cv.quad([S([xa, f(xa), z]), S([xa, -f(xa), z]), S([xb, -f(xb), z]), S([xb, f(xb), z])].map((q) => [q[0], q[1]]), c); } };
-    if (ext) { strip((x) => plan(x) * 1.12, 0, [0, 0, 0, 110]); return drawOutside(cv, S, o, (v) => { const q = pr(v); return [o.rhd ? -q[0] : q[0], q[1], q[2]]; }); }
     strip((x) => plan(x) * 1.06, 0, [0, 0, 0, 120]);
     strip(plan, 0.5, [22, 25, 30, 235]);
     // the cabin's floor a shade lighter, what is inside filled, so the lights' places read against them
     strip((x) => plan(x) * 0.9, 0.1, [27, 30, 36, 255]);
     INSIDE.forEach(([pts, c]) => cv.quad(pts.map((q) => { const r = S(q); return [r[0], r[1]]; }), c));
     const segs = [];
-    LINES.forEach(([pts, kind]) => { const q = pts.map(S); for (let i = 1; i < q.length; i++) segs.push([q[i - 1], q[i], kind]); });
+    (ext ? FULL : LINES).forEach(([pts, kind]) => { const q = pts.map(S); for (let i = 1; i < q.length; i++) segs.push([q[i - 1], q[i], kind]); });
     let d0 = Infinity, d1 = -Infinity;
     segs.forEach(([a, b]) => { d0 = Math.min(d0, a[2], b[2]); d1 = Math.max(d1, a[2], b[2]); });
     segs.sort((a, b) => (a[0][2] + a[1][2]) - (b[0][2] + b[1][2]));
@@ -195,10 +221,11 @@ function drawCarView(cv, t, box, lights, colourOf, opts) {
     segs.forEach(([a, b, kind]) => {
         const n = near((a[2] + b[2]) / 2);
         if (!lit && n > 0.55) { drawLights(); lit = true; }
-        const c = COL[kind], al = kind === 'lamp' || kind === 'tail' ? 0.95 : kind === 'inside' ? 0.75 : (kind === 'mesh' ? 0.08 : 0.16) + (kind === 'mesh' ? 0.4 : 0.78) * n * n;
+        const c = COL[kind], al = kind === 'lamp' || kind === 'tail' ? 0.95 : kind === 'inside' ? 0.75 : kind === 'hl' || kind === 'tl' || kind === 'grille' || kind === 'wheel' ? 0.3 + 0.6 * n : (kind === 'mesh' ? 0.08 : 0.16) + (kind === 'mesh' ? 0.4 : 0.78) * n * n;
         cv.line(a[0], a[1], b[0], b[1], WID[kind], [c[0], c[1], c[2], Math.round(255 * al)]);
     });
     if (!lit) drawLights();
+    if (ext) drawLamps(cv, S, o.lamps || {});
 }
 
 /*
@@ -217,68 +244,13 @@ function lampPoints(fn) {
     (LAMP3D[fn] || []).forEach((p) => { out.push(p); if (!SIDED[fn] && p[1]) out.push([p[0], -p[1], p[2]]); });
     return out;
 }
-/*
- * The outside as a solid body: the sections of section() from nose to tail joined into panels, each shaded by how
- * much it faces a light above and to the left of the eye, far ones first; the glass dark (tinted with the cabin's
- * colour when a show gives one), the wheels, then every lamp a dim dot and the lit ones glowing, those on the far side
- * of the car fainter. turn(v): a direction in the car -> the same seen (x right, y down, z toward the eye).
- */
-const PAINT = [68, 76, 90], GLASS = [16, 22, 32], TYRE = [14, 15, 17], RIM = [120, 126, 136];
-const LIGHT = (() => { const v = [-0.35, -0.75, 0.55], n = Math.hypot(v[0], v[1], v[2]); return v.map((q) => q / n); })();
-function bodyMesh() {
-    const N = 44, out = [], st = [];
-    for (let i = 0; i <= N; i++) { const x = L * 0.985 - (L * 1.97) * i / N; st.push(section(x).map(([y, z]) => [x, y, z])); }
-    const M = st[0].length;
-    for (let i = 0; i < N; i++) for (let j = 0; j < M - 1; j++) {
-        const xm = (st[i][j][0] + st[i + 1][j][0]) / 2, glass = inCabin(xm) && (j === 3 || j === 8);
-        const roofGlass = inCabin(xm) && j >= 4 && j <= 7 && (xm > 0.55 || xm < -0.85);           // the screens front and back
-        out.push({ pts: [st[i][j], st[i][j + 1], st[i + 1][j + 1], st[i + 1][j]], kind: glass || roofGlass ? 'glass' : 'paint' });
-    }
-    // the underside, and the nose and tail closed
-    for (let i = 0; i < N; i++) out.push({ pts: [st[i][M - 1], st[i][0], st[i + 1][0], st[i + 1][M - 1]], kind: 'under' });
-    [0, N].forEach((i) => { const c = st[i].reduce((a, p) => [a[0] + p[0] / M, a[1] + p[1] / M, a[2] + p[2] / M], [0, 0, 0]);
-        for (let j = 0; j < M; j++) out.push({ pts: [c, st[i][j], st[i][(j + 1) % M]], kind: 'paint' }); });
-    // the wheels: a disc each corner, just outside the body
-    [[1.42, 1], [1.42, -1], [-1.38, 1], [-1.38, -1]].forEach(([x, s2]) => {
-        const y = s2 * (plan(x) * 1.005), r = 0.34, ring = [], hub = [];
-        for (let a = 0; a < 18; a++) { const q = a / 18 * Math.PI * 2; ring.push([x + r * Math.cos(q), y, 0.34 + r * Math.sin(q)]); hub.push([x + r * 0.6 * Math.cos(q), y + s2 * 0.012, 0.34 + r * 0.6 * Math.sin(q)]); }
-        out.push({ pts: ring, kind: 'tyre', n: [0, s2, 0] }, { pts: hub, kind: 'rim', n: [0, s2, 0] });
-    });
-    return out;
-}
-const MESH = bodyMesh();
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-
-function drawOutside(cv, S, o, turn) {
-    const faces = MESH.map((f) => {
-        const q = f.pts.map(S), c = f.pts.reduce((a, p) => [a[0] + p[0] / f.pts.length, a[1] + p[1] / f.pts.length, a[2] + p[2] / f.pts.length], [0, 0, 0]);
-        let n = f.n || crs(sub(f.pts[1], f.pts[0]), sub(f.pts[f.pts.length - 1], f.pts[0]));
-        const out = sub(c, [c[0] * 0.3, 0, 0.6]);                       // outward: away from the car's middle
-        if (!f.n && n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0) n = n.map((v) => -v);
-        const nl = Math.hypot(n[0], n[1], n[2]) || 1, nv = turn(n.map((v) => v / nl));
-        return { q, d: q.reduce((a, p) => a + p[2], 0) / q.length, f, nv };
-    }).sort((a, b) => a.d - b.d);
-    const cab = o.cabin;
-    faces.forEach(({ q, f, nv }) => {
-        if (nv[2] < -0.05 && f.kind !== 'tyre' && f.kind !== 'rim') return;                  // facing away
-        const lam = Math.max(0, nv[0] * LIGHT[0] + nv[1] * LIGHT[1] + nv[2] * LIGHT[2]);
-        const spec = Math.pow(lam, 18) * 0.6, shade = 0.38 + 0.75 * lam;
-        let base = f.kind === 'glass' ? (cab ? cab.map((v, i) => GLASS[i] * 0.4 + v * 0.45) : GLASS) : f.kind === 'tyre' ? TYRE : f.kind === 'rim' ? RIM : f.kind === 'under' ? [10, 11, 13] : PAINT;
-        const col = base.map((v) => Math.max(0, Math.min(255, Math.round(v * shade + 255 * spec * (f.kind === 'glass' ? 0.8 : 0.5)))));
-        // each panel a hair larger than itself, so no seam of the background shows between neighbours
-        const mx = q.reduce((a, p) => a + p[0], 0) / q.length, my = q.reduce((a, p) => a + p[1], 0) / q.length;
-        const pts = q.map((p) => { const dx = p[0] - mx, dy = p[1] - my, l = Math.hypot(dx, dy) || 1; return [p[0] + dx / l * 0.8, p[1] + dy / l * 0.8]; }), c4 = [col[0], col[1], col[2], 255];
-        if (pts.length === 4) cv.quad(pts, c4); else cv.fill(pts, c4);
-    });
-    // the lamps: a dim dot each, the lit ones glowing (on the far side, behind the body, fainter)
-    const mid = S([0, 0, 0.6])[2], lit = o.lamps || {};
-    Object.keys(LAMP3D).forEach((fn) => lampPoints(fn).forEach((p) => {
-        const q = S(p), back = q[2] < mid - 0.3, c = lit[fn];
-        if (!c) { if (!back) cv.circle(q[0], q[1], 2.5, [150, 156, 166, 150]); return; }
-        const f = back ? 0.35 : 1;
+/** The outside lamps that are lit, glowing at their places (those on the far side of the car fainter). */
+function drawLamps(cv, S, lit) {
+    const mid = S([0, 0, 0.6])[2];
+    Object.keys(lit).forEach((fn) => lampPoints(fn).forEach((p) => {
+        const q = S(p), f = q[2] < mid - 0.3 ? 0.4 : 1, c = lit[fn];
         [[24, 0.12], [14, 0.28], [8, 0.55]].forEach(([r, a]) => cv.circle(q[0], q[1], r, [c[0], c[1], c[2], Math.round(255 * a * f)]));
-        if (!back) cv.circle(q[0], q[1], 4, [255, 255, 255, 240]);
+        cv.circle(q[0], q[1], 4, [255, 255, 255, Math.round(240 * f)]);
     }));
 }
 

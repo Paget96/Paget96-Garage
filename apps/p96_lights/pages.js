@@ -207,7 +207,8 @@ function pageParty(cv, v, st, t, act) {
     // the whole car turning like the cabin on Ambient, its lamps lit on this beat and the cabin in the beat's colour
     const amb = PF.ambAt(p, v.beat || 0), on = {};
     PF.lit(p, v.beat || 0).forEach((fn) => { on[fn] = LAMP_COL[fn] || [255, 255, 240]; });
-    drawCarView(cv, t, viewBox(), [], () => null, Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on, cabin: amb }));
+    const cabinLights = v.ambient && v.ambient.lights && v.ambient.lights.length ? v.ambient.lights : LIN.sample();
+    drawCarView(cv, t, viewBox(), cabinLights, () => (amb ? { rgb: amb, bright: 100 } : null), Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on }));
     turnButtons(cv, act);
     // the beats under the car: the one playing now lit
     const bw = (lw - 40) / PF.BEATS;
