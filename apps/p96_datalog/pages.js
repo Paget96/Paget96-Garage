@@ -28,10 +28,11 @@ const E = need('./garage_engine', '../../lib/engine');
 
 const NAME = 'DATALOG';
 // Compare lives inside Log (owner, 2026-11-26 23:56): pick A and B in the list, compare right there
-const TABS = ['Now', 'Runs', 'Dyno', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log'];
+const TABS = ['Now', 'Runs', 'Dyno', 'Bottleneck', 'Correction', 'Tyres', 'Boost', 'Temps', 'Log'];
 /**
  * The tabs this car gets (owner rule, 2026-11-26 18:21: show only what the car supports): Dyno needs torque,
- * Correction an air value, Tyres the tyre sensors, Boost the manifold and outside pressure, Temps a temperature.
+ * Correction an air value, Tyres the tyre sensors, Boost the manifold and outside pressure, Temps a temperature,
+ * Bottleneck the engine unit's torque or boost (what it judges under load).
  * Now, Runs and Log need only the speed. The demo shows all of them.
  */
 function tabsFor(m) {
@@ -39,6 +40,7 @@ function tabsFor(m) {
         Dyno: () => m.has('torque'), Correction: () => m.has('intake') || m.has('outside') || m.has('charge') || m.has('kPa'),
         Tyres: () => m.has('tyres'), Boost: () => m.has('boost'),
         Temps: () => ['oil', 'coolant', 'gearbox', 'intake', 'charge', 'egt'].some((k) => m.has(k)),
+        Bottleneck: () => m.has('torque') || m.has('boost'),
     };
     return TABS.filter((n) => !need[n] || need[n]());
 }
@@ -555,6 +557,122 @@ function pageTyres(cv, m) {
         .forEach((ln, i) => ltext(cv, ln, x + 20, ny + 112 + i * 25, 17, '#a8b0ba'));
 }
 
+/* ---------- Bottleneck (T36): what holds the car back under hard load ---------- */
+
+const BN_COL = { limit: C.red, watch: C.amber, ok: C.green, nodata: C.dim };
+const BN_STATE = { limit: 'holds it back', watch: 'close to its limit', ok: 'keeps up', nodata: 'not reported' };
+/** The live values each check is judged on: [field, label, kind] (kind: temp, press, pct, deg, num, rpm). */
+const BN_LIVE = {
+    turbo: [['boost', 'Boost', 'press'], ['boostTarget', 'Target', 'press'], ['wastegate', 'Wastegate open', 'pct'], ['rpm', 'Revs', 'rpm']],
+    intercooler: [['charge', 'Charge air', 'temp'], ['outside', 'Outside', 'temp'], ['intake', 'Intake air', 'temp'], ['pedal', 'Pedal', 'pct']],
+    power: [['torque', 'Torque', 'nm'], ['rpm', 'Revs', 'rpm'], ['charge', 'Charge air', 'temp'], ['pedal', 'Pedal', 'pct']],
+    intake: [['intake', 'Intake air', 'temp'], ['outside', 'Outside', 'temp'], ['speed', 'Speed', 'speed']],
+    knock: [['knock', 'Pulled back', 'deg'], ['charge', 'Charge air', 'temp'], ['rpm', 'Revs', 'rpm'], ['torque', 'Torque', 'nm']],
+    spark: [['rpm', 'Revs', 'rpm'], ['boost', 'Boost', 'press'], ['knock', 'Pulled back', 'deg']],
+    fuel: [['rail', 'Fuel rail', 'rail'], ['lambda', 'Lambda', 'lambda'], ['rpm', 'Revs', 'rpm'], ['pedal', 'Pedal', 'pct']],
+    exhaust: [['egt', 'Exhaust gas', 'temp'], ['boost', 'Boost', 'press'], ['wastegate', 'Wastegate open', 'pct'], ['rpm', 'Revs', 'rpm']],
+    cooling: [['coolant', 'Coolant', 'temp'], ['oil', 'Engine oil', 'temp'], ['speed', 'Speed', 'speed']],
+    gearbox: [['gearbox', 'Gearbox oil', 'temp'], ['speed', 'Speed', 'speed'], ['gear', 'Gear', 'num']],
+};
+function bnValue(U, kind, x) {
+    if (!isNum(x)) return '--';
+    if (kind === 'temp') return Math.round(U.temp(x)) + ' ' + U.tempU;
+    if (kind === 'press') return fix(U.press(x), U.pressD) + ' ' + U.pressU;
+    if (kind === 'pct') return Math.round(x) + ' %';
+    if (kind === 'deg') return x.toFixed(1) + '°';
+    if (kind === 'rpm') return Math.round(x / 10) * 10 + ' rpm';
+    if (kind === 'nm') return Math.round(x) + ' Nm';
+    if (kind === 'rail') return Math.round(x) + ' bar';
+    if (kind === 'lambda') return x.toFixed(2);
+    if (kind === 'speed') return Math.round(U.speed(x)) + ' ' + U.speedU;
+    return String(Math.round(x));
+}
+
+function pageBottleneck(cv, m, t) {
+    const U = units(m), v = m.v, ui = m.ui;
+    const fmt = { temp: (c) => Math.round(U.temp(c)) + ' ' + U.tempU, dtemp: (c) => Math.round(U.dtemp(c)) + ' ' + U.tempU, press: (b) => fix(U.press(b), U.pressD) + ' ' + U.pressU };
+    const d = m.limits().verdict(fmt), lw = 760;
+    UI.card(cv, L, T, lw, UI.hh(), 'What holds it back', { info: INFO.bottleneck });
+    const hard = isNum(v.pedal) && v.pedal >= 85;
+    ltext(cv, d.stretches ? 'From ' + d.stretches + (d.stretches === 1 ? ' hard pull, ' : ' hard pulls, ') + d.hardSeconds + ' s at full throttle' : 'Waits for a hard pull: full throttle for 3 s or more',
+        L + 24, T + 62, 15, C.dim);
+    if (hard) {
+        // a hard pull going on: it is being measured now (the user sees it happen)
+        const a = 0.55 + 0.45 * Math.sin(t * 6);
+        cv.circle(L + lw - 30, T + 57, 6, [70, 210, 130, Math.round(255 * a)]);
+        rtext(cv, 'measuring this pull', L + lw - 44, T + 62, 15, C.green);
+    }
+    // the first upgrade, big
+    const by = T + 78;
+    if (d.first) {
+        cv.roundRect(L + 14, by, lw - 28, 62, 18, [255, 75, 60, 40]);
+        ltext(cv, 'Upgrade first: ' + d.first.label, L + 30, by + 26, 19, C.text, 'bold');
+        ltext(cv, UI.cutTo(cv, d.first.upgrade, 14, lw - 60), L + 30, by + 49, 14, '#c8ced6');
+    } else {
+        cv.roundRect(L + 14, by, lw - 28, 62, 18, '#22252b');
+        ltext(cv, d.stretches ? 'Nothing holds it back yet' : 'Nothing to judge yet', L + 30, by + 26, 19, d.stretches ? C.green : C.dim, 'bold');
+        ltext(cv, d.stretches ? 'Amber rows are close to their limit; more hard pulls make it surer.' : 'Every value below is judged only under hard load, never at a cruise.', L + 30, by + 49, 14, C.dim);
+    }
+    // every check, worst first, two columns; tap one to see it on the right
+    if (!d.checks.some((c) => c.key === ui.bnSel)) ui.bnSel = d.checks[0].key;
+    const cw = (lw - 40) / 2, ry0 = by + 76, rh = Math.min(42, (T + UI.hh() - 12 - ry0) / 5);
+    d.checks.forEach((c, i) => {
+        const cx = L + 14 + Math.floor(i / 5) * (cw + 12), ry = ry0 + (i % 5) * rh, sel = c.key === ui.bnSel;
+        if (sel) cv.roundRect(cx, ry, cw, rh - 4, 14, '#262a33');
+        cv.circle(cx + 18, ry + rh / 2 - 2, 6, BN_COL[c.state]);
+        ltext(cv, UI.cutTo(cv, c.label, 16, cw - 40), cx + 34, ry + rh / 2 - 6, 16, c.state === 'nodata' ? C.dim : C.text, c.state === 'limit' ? 'bold' : null);
+        ltext(cv, BN_STATE[c.state], cx + 34, ry + rh / 2 + 12, 12, BN_COL[c.state]);
+        if (cv.target) cv.target(cx, ry, cw, rh - 4, () => { ui.bnSel = c.key; }, 'dlbn|' + c.key, 14);
+    });
+    // the one chosen: why, the evidence, what to do, and its values now
+    const x = L + lw + 14, w = R - x, c = d.checks.filter((q) => q.key === ui.bnSel)[0];
+    UI.card(cv, x, T, w, UI.hh(), c.label, { info: INFO.bottleneckOne });
+    cv.circle(x + 30, T + 57, 6, BN_COL[c.state]);
+    ltext(cv, BN_STATE[c.state].charAt(0).toUpperCase() + BN_STATE[c.state].slice(1), x + 44, T + 62, 15, BN_COL[c.state], 'bold');
+    let y = T + 92;
+    const lines = UI.wrap(cv, c.words, 17, w - 48, 'bold').slice(0, 3);
+    lines.forEach((ln, j) => { ltext(cv, ln, x + 24, y + j * 23, 17, C.text, j ? null : 'bold'); });
+    y += lines.length * 23;
+    if (c.evidence) { ltext(cv, UI.cutTo(cv, c.evidence, 14, w - 48), x + 24, y + 2, 14, C.amber); y += 22; }
+    if (c.state !== 'nodata' && c.state !== 'ok') {
+        UI.wrap(cv, 'What to do: ' + c.upgrade, 15, w - 48).slice(0, 2).forEach((ln, j) => { ltext(cv, ln, x + 24, y + 12 + j * 20, 15, '#c8ced6'); });
+        y += 48;
+    }
+    // the judged value, one bar a hard pull (newest right), with the watch and limit lines
+    const sr = c.state === 'nodata' ? null : m.limits().series(c.key, 24), lyTop = T + UI.hh() - 72;
+    if (sr && sr.values.some(isNum)) {
+        const gy = y + 26, gh = lyTop - gy - 22, gx = x + 24, gw = w - 48;
+        if (gh >= 40) {
+            const conv = (q) => (sr.kind === 'temp' ? U.temp(q) : sr.kind === 'dtemp' ? U.dtemp(q) : sr.kind === 'press' ? U.press(q) : q);
+            const unit = sr.kind === 'temp' || sr.kind === 'dtemp' ? U.tempU : sr.kind === 'press' ? U.pressU : sr.kind === 'deg' ? '°' : sr.kind === 'pct' ? '%' : sr.kind === 'nm' ? 'Nm' : '';
+            const vals = sr.values.map((q) => (isNum(q) ? conv(q) : null)), hi = isNum(sr.hi) ? conv(sr.hi) : null, lo = isNum(sr.lo) ? conv(sr.lo) : null;
+            const nums = vals.filter(isNum), top = Math.max.apply(null, nums.concat(hi != null ? [hi * 1.15] : [])) || 1;
+            const bot = sr.kind === 'temp' || sr.kind === 'nm' ? Math.min.apply(null, nums) * 0.9 : Math.min(0, Math.min.apply(null, nums));
+            const yOf = (q) => gy + gh - (q - bot) / Math.max(1e-9, top - bot) * gh;
+            ltext(cv, 'Each hard pull: ' + sr.label + (unit ? ', ' + unit : ''), gx, gy - 8, 13, C.dim);
+            const bw = Math.min(28, gw / vals.length - 4);
+            vals.forEach((q, i) => {
+                if (!isNum(q)) return;
+                const bx = gx + gw - (vals.length - i) * (bw + 4), yy = yOf(q);
+                const col = hi != null && q >= hi ? C.red : lo != null && q >= lo ? C.amber : sr.kind === 'nm' ? C.blue : C.green;
+                cv.roundRect(bx, yy, bw, Math.max(2, gy + gh - yy), 4, col);
+            });
+            [[lo, C.amber], [hi, C.red]].forEach((ln) => { if (ln[0] != null && ln[0] > bot && ln[0] < top) cv.line(gx, yOf(ln[0]), gx + gw, yOf(ln[0]), 1.5, ln[1]); });
+            const last = nums[nums.length - 1];
+            ltext(cv, 'last ' + (sr.kind === 'press' ? last.toFixed(U.pressD) : sr.kind === 'deg' ? last.toFixed(1) : Math.round(last)) + (unit ? ' ' + unit : ''), gx, gy + gh + 16, 12, C.dim);
+        }
+    }
+    // its values now, as they come
+    const live = (BN_LIVE[c.key] || []).filter((q) => m.has(q[0]));
+    const lyB = T + UI.hh() - 14, n = Math.max(1, live.length), lwid = (w - 48) / n;
+    live.forEach((q, i) => {
+        const lx = x + 24 + i * lwid;
+        cv.roundRect(lx, lyB - 44, lwid - 10, 44, 14, '#1d2026');
+        ltext(cv, q[1], lx + 12, lyB - 27, 12, C.dim);
+        ltext(cv, bnValue(U, q[2], v[q[0]]), lx + 12, lyB - 8, 17, C.text, 'bold');
+    });
+}
+
 /* ---------- Temps ---------- */
 
 function pageTemps(cv, m) {
@@ -713,7 +831,7 @@ function pageCompare(cv, m) {
 
 /* ---------- one frame ---------- */
 
-const PAGES = { Now: pageNow, Runs: pageRuns, Dyno: pageDyno, Correction: pageCorrection, Tyres: pageTyres, Boost: pageBoost, Temps: pageTemps, Log: pageLog, Compare: pageCompare };
+const PAGES = { Now: pageNow, Runs: pageRuns, Dyno: pageDyno, Bottleneck: pageBottleneck, Correction: pageCorrection, Tyres: pageTyres, Boost: pageBoost, Temps: pageTemps, Log: pageLog, Compare: pageCompare };
 
 /** Draw one frame of what model.ui shows. t: seconds (the animations). */
 function draw(cv, m, t) {

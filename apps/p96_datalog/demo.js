@@ -52,6 +52,9 @@ class Demo {
         this.car = car || null;
         const c = car || { power: 190, torque: 400, boost: 1.4, redline: 6500 };
         this.ev = car && car.engine === false; this.diesel = !!(car && car.diesel); this.twin = !!(car && car.units === 2);
+        // the stock B48's small twin scroll turbo runs out of breath near the rev limit (the Bottleneck page's demo story)
+        this.topOut = !car || car.id === 'b48';
+        this.railTop = car && car.rail ? car.rail[1] * 0.9 : 320;
         this.kW = c.power / 190;                                     // power against the B48 the base figures are for
         this.tqK = c.torque / 400; this.boostTo = c.boost || 1.42;
         this.shift = c.redline ? c.redline - (this.diesel ? 300 : 0) : SHIFT;
@@ -138,7 +141,8 @@ class Demo {
 
         // boost: vacuum at idle, spools up under throttle (lags), falls when lifting
         const want = throttle ? this.boostTo + 0.03 * Math.sin(this.runNo * 1.7) : this.diesel ? 0.05 : -0.55;
-        this.boostNow += (want - this.boostNow) * Math.min(1, dt * (throttle ? 1.3 : 3));
+        const reach = throttle && this.topOut ? want - 0.25 * clampN((rpm - 5200) / 1300, 0, 1) : want;
+        this.boostNow += (reach - this.boostNow) * Math.min(1, dt * (throttle ? 1.3 : 3));
         const ambientBar = (this.kPaBase + 0.05 * Math.sin(t / 60000)) / 100;
         const manifold = ambientBar + this.boostNow;
         // the electric wastegate: open at idle and when lifting (no exhaust held back), shut while the boost builds,
@@ -181,13 +185,17 @@ class Demo {
             intake: this.intake, charge: this.charge, manifold: manifold, ambient: ambientBar, kPa: ambientBar * 100,
             boost: M.boost(manifold, ambientBar), boostTarget: throttle ? this.boostTo + 0.03 : null, egt: this.egtNow(throttle, dt),
             wastegate: this.wg, wgDuty: throttle ? 18 + 0.55 * (100 - this.wg) : 6,
+            // knock control pulls timing as the charge air heats; rich at full load; the rail at its working pressure
+            knock: this.diesel ? null : throttle ? r(Math.max(0, (this.charge - 38) * 0.2) + 0.2 * this.rand(), 10) : 0,
+            lambda: throttle ? 0.84 + 0.01 * Math.sin(t / 400) : 1 + 0.01 * Math.sin(t / 900),
+            rail: throttle ? this.railTop - 0.02 * this.railTop * clampN((rpm - 4500) / 2000, 0, 1) : this.railTop * 0.25,
             tyres: {
                 p: { FL: r(this.tyreP.FL, 100), FR: r(this.tyreP.FR, 100), RL: r(this.tyreP.RL, 100), RR: r(this.tyreP.RR, 100) },
                 t: { FL: Math.round(this.tyreT.FL), FR: Math.round(this.tyreT.FR), RL: Math.round(this.tyreT.RL), RR: Math.round(this.tyreT.RR) },
                 target: { FL: 2.3, FR: 2.3, RL: 2.3, RR: 2.3 },
             },
         });
-        if (this.diesel) { delete out.wastegate; delete out.wgDuty; }
+        if (this.diesel) { delete out.wastegate; delete out.wgDuty; delete out.knock; }
         return out;
     }
     torqueAt(rpm) { return torqueAt(rpm * 6500 / Math.max(4000, this.shift + (this.diesel ? 300 : 0))) * this.tqK; }
@@ -195,10 +203,10 @@ class Demo {
 }
 
 /**
- * Fill a demo RunLog (and a PullLog): two earlier sessions and a few runs today, each one simulated through the real timer, so
- * Runs, Log and Compare have something to show from the first second.
+ * Fill a demo RunLog (and a PullLog, and a Bottleneck once a second): two earlier sessions and a few runs today, each one
+ * simulated through the real timer, so Runs, Log, Compare and Bottleneck have something to show from the first second.
  */
-function seedRuns(log, length, now, pulls, car) {
+function seedRuns(log, length, now, pulls, car, limits) {
     now = now == null ? Date.now() : now;
     // [start, runs, seed, weather]: a cold dense evening, a warm one, today
     const plan = [[now - 9 * 86400000, 3, 11, { intake: 9, kPa: 101.6 }], [now - 2 * 86400000, 4, 23, { intake: 27, kPa: 99.2 }],
@@ -221,8 +229,10 @@ function seedRuns(log, length, now, pulls, car) {
             log.sample(t, cur);
             log.idle(t);
             if (pulls) pulls.feed(t, cur);
+            if (limits && (t - p[0]) % 1000 === 0) limits.feed(Object.assign({ t: t }, cur));
             t += 50;
         }
+        if (limits) limits.flush();
         log.o.onDone = add; log.o.air = air;
         if (pulls) pulls.o.air = pAir;
     });

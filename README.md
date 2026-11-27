@@ -35,7 +35,7 @@
 | What you see live | |
 |---|---|
 | **Boost** against its target, intake and charge air, oil, coolant and gearbox temperatures | Datalog |
-| **0 to 100, 402 m, trap speed**, weather corrected times and a dyno sheet from your own runs | Datalog |
+| **0 to 100, 402 m, trap speed**, weather corrected times, a dyno sheet and what holds the car back under load (what to upgrade first) | Datalog |
 | **Exhaust after the catalyst, particulate filter load and soot**, the flap's state and your own flap rules | Exhaust |
 | **Every control unit's faults** with freeze frames, misfires per cylinder, lambda, VANOS, battery, service, tyres | Health |
 | A calm **clock** with outside temperature, battery and range for waiting and night drives | Standby |
@@ -95,7 +95,7 @@ describes.
 | | App | What it does |
 |---|---|---|
 | <img src="apps/p96_health/icon.png" width="48"> | [Health](#p96_health) | One look at the whole car: faults with their history, 12 V battery, service, tyres, fluids, a score and a report to share |
-| <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, boost, the air, tyres, temperatures, a log and two runs compared |
+| <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, the bottleneck under load (what to upgrade first), boost, the air, tyres, temperatures, a log and two runs compared |
 | <img src="apps/p96_standby/icon.png" width="48"> | [Standby](#p96_standby) | A calm clock for waiting and night drives, the car at a glance, this drive and today |
 | <img src="apps/p96_lights/icon.png" width="48"> | [Lights](#p96_lights) | The ambient light in any colour, by region, on a cabin you turn with a finger, and light shows over the outside lamps: ready made, or your own beat by beat, flashing or fading |
 | <img src="apps/p96_exhaust/icon.png" width="48"> | [Exhaust](#p96_exhaust) | The exhaust live, the flap with your own rules, the particulate filter and its regenerations, and a better sound without changing anything |
@@ -150,7 +150,8 @@ tools/check_docs.py fails the build when an app has no section, no GIF or no scr
 
 Your car's strip day in one app. Datalog times 201 m, 402 m and 1/2 mile runs from a standstill, with 0 to 100 km/h,
 60 to 100 km/h, 201 m, the trap speed and your reaction, and corrects every time to standard air (SAE J1349) so runs
-on different days compare fairly. Next to that: a dyno sheet from a full throttle pull, the boost and the wastegate, the three air
+on different days compare fairly. Next to that: a dyno sheet from a full throttle pull, Bottleneck (what holds the car
+back under hard load and what to upgrade first), the boost and the wastegate, the three air
 temperatures from the mirror to the throttle, the tyres from cold to hot, the fluids, a log of every run and two runs
 side by side.
 
@@ -166,6 +167,7 @@ value (remembered for this car). Demo data shows everything a car of the chosen 
 | Now: boost, the air, the run, oil and gearbox | ![](docs/media/p96_datalog/now.png) |
 | Runs: the last run and every run today | ![](docs/media/p96_datalog/runs.png) |
 | Dyno: power and torque over the rev range | ![](docs/media/p96_datalog/dyno.png) |
+| Bottleneck: what holds the car back under hard load, what to upgrade first | ![](docs/media/p96_datalog/bottleneck.png) |
 | Correction: three air temperatures, pressure, the SAE factor | ![](docs/media/p96_datalog/correction.png) |
 | Tyres: pressure and temperature, cold to hot | ![](docs/media/p96_datalog/tyres.png) |
 | Boost: manifold minus outside, target and peak, the wastegate | ![](docs/media/p96_datalog/boost.png) |
@@ -187,8 +189,8 @@ torque, the gear, oil and coolant temperature, the gearbox oil temperature, the 
 the tyre pressures and temperatures (TPMS). From the engine unit, with read requests only (UDS 22, through the kit's
 read only diagnostic link) and only while Datalog's screen is shown: the intake air after the filter, the charge air
 before the throttle, the intake manifold pressure, the outside air pressure, the boost target, the engine's own torque
-figure, the accelerator pedal, the exhaust gas temperature model and, on engines with an electric wastegate, its
-position and the duty cycle at its actuator. When Datalog is not on the screen nothing goes on
+figure, the accelerator pedal, the exhaust gas temperature model, knock control, lambda, the fuel rail pressure and,
+on engines with an electric wastegate, its position and the duty cycle at its actuator. When Datalog is not on the screen nothing goes on
 the bus; runs are still timed from the broadcasts.
 
 **How it works out the numbers.**
@@ -206,11 +208,21 @@ the bus; runs are still timed from the broadcasts.
   the engine reports it.
 - Dyno: a pull is full throttle in one gear (2nd or higher) with the rpm climbing over at least 1 500 rpm. Torque is
   the engine unit's own figure; power = torque x rpm / 7 121 (hp). Both corrected to standard air.
+- Bottleneck: every stretch of full throttle (pedal 85 % or more) held 3 s or longer is kept, over drives. Each is
+  judged on turbo and boost (short of target with the wastegate shut: the turbo, or short all along: a leak), the
+  charge air over outside (the intercooler), the intake air, knock, misfires, the fuel rail falling or lean at full
+  load, exhaust gas heat and the particulate filter's pressure, coolant, oil and gearbox heat, and torque lost pull to
+  pull in one drive (with what changed with it, such as heat soak). A check is red only when it showed in two pulls
+  or in one of 8 s or more; worst first, so the top red row is what to upgrade first, with the evidence, what to do
+  (the cheap check before the part) and its values live.
 
 **Limits.**
 
 - The dyno sheet is an estimate at the engine from the engine unit's own torque figure: not a real dyno, and not at
   the wheels (where 10 to 15 % less arrives).
+- Bottleneck judges from the engine unit's own values against plain thresholds: a pointer to what to check or
+  upgrade first, not a workshop diagnosis. Knock, lambda and the rail are read with Health's scales, still to be
+  checked on a car (unsure); misfires are not read by Datalog yet.
 - The car reports no humidity, so the correction treats the air as dry. A turbo engine makes up some of the thin air
   itself, so the correction overstates its loss up high.
 - The engine unit values are read only while the screen is shown, so a run timed with Datalog in the background has

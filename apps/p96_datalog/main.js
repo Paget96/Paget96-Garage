@@ -103,7 +103,7 @@ mgu.run({
         let link = null, dme = null, shown = false, opening = null;
         const onValues = (v) => {
             L.dmeT = Date.now();
-            ['intake', 'charge', 'manifold', 'kPa', 'egt', 'pedal', 'wastegate', 'wgDuty'].forEach((k) => { if (k in v) L[k] = v[k]; });
+            ['intake', 'charge', 'manifold', 'kPa', 'egt', 'pedal', 'wastegate', 'wgDuty', 'knock', 'lambda', 'rail'].forEach((k) => { if (k in v) L[k] = v[k]; });
             if ('torque' in v) L.torqueDme = v.torque;
             if (typeof L.kPa === 'number') L.ambient = L.kPa / 100;
             if ('boostTargetAbs' in v && typeof L.ambient === 'number') L.boostTarget = v.boostTargetAbs - L.ambient;

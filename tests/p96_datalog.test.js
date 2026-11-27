@@ -386,7 +386,7 @@ test('only what the car reports: tabs, and remembered per car', () => {
     assert.deepStrictEqual(P.tabsFor(m), ['Now', 'Runs', 'Log'], 'a car with only speed and rpm');
     m.live.oil = 90; m.live.manifold = 1.2; m.live.ambient = 0.99; m.live.torque = 300;
     m.tick(1100);
-    assert.deepStrictEqual(P.tabsFor(m), ['Now', 'Runs', 'Dyno', 'Boost', 'Temps', 'Log']);
+    assert.deepStrictEqual(P.tabsFor(m), ['Now', 'Runs', 'Dyno', 'Bottleneck', 'Boost', 'Temps', 'Log']);
     assert(!m.has('egt') && !m.has('tyres'), 'never reported, never shown');
     const again = new Model({ settings, dataDir: dir, demo: () => false });
     assert(again.has('torque') && again.has('boost'), 'remembered for this car');

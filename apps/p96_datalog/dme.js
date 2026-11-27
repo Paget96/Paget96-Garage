@@ -4,20 +4,20 @@
 /**
  * Datalog's reads from the engine unit (DME, address 0x12): intake air, charge air, manifold pressure, outside
  * pressure, the boost target, the engine torque, the accelerator pedal, the exhaust gas model and the electric wastegate
- * (position and actuator duty cycle), with UDS ReadDataByIdentifier (22) only.
+ * (position and actuator duty cycle), knock control, lambda and the fuel rail, with UDS ReadDataByIdentifier (22) only.
  *
  * Read only: every request goes through the kit's ReadOnlyDiag (kit/readonly-diag.js), which refuses anything but
  * 22 and the OBD reads before it reaches the car. And only while Datalog is on the screen: start() when its screen
  * shows, stop() when it goes (stop also drops what is still queued), so nothing goes on the bus while it is hidden.
  *
- * The identifiers go out in two requests in turn (GROUPS; the engine units of B38, B48 and B58 answer several in one
+ * The identifiers go out in three requests in turn (GROUPS; the engine units of B38, B48 and B58 answer several in one
  * reply); one the reply leaves out is then asked on its own, with its OBD form as a second choice, every few
  * seconds. Identifiers and scalings: BMW's DME8FF_R description (as upstream Live Data lists them).
  *
  *   const dme = new DmeReader(link, { onValues(v), log });   link: a ReadOnlyDiag (init() done by the caller)
  *   dme.start(); dme.stop();
  *   values: { intake °C, charge °C, manifold bar abs, kPa, boostTargetAbs bar abs, torque Nm, pedal %, egt °C,
- *             wastegate % open, wgDuty % }
+ *             wastegate % open, wgDuty %, knock ° pulled back, lambda, rail bar }
  */
 const M = require('./maths');
 
@@ -34,13 +34,18 @@ const DIDS = {
     '5896': { name: 'egt', bytes: 2, signed: true, factor: 0.1, offset: -273.14 },         // exhaust gas after the catalyst (the engine unit's model), °C
     '5927': { name: 'wastegate', bytes: 1, factor: 0.390625 },                             // I_EWG_POS: electric wastegate position, % (0 closed, 100 open)
     '4AAB': { name: 'wgDuty', bytes: 2, factor: 0.001525878906 },                          // LDS_TV_ENDSTUFE: duty cycle at the wastegate actuator, %
+    // for the Bottleneck page (T36), the same reads and scales as Health's Engine page (apps/p96_health/model.js ENGINE_DIDS)
+    '554C': { name: 'knock', bytes: 1, signed: true, factor: 0.375 },                      // knock control, ° ignition pulled back
+    '5889': { name: 'lambda', bytes: 2, factor: 0.000244140625 },                          // lambda, bank 1
+    '58EF': { name: 'rail', bytes: 2, factor: 0.005 },                                     // fuel rail pressure, bar
 };
 /**
- * The identifiers go out in two requests, in turn (the kit takes at most 8 in one, kit/readonly-diag.js MAX_DIDS):
+ * The identifiers go out in three requests, in turn (the kit takes at most 8 in one, kit/readonly-diag.js MAX_DIDS):
  * the eight above, then the wastegate pair with the manifold pressure again, so the wastegate and the boost of one
- * moment arrive together. The second request stops once this car shows it has no wastegate values.
+ * moment arrive together, then knock, lambda and the fuel rail (the Bottleneck page). A later request stops once this
+ * car shows it has none of its values.
  */
-const GROUPS = [['580F', '59D4', '4A2D', '4201', '4AB0', '5891', '5814', '5896'], ['4A2D', '5927', '4AAB']];
+const GROUPS = [['580F', '59D4', '4A2D', '4201', '4AB0', '5891', '5814', '5896'], ['4A2D', '5927', '4AAB'], ['4A2D', '554C', '5889', '58EF']];
 
 /** The second choice for a value the reply left out: the standard OBD PID (service 01). */
 const OBD = {
@@ -49,7 +54,8 @@ const OBD = {
     kPa: { obd: '33', bytes: 1, factor: 1, min: 50, max: 115 },
 };
 /** What counts as a reading (outside it: no data, e.g. an unset sensor or FFFF with the engine off). */
-const RANGE = { intake: [-40, 90], charge: [-40, 140], manifold: [0.1, 4.5], kPa: [50, 115], boostTargetAbs: [0.3, 4.5], egt: [-40, 1200], torque: [-300, 1500], pedal: [0, 100.5], wastegate: [0, 100], wgDuty: [0, 100] };
+const RANGE = { intake: [-40, 90], charge: [-40, 140], manifold: [0.1, 4.5], kPa: [50, 115], boostTargetAbs: [0.3, 4.5], egt: [-40, 1200], torque: [-300, 1500], pedal: [0, 100.5], wastegate: [0, 100], wgDuty: [0, 100],
+    knock: [-30, 30], lambda: [0.5, 2.5], rail: [1, 3000] };
 /** A value never seen is asked on its own this many times, then only the multi read keeps looking for it (a car without it). */
 const SINGLE_TRIES = 3;
 const ok = (name, v) => typeof v === 'number' && isFinite(v) && v >= RANGE[name][0] && v <= RANGE[name][1];

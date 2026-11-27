@@ -11,6 +11,7 @@
  *   m.tick(tMs)                 every 50 ms: demo step, standstill clock, history
  *   m.v                         the values shown now (demo or live)
  *   m.log()                     the run log shown (the demo's is in memory only, never saved)
+ *   m.limits()                  the Bottleneck shown (what holds the car back under hard load; the demo's in memory only)
  *   m.ui                        page, view ('main' | 'help' | 'settings'), help topic, Log and Compare choices
  */
 const fs = require('fs');
@@ -19,6 +20,7 @@ const M = require('./maths');
 const { RunLog } = require('./runs');
 const { Demo, seedRuns } = require('./demo');
 const { PullLog } = require('./dyno');
+const { Bottleneck } = require('./bottleneck');
 function need(local, repo) {
     try { return require(local); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; return require(repo); }
 }
@@ -26,7 +28,7 @@ const E = need('./garage_engine', '../../lib/engine');
 
 /** The values the pages use. Temperatures °C, pressures bar absolute (kPa for the air), speed km/h, wastegate % open. */
 const FIELDS = ['speed', 'rpm', 'torque', 'gear', 'oil', 'coolant', 'gearbox', 'outside', 'intake', 'charge', 'manifold',
-    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal', 'wastegate', 'wgDuty', 'boost2', 'wastegate2'];
+    'ambient', 'kPa', 'boost', 'boostTarget', 'egt', 'pedal', 'wastegate', 'wgDuty', 'boost2', 'wastegate2', 'knock', 'lambda', 'rail'];
 const HIST = ['kPa', 'intake', 'outside', 'charge', 'boost', 'manifold', 'ambient', 'oil', 'coolant', 'gearbox', 'speed', 'wastegate', 'boost2', 'wastegate2'];
 /**
  * What a demo car reports (lib/engine.js DEMO_CARS): an electric car no engine values at all (no boost, no engine
@@ -55,6 +57,13 @@ class Model {
         this.realDyno = new PullLog({ file: this.o.dataDir ? path.join(this.o.dataDir, 'datalog_dyno.json') : null, air: () => this.v, log: this.o.log });
         this.demoDyno = null;
         this.demoLog = null;
+        this.demoLimits = null;
+        // the hard stretches the Bottleneck page judges, kept over drives (T36)
+        this.limitsFile = this.o.dataDir ? path.join(this.o.dataDir, 'datalog_limits.json') : null;
+        let kept = [];
+        if (this.limitsFile) { try { kept = JSON.parse(fs.readFileSync(this.limitsFile, 'utf8')).pulls || []; } catch (e) { /* none yet */ } }
+        this.realLimits = new Bottleneck({ pulls: kept });
+        this.limitsN = kept.length; this.limitsT = 0;
         this.demo = null;
         this.wasDemo = null;
         this.h1 = {}; this.h10 = {}; this.seq1 = 0; this.seq10 = 0; this.t1 = 0; this.t10 = 0;
@@ -107,13 +116,30 @@ class Model {
             this.demo = new Demo(7, t, null, car);
             this.demoLog = new RunLog({ file: null, length: () => this.setting('runLength'), air: () => this.v });
             this.demoDyno = new PullLog({ file: null, air: () => this.v });
-            seedRuns(this.demoLog, this.setting('runLength'), t, this.demoDyno, car);
+            this.demoLimits = new Bottleneck({ petrol: !car.diesel });
+            seedRuns(this.demoLog, this.setting('runLength'), t, this.demoDyno, car, this.demoLimits);
             this.demo.last = null;
         }
         this.demo.runLen = this.setting('runLength');
     }
 
     dyno() { return this.isDemo() && this.demoDyno ? this.demoDyno : this.realDyno; }
+    limits() {
+        if (this.isDemo() && this.demoLimits) return this.demoLimits;
+        this.realLimits.petrol = !this.car().diesel;
+        return this.realLimits;
+    }
+    /** Once a second: the values now into the Bottleneck; a new hard stretch is saved. */
+    _limitsFeed(t) {
+        if (t - this.limitsT < 1000) return;
+        this.limitsT = t;
+        const bn = this.limits();
+        bn.feed(Object.assign({ t: t }, this.v));
+        if (bn === this.realLimits && bn.pulls.length !== this.limitsN) {
+            this.limitsN = bn.pulls.length;
+            if (this.limitsFile) { try { fs.writeFileSync(this.limitsFile, JSON.stringify({ v: 1, pulls: bn.saved() })); } catch (e) { if (this.o.log) this.o.log.warn('limits: ' + e.message); } }
+        }
+    }
     /**
      * The pull the Dyno page shows: the widest (most rpm) of this session's pulls, the newest of equals; else the
      * last one ever.
@@ -154,6 +180,7 @@ class Model {
             this._see(v);
             this.real.idle(t);
         }
+        this._limitsFeed(t);
         // tyre pressures when the session started: the first full set
         const p = this.v.tyres && this.v.tyres.p;
         if (!this.cold && p && M.WHEELS.every((k) => typeof p[k] === 'number')) this.cold = Object.assign({}, p);

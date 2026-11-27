@@ -145,6 +145,21 @@ const INFO = {
         text: 'Datalog compares each tyre with the other three and tells you when one is 0.08 bar or more off.',
         note: 'Check a tyre that stays low when cold: it may have a slow leak.',
     },
+    bottleneck: {
+        label: 'What holds it back', title: 'The bottleneck under hard load', draw: A.airPath('all'),
+        text: 'Each time you hold full throttle for 3 s or more, Datalog keeps that pull: boost and the wastegate, charge ' +
+            'air, knock, fuel, exhaust gas, engine and gearbox heat, and the torque at each rev band.\n\n' +
+            'A check turns red only when it showed in two pulls, or in one held 8 s or more; once, it is amber. Worst ' +
+            'first: the top red row is what to upgrade first.',
+        note: 'Estimates from the engine unit\'s own values: not a dyno and not a workshop diagnosis. Only on closed roads.',
+    },
+    bottleneckOne: {
+        label: 'One check', title: 'Why, the evidence and what to do', draw: A.airPath('all'),
+        text: 'The sentence says what limits the car in plain words; the amber line is the evidence (the worst value and ' +
+            'how many pulls showed it). What to do starts with the cheap check before the part to buy.\n\n' +
+            'Now shows the values this check is judged on, live, so you can watch them during the next pull.',
+        note: 'Grey: Datalog does not get that value from this car, so it cannot judge it.',
+    },
     temps: {
         label: 'Temperatures', title: 'Is the car ready, or too hot?', draw: THERMO('oil'),
         text: 'Engine oil, coolant and gearbox oil from the car, intake and charge air from the engine unit. Green is ' +
@@ -230,6 +245,11 @@ const TOPICS = [
         text: 'Boost is how much the turbo pushes the air in. Datalog reads the manifold pressure and the outside pressure ' +
             'from the engine unit and shows both, and the boost between them.\n\n' +
             'Set your boost target in Settings; Boost shows when the run reached it, and the wastegate when your engine has one.' },
+    { title: 'Bottleneck', needs: 'torque', draw: A.dynoArt, note: 'Only on closed roads or a strip. Never in traffic.',
+        text: 'Do a few full throttle pulls (3 s or more each, 2nd or 3rd gear from about 2 500 rpm). Bottleneck judges each ' +
+            'pull: turbo and boost, the intercooler, the intake air, knock, spark, fuel, exhaust, engine and gearbox heat, and ' +
+            'whether later pulls lose power.\n\nThe top red row is what holds the car back; tap any row for the evidence, ' +
+            'what to do and its values live.' },
     { title: 'Tyres and temps', needs: 'oil', draw: A.tyreArt, note: 'Set pressures cold, check them hot.',
         text: 'Tyres shows each tyre\'s pressure and temperature from the car\'s tyre sensors, and how much each grew from ' +
             'cold to hot this session.\n\n' +
