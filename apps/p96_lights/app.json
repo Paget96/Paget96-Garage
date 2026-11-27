@@ -2,7 +2,7 @@
   "id": "p96_lights",
   "title": "Lights",
   "description": "The car's lights: any colour on the ambient light, light sequences and high beam flashes while parked, simulated until you arm it",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "vendor": "custom",
   "loggingId": "PGL1",
   "iconGlyph": "lights",
@@ -172,19 +172,6 @@
         [
           "on",
           "Armed (switches the car's lights)"
-        ]
-      ]
-    },
-    {
-      "key": "demoCar",
-      "label": "Demo car",
-      "type": "choice",
-      "default": "b48",
-      "hidden": true,
-      "options": [
-        [
-          "b48",
-          "B48"
         ]
       ]
     }

@@ -344,7 +344,7 @@ function draw(cv, v, st, t, act) {
     } else if (st.page === 'settings' && st.report && st.report.active()) {
         UI.reportPage(cv, st.report, t, { title: TITLE, onHelp: () => { st.report.close(); act.help(); } });
     } else if (st.page === 'settings') {
-        UI.settingsPage(cv, (st.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS), st.settings, act.set, { title: TITLE, appLabel: 'Lights', onBack: act.back, onHelp: act.help,
+        UI.settingsPage(cv, APP_ROWS, st.settings, act.set, { title: TITLE, appLabel: 'Lights', onBack: act.back, onHelp: act.help,
             onReport: st.report ? () => st.report.open() : null });
     } else {
         head(cv, st, act);
@@ -354,6 +354,6 @@ function draw(cv, v, st, t, act) {
 }
 
 const DEFAULTS = {};
-UI.DISPLAY_SETTINGS.concat(APP_ROWS, [E.DEMO_ROW]).forEach((r) => { DEFAULTS[r.key] = r.default; });
+UI.DISPLAY_SETTINGS.concat(APP_ROWS).forEach((r) => { DEFAULTS[r.key] = r.default; });
 
 module.exports = { viewBox, MAX_PITCH, MAX_ROLL, regionOf, regionsOf, REGIONS, draw, TABS, TOPICS, APP_ROWS, PAGES, DEFAULTS, COLOURS, TITLE, carLamps, INFO, OUTSIDE };
