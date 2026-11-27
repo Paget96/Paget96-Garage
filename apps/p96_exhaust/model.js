@@ -385,14 +385,14 @@ function pagesFor(caps, p) {
  */
 function groupsFor(caps, p) {
     const pages = pagesFor(caps, p), on = (i) => pages.indexOf(i) >= 0, names = tabsFor(p);
-    const g = (name, list) => ({ name: name, pages: list.filter((q) => on(q[0])) });
+    const g = (name, list, icon) => ({ name: name, icon: icon, pages: list.filter((q) => on(q[0])) });
     const filter = names[3];
     return [
-        g('Home', [[HOME, 'Home']]),
-        g('Flap', [[1, 'Rules'], [2, 'Log']]),
-        g(filter, [[3, filter], [4, 'Care'], [5, 'Cold start']]),
-        g('Sound', [[6, 'Sound'], [7, 'Better sound']]),
-        g('More', [[0, 'Exhaust path'], [8, 'History'], [9, 'Setup']]),
+        g('Home', [[HOME, 'Home']], 'home'),
+        g('Flap', [[1, 'Rules'], [2, 'Log']], 'flap'),
+        g(filter, [[3, filter], [4, 'Care'], [5, 'Cold start']], 'filter'),
+        g('Sound', [[6, 'Sound'], [7, 'Better sound']], 'sound'),
+        g('More', [[0, 'Exhaust path'], [8, 'History'], [9, 'Setup']], 'more'),
     ].filter((x) => x.pages.length);
 }
 /**

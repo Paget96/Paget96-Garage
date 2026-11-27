@@ -23,6 +23,7 @@ if (process.env.GARAGE_FRAME !== 'off') {
     let OX = LEFT + RAIL(), SW = SWf();
     const EXTRA = Math.floor((SH - GAP - OY) / S - 520);
     UI.useRail(true);
+    if (UI.setBack) UI.setBack(() => {});
     const CF = module.exports = { tabs: null, clock: '22:10' };
     global.CF = CF;
     const BaseRec = REC.Recorder;
