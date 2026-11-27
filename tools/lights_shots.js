@@ -24,9 +24,9 @@ const v = { armed: false, moving: false, presets: PF.inGroup('Party', { mine: []
 function shot(name, set, t) {
     Object.assign(st, { page: 'main' }, set);
     if (global.CF) global.CF.tabs = () => [P.TABS, st.tab, st.page];
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     P.draw(rec, v, st, t || 0, act);
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     fs.writeFileSync(path.join(out, name + '.png'), cv.png(9));
 }
@@ -57,9 +57,9 @@ for (let i = 0; i < N; i++) {
     v.beat = Math.floor(v.beatF); v.playing = part > 0;
     Object.assign(st, { page: 'main', tab: part ? 1 : 0 });
     if (global.CF) global.CF.tabs = () => [P.TABS, st.tab, st.page];
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     P.draw(rec, v, st, t, act);
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     fs.writeFileSync(path.join(fr, ('000' + i).slice(-4) + '.png'), cv.png(1));
 }

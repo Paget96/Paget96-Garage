@@ -100,11 +100,12 @@ function checkCard(cv, x, y, w, h, c) {
 function overview(cv, S, V, A, t) {
     const sc = S.score;
     const ringInfo = info('score');
-    UI.ring(cv, 200, TOP + 176, 130, { value: sc.value, min: 0, max: 100, text: sc.value == null ? '--' : null, unit: 'of 100',
+    // the ring left, three columns of cards filling the rest (their width from the page's, W logical px)
+    UI.ring(cv, X0 + 172, TOP + 176, 130, { value: sc.value, min: 0, max: 100, text: sc.value == null ? '--' : null, unit: 'of 100',
         color: sc.color, scale: [0, 25, 50, 75, 100], info: ringInfo });
-    cv.text(sc.word, 200, TOP + 348, 22, col(sc.color), { font: 'bold', align: 'center', spacing: 1, literal: true });
-    cv.text(S.checkedText || '', 200, TOP + 376, 15, C.dim, { align: 'center', literal: true });
-    const cw = 380, ch = Math.floor((UI.hh() - 16) / 2), gx = 14, x = X1 - 3 * cw - 2 * gx;
+    cv.text(sc.word, X0 + 172, TOP + 348, 22, col(sc.color), { font: 'bold', align: 'center', spacing: 1, literal: true });
+    cv.text(S.checkedText || '', X0 + 172, TOP + 376, 15, C.dim, { align: 'center', literal: true });
+    const gx = 14, x = X0 + 360, cw = Math.floor((X1 - x - 2 * gx) / 3), ch = Math.floor((UI.hh() - 16) / 2);
     S.cards.forEach((c, i) => checkCard(cv, x + (i % 3) * (cw + gx), TOP + Math.floor(i / 3) * (ch + 16), cw, ch, c));
 }
 
@@ -155,7 +156,7 @@ function memTabs(cv, x, y, S, V, A) {
 function faults(cv, S, V, A, t) {
     if (V.mem === 'history') return faultHistory(cv, S, V, A, t);
     // by unit
-    const lw = 420;
+    const lw = UI.pw(420);
     UI.card(cv, X0, TOP, lw, UI.hh(), 'By unit', { info: info('byUnit') });
     const rows = M.byUnit(S.units).slice(0, 6);
     rows.forEach((r, i) => {
@@ -173,29 +174,32 @@ function faults(cv, S, V, A, t) {
     if (V.detail) return faultDetail(cv, S, V, A, t, rx, rw);
     memTabs(cv, rx + 20, TOP + 34, S, V, A);
     if (V.mem === 'ready') return readinessView(cv, S, V, A, t, rx, rw);
-    let bx = X1 - (S.demo ? 104 : 56);   // clear of the card's (i), and of its DEMO beside it
-    const clearW = UI.dialogButton(cv, bx, TOP + 10, 'Clear faults...', 'bad');
-    if (cv.target) cv.target(bx - clearW, TOP + 10, clearW, 48, A.askClear, 'clear', 24);
+    // Save report and Clear faults at the card's bottom right (the memory tabs take the top row's whole width)
+    const by = TOP + UI.hh() - 64;
+    let bx = X1 - 20;
+    const clearW = UI.dialogButton(cv, bx, by, 'Clear faults...', 'bad');
+    if (cv.target) cv.target(bx - clearW, by, clearW, 48, A.askClear, 'clear', 24);
     bx -= clearW + 8;
-    const saveW = UI.dialogButton(cv, bx, TOP + 10, 'Save report', null);
-    if (cv.target) cv.target(bx - saveW, TOP + 10, saveW, 48, A.save, 'save', 24);
+    const saveW = UI.dialogButton(cv, bx, by, 'Save report', null);
+    if (cv.target) cv.target(bx - saveW, by, saveW, 48, A.save, 'save', 24);
     let list = M.listOf(S.units, V.mem);
     if (V.unit != null) list = list.filter((d) => d.addr === V.unit);
-    const per = 2, first = Math.min(V.first || 0, Math.max(0, list.length - per));
+    const per = Math.max(1, Math.floor((by - 8 - (TOP + 80)) / 138)), first = Math.min(V.first || 0, Math.max(0, list.length - per));
     const off = UI.glide('faultlist', first * 138, null, 14);
     list.forEach((d, i) => {
         const yy = TOP + 80 + i * 138 - off;
-        if (yy < TOP + 70 || yy > TOP + 80 + 138 + 2) return;
+        if (yy < TOP + 70 || yy > TOP + 80 + 138 * (per - 1) + 2) return;
         faultRow(cv, S, d, rx + 20, yy, rw - 40, 124, A);
     });
     if (!list.length) cv.text(S.units ? (V.mem === 'fault' ? 'No faults stored' : V.mem === 'info' ? 'Nothing in the info memory' : 'No permanent emission faults')
         + (V.unit != null ? ' in ' + M.unitName(V.unit) : '') : 'Reading the fault memories...', rx + 20, TOP + 120, 19, C.dim, { literal: true });
     if (list.length > per) {
-        const ax = rx + rw - 40;
-        cv.text((first + 1) + '-' + Math.min(list.length, first + per) + ' of ' + list.length, ax - 30, TOP + 376, 14, C.dim, { align: 'right', literal: true });
-        chev(cv, ax, TOP + 360, 14, 'up', first > 0 ? C.accent : '#464a52');
-        chev(cv, ax + 1, TOP + 382, 14, 'down', first + per < list.length ? C.accent : '#464a52');
-        if (cv.target) { cv.target(ax - 20, TOP + 344, 40, 26, () => A.scroll(-1), 'up', 12); cv.target(ax - 20, TOP + 370, 40, 26, () => A.scroll(1), 'down', 12); }
+        // the pager at the bottom left, beside the buttons
+        const ax = rx + 40, ay = by + 24;
+        chev(cv, ax, ay - 12, 14, 'up', first > 0 ? C.accent : '#464a52');
+        chev(cv, ax + 1, ay + 10, 14, 'down', first + per < list.length ? C.accent : '#464a52');
+        cv.text((first + 1) + '-' + Math.min(list.length, first + per) + ' of ' + list.length, ax + 26, ay + 5, 14, C.dim, { literal: true });
+        if (cv.target) { cv.target(ax - 20, ay - 28, 40, 26, () => A.scroll(-1), 'up', 12); cv.target(ax - 20, ay - 2, 40, 26, () => A.scroll(1), 'down', 12); }
     }
     cv.text(S.faultMsg || 'Fault memory: real faults. Info memory: notes the units keep, not faults. Permanent: emission faults only the car can clear.',
         rx + 20, TOP + 380, 14, S.faultMsgColor ? col(S.faultMsgColor) : C.dim, { literal: true });
@@ -257,11 +261,11 @@ function faultDetail(cv, S, V, A, t, rx, rw) {
 
 /** Faults, History tab: one row per fault with bars between its events over 8 weeks, the selected fault's timeline. */
 function faultHistory(cv, S, V, A, t) {
-    const lw = 1100, now = S.at;
+    const lw = UI.pw(1100), now = S.at;
     UI.card(cv, X0, TOP, lw, UI.hh(), '', { info: info('timeline') });
     memTabs(cv, X0 + 20, TOP + 34, S, V, A);
     const rows = M.historyRows(S.log, 4);
-    const px = X0 + 300, pw = lw - 330, span = 8 * M.WEEK;
+    const px = X0 + UI.pw(300), pw = lw - 330, span = 8 * M.WEEK;
     const xAt = (tt) => px + pw * Math.max(0, Math.min(1, 1 - (now - tt) / span));
     for (let w = 0; w <= 8; w++) {
         const gx = px + pw * w / 8;
@@ -368,7 +372,7 @@ function clearDialog(units, ticked, h) {
         buttons: [{ label: 'Cancel', run: h.cancel }, k ? { label: 'Yes, clear', kind: 'bad', run: h.run } : { label: 'Yes, clear', kind: null, run: null }] };
     d.body = (cv, x, y, w, hh) => {
         // left: the units
-        const lw = 470;
+        const lw = UI.pw(470);
         cv.text('UNITS WITH FAULTS', x, y + 14, 14, C.dim, { font: 'bold', spacing: 1, literal: true });
         const aw = Math.ceil(cv.textWidth('All but the engine', 15, { font: 'bold' })) + 30;
         cv.strokeRoundRect(x + lw - aw, y - 6, aw, 30, 15, 1.5, C.accent);
@@ -518,7 +522,7 @@ function addPartBody(S, V, A) {
 /* ---------- Tyres ---------- */
 
 function tyres(cv, S, V, A, t) {
-    const lw = 700, pr = S.pressures || {}, ty = S.tyres || {};
+    const lw = UI.pw(700), pr = S.pressures || {}, ty = S.tyres || {};
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Pressure now' + (S.coldNow ? ' (cold)' : ''), { info: info('pressure') });
     const cx = X0 + lw / 2, cy = TOP + Math.round(UI.hh() / 2) + 8, ck = Math.min(1.5, (UI.hh() - 60) / 310), cols = {};
     const tyc = (w) => (pr[w] == null ? 'dim' : ty.leak === w || ty.low === w ? 'warm' : 'ok');
@@ -550,7 +554,7 @@ function tyres(cv, S, V, A, t) {
 /* ---------- Fluids ---------- */
 
 function fluids(cv, S, V, A, t) {
-    let lw = 760;
+    let lw = UI.pw(760);
     const fl = S.fluids || {};
     const fluid = (S.service || []).filter((s) => s.id === 0x03)[0];
     const cp = S.caps;
@@ -601,6 +605,15 @@ function engine(cv, S, V, A, t) {
     const railOnly = M.has(cp, 'rail') && right.length === 0;
     if (M.has(cp, 'rail') && !railOnly) right.push({ label: 'Fuel rail pressure', value: ev.rail, decimals: 0, unit: 'bar', sub: 'normal ' + p.rail[0] + ' to ' + p.rail[1] + ' bar', color: 'ok', info: 'rail' });
     const hasRight = right.length || railOnly;
+    if (!views.length && !hasRight) {
+        // the engine unit has not answered yet: say so, never a blank page (owner 2026-11-27 12:01: it did nothing on tap)
+        UI.card(cv, X0, TOP, X1 - X0, UI.hh(), 'Engine', { info: info('knock') });
+        cv.text('Waiting for the engine unit', X0 + 24, TOP + 92, 24, C.text, { font: 'bold', literal: true });
+        UI.wrap(cv, 'Health asks it with the engine running, while Health is open, and again every minute. ' +
+            'Misfires, rough running, ignition per cylinder, knock control, VANOS, lambda and the fuel rail show here as soon as it answers. ' +
+            'If nothing comes, this engine unit does not give these values to Health.', 18, X1 - X0 - 48).forEach((ln, i) => cv.text(ln, X0 + 24, TOP + 132 + i * 26, 18, C.dim, { literal: true }));
+        return;
+    }
     const lw = views.length ? (hasRight ? 1000 : X1 - X0) : 0, rx = X0 + (lw ? lw + 14 : 0), rw = X1 - rx;
     if (views.length) {
         // the cylinders drawn as the engine has them (owner, 2026-11-27 02:48: more pictorial, with an explanation):
@@ -608,7 +621,7 @@ function engine(cv, S, V, A, t) {
         // a band per value, its bars measured from the others so the odd one is the one that sticks out
         UI.card(cv, X0, TOP, lw, UI.hh(), 'Per cylinder', { info: info(CYL_FMT[views[0][0]].info) });
         const banks = E.cylinderBanks(p), nums = [].concat.apply([], banks.map((b) => b.cylinders));
-        const n = Math.max(1, nums.length), gapB = banks.length > 1 ? 30 : 0, x0 = X0 + 250, x1 = X0 + lw - 24;
+        const n = Math.max(1, nums.length), gapB = banks.length > 1 ? 30 : 0, x0 = X0 + UI.pw(250), x1 = X0 + lw - 24;
         const cw = (x1 - x0 - gapB) / n, cxOf = (i) => x0 + i * cw + (banks.length > 1 && i >= banks[0].cylinders.length ? gapB : 0) + cw / 2;
         const rank = { dim: 0, ok: 1, warm: 2, bad: 3 }, worst = {}, why = {};
         views.forEach((vw) => {
@@ -673,7 +686,8 @@ function engine(cv, S, V, A, t) {
         return;
     }
     if (!right.length) return;
-    const rows = Math.ceil(right.length / (right.length > 2 ? 2 : 1)), cols = right.length > 2 ? 2 : 1, gap = 14;
+    // two columns only where a card stays wide enough for its label and value
+    const cols = right.length > 2 && rw >= 540 ? 2 : 1, rows = Math.ceil(right.length / cols), gap = 14;
     const cw = (rw - gap * (cols - 1)) / cols, ch = (UI.hh() - gap * (rows - 1)) / rows;
     right.forEach((c, i) => {
         const x = rx + (i % cols) * (cw + gap), y = TOP + Math.floor(i / cols) * (ch + gap);
@@ -691,7 +705,7 @@ const DC_COL = { ok: C.green, watch: C.amber, out: C.red, nodata: '#4a4f58' };
  * was found, in words with its evidence, and the drives before.
  */
 function driveCheck(cv, S, V, A, t) {
-    const d = S.dc || { checks: [], findings: [], drives: [] }, lw = 1000, top = TOP;
+    const d = S.dc || { checks: [], findings: [], drives: [] }, lw = UI.pw(1000), top = TOP;
     UI.card(cv, X0, top, lw, UI.hh(), 'Drive check: what must agree', { info: info('driveCheck') });
     const head = d.readings ? (d.driving ? 'This drive: ' : 'Last drive: ') + d.minutes + ' min, ' + d.readings + ' readings, compared in like conditions'
         : 'Starts when the engine runs, while Health is open: reads only, nothing is sent';
@@ -738,7 +752,7 @@ function driveCheck(cv, S, V, A, t) {
 /* ---------- History ---------- */
 
 function history(cv, S, V, A, t) {
-    const lw = 1000, wk = M.weekly(S.scores || [], S.at, 12);
+    const lw = UI.pw(1000), wk = M.weekly(S.scores || [], S.at, 12);
     UI.chart(cv, X0, TOP, lw, UI.hh(), [{ name: '', color: 'ok', values: wk.some((v) => v != null) ? wk : [null, null] }],
         { label: 'Health score, last 12 weeks', info: info('hist'), min: 60, max: 100, yTicks: 4, yUnit: 'pts', xLabels: ['-12 w', '-9 w', '-6 w', '-3 w', 'now'] });
     const rx = X0 + lw + 14, rw = X1 - rx;
@@ -764,7 +778,7 @@ function history(cv, S, V, A, t) {
 
 let qrCache = { text: null, q: null };
 function share(cv, S, V, A, t) {
-    const lw = 560;
+    const lw = UI.pw(560);
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Scan with your phone', { info: info('qr') });
     const text = S.report || '';
     if (qrCache.text !== text) {

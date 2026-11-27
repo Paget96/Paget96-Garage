@@ -27,7 +27,6 @@ const UI = require('./garage_ui');
 const P = require('./pages');
 const Report = require('./garage_report');
 
-const W = 1600, H = 520;
 const SCREEN = 'MAIN';
 
 mgu.run({
@@ -153,7 +152,7 @@ mgu.run({
             const fps = Number(settings.get('fps')) || 60, now = Date.now();
             if (now - last < 1000 / fps - 4) return null;
             last = now;
-            const cv = ctx.canvas(W, H);
+            const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
             // where the kit runs the screen, it draws the tabs in its header too and routes their taps to ctx.onTab
             if (cv.chrome) {
                 // the header menu: every page, then How to use and Settings (owner 2026-11-26 20:41)

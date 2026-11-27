@@ -674,7 +674,10 @@ function pagesFor(caps, S) {
     if (has(caps, 'cbs') || (S && S.ours && S.ours.length)) out.push(3);
     if (has(caps, 'tpms')) out.push(4);
     if (has(caps, 'oilLevel') || has(caps, 'cc') || has(caps, 'oilTemp') || has(caps, 'coolantTemp')) out.push(5);
-    if (ENGINE_CAPS.some((k) => has(caps, k)) && !(S && S.engine && S.engine.engine === false)) out.push(8, 9);   // Engine, Drive check
+    // Engine and Drive check: unless the car has shown it has none of their values (or no engine); until it has
+    // answered they stay, and the pages say they are still waiting for the engine unit
+    const engineNo = ENGINE_CAPS.every((k) => caps && caps[k] === false);
+    if (!engineNo && !(S && S.engine && S.engine.engine === false)) out.push(8, 9);   // Engine, Drive check
     out.push(6, 7);
     return out;
 }

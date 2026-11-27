@@ -45,10 +45,10 @@ const act = { tab() {}, help() {}, settings() {}, back() {}, topic() {}, set() {
 
 function frame(t, popup) {
     if (global.CF) global.CF.tabs = () => [P.TABS, st.tab, st.page];
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     P.draw(rec, values(st.now), st, t, act);
     if (popup) UI.infoPopup(rec, popup, t);
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     return { rec: rec, png: cv.png(9) };
 }

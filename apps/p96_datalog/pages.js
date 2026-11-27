@@ -232,7 +232,11 @@ function runCard(cv, m, x, y, w, h, run, opts) {
     const tw = cv.text(isNum(shown) ? shown.toFixed(2) : '--', x + 20, y + 128, 92, isNum(shown) ? C.text : C.dim, { font: 'num', literal: true });
     cv.text('s', x + 34 + tw, y + 124, 24, C.dim, { literal: true });
     if (running) ltext(cv, 'RUNNING  ' + Math.round(U.speed(m.v.speed) || 0) + ' ' + U.speedU + ', ' + Math.round(log.live().dist) + ' m', x + 20, y + 160, 18, C.orange, 'bold');
-    else if (run && isNum(run.cf)) ltext(cv, 'in standard air (25 °C, 99 kPa): ' + secs(M.correctTime(time, run.cf, true)) + ' s, so hot and cold days compare', x + 20, y + 160, 18, C.green);
+    else if (run && isNum(run.cf)) {
+        // the long form where the card is wide, the short one where it is not
+        const full = 'in standard air (25 °C, 99 kPa): ' + secs(M.correctTime(time, run.cf, true)) + ' s, so hot and cold days compare';
+        ltext(cv, cv.textWidth(full, 18) <= w - 40 ? full : 'in standard air: ' + secs(M.correctTime(time, run.cf, true)) + ' s', x + 20, y + 160, 18, C.green);
+    }
     else if (run && m.has('intake') && m.has('kPa')) ltext(cv, 'no air data for this run: not corrected', x + 20, y + 160, 18, C.dim);
     else ltext(cv, 'Stop the car, wait for READY, then go.', x + 20, y + 160, 18, C.dim);
     const rows = running ? [] : splitRows(run, U);
@@ -257,7 +261,7 @@ function runTable(cv, m, x, y, w, runs, opts) {
     opts = opts || {};
     const U = units(m), len = runs.length ? runs[runs.length - 1].length : m.setting('runLength');
     const best = M.bestRun(runs, len, true);
-    const ab = !!opts.pickAB, cols = [x + 20, x + 78, x + 228, x + 388, x + 548, x + w - (ab ? 250 : 120)];
+    const ab = !!opts.pickAB, k = Math.min(1, w / 970), cols = [20, 78, 228, 388, 548].map((c) => x + Math.round(c * k)).concat([x + w - (ab ? 250 : 120)]);
     // columns only for what this car reports: corrected needs the intake air and the outside pressure
     const hasCorr = m.has('intake') && m.has('kPa'), hasAir = m.has('intake') || m.has('charge');
     [['#', 0, true], [U.dist(len), 1, true], ['std. air', 2, hasCorr], ['trap', 3, true], ['air', 4, hasAir]].forEach((c) => { if (c[2]) ltext(cv, c[0], cols[c[1]], y, 15, C.dim, 'bold'); });
@@ -272,12 +276,14 @@ function runTable(cv, m, x, y, w, runs, opts) {
         if (hasCorr) ltext(cv, isNum(r.cf) ? secs(M.correctTime(raw, r.cf, true)) + ' s' : '--', cols[2], ry, 20, C.text, 'bold');
         ltext(cv, fix(U.speed(r.trap && r.trap[fk]), 1), cols[3], ry, 20, C.text);
         if (hasAir) ltext(cv, [m.has('intake') ? r.intake : undefined, m.has('charge') ? r.charge : undefined].filter((x) => x !== undefined)
-            .map((x) => fix(U.temp(x), 0) + ' ' + U.tempU).join(' / '), cols[4], ry, 20, C.text);
+            .map((x) => fix(U.temp(x), 0) + ' ' + U.tempU).join(' / '), cols[4], ry, k < 1 ? 17 : 20, C.text);
         if (isBest) UI.pill(cv, cols[5], ry - 24, 'best', 'ok');
         // the small targets before the row's: the first target that holds the tap wins
         if (!isBest && M.heatSoaked(r)) {
             // a tap on the pill says what heat soak is, drawn (the row's own tap opens the run)
-            UI.pill(cv, cols[5] - 20, ry - 24, 'heat soak  i', 'warm');
+            // where the air column leaves no room, the short word (the tap still explains it)
+            const roomy = cols[5] - 20 - cols[4] >= 190;
+            UI.pill(cv, roomy ? cols[5] - 20 : cols[5] + 30, ry - 24, roomy ? 'heat soak  i' : 'soak i', 'warm');
             if (cv.target) cv.target(cols[5] - 30, ry - 32, 140, 46, () => UI.openInfo(INFO.heatSoak), 'dlsoak|' + r.at, 18);
         }
         if (ab) {
@@ -296,16 +302,18 @@ function runTable(cv, m, x, y, w, runs, opts) {
 }
 function pageRuns(cv, m) {
     const log = m.log(), runs = m.sessionRuns();
-    runCard(cv, m, L, T, 560, UI.hh(), log.last, { live: true });
-    const x = L + 574, w = R - x;
+    runCard(cv, m, L, T, UI.pw(560), UI.hh(), log.last, { live: true });
+    const x = L + UI.pw(574), w = R - x;
     UI.card(cv, x, T, w, UI.hh(), 'Runs today', { info: INFO.runsToday });
     if (!runs.length) ltext(cv, 'No runs in this session yet. Stop, wait for READY, go.', x + 20, T + 110, 20, C.dim);
     else runTable(cv, m, x, T + 60, w, runs, { max: 5 });
     // what "std. air" means, said where the column is (owner, 2026-11-26 23:52: "sta je corrected, nema objasnjenja")
     const hasCorr = runs.some((r) => isNum(r.cf));
-    if (hasCorr) ltext(cv, 'Std. air: the time this run would take in standard air (25 °C, 99 kPa, SAE J1349): warm air costs power, so runs on hot and cold days compare fairly.', x + 20, UI.bottom() - 44, 15, C.dim);
+    // what "std. air" means and the rest, wrapped to the card from its bottom up
     const air = m.has('intake') && m.has('charge') ? 'Air: intake after the filter / charge air before the throttle. ' : '';
-    ltext(cv, air + 'Times start when the car moves.', x + 20, UI.bottom() - 20, 16, C.dim);
+    const foot = (hasCorr ? 'Std. air: the time this run would take in standard air (25 °C, 99 kPa, SAE J1349): warm air costs power, so runs on hot and cold days compare fairly. ' : '') + air + 'Times start when the car moves.';
+    const fl = UI.wrap(cv, foot, 15, w - 40);
+    fl.forEach((ln, i) => ltext(cv, ln, x + 20, UI.bottom() - 20 - (fl.length - 1 - i) * 21, 15, C.dim));
 }
 
 /* ---------- Dyno ---------- */
@@ -315,7 +323,7 @@ const ORD = (g) => g + (g === 1 ? 'st' : g === 2 ? 'nd' : g === 3 ? 'rd' : 'th')
 const rpmText = (r) => String(Math.round(r / 50) * 50).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 function pageDyno(cv, m) {
     const imp = m.setting('units') === 'imperial', pull = m.shownPull(), sh = sheet(pull), now = m.lastT || Date.now();
-    const lw = 1100;
+    const lw = UI.pw(1100);
     // torque in Nm (lb-ft in imperial), power in hp
     const tq = (nm) => (imp ? nm * 0.737562 : nm), tqU = imp ? 'lb-ft' : 'Nm';
     if (!sh) {
@@ -524,7 +532,7 @@ function tyreColour(p, target) {
 function pageTyres(cv, m) {
     const U = units(m), ty = m.v.tyres || { p: {}, t: {} }, p = ty.p || {}, tt = ty.t || {}, target = m.setting('tyreTarget');
     // left: the car from above, each tyre's pressure and temperature
-    const lw = 700;
+    const lw = UI.pw(700);
     UI.card(cv, L, T, lw, UI.hh(), 'Tyres now', { info: INFO.tyresNow });
     const cx = L + lw / 2, cy = T + Math.round(UI.hh() / 2) + 8;
     const ck = Math.min(1.5, (UI.hh() - 60) / 310);
@@ -591,7 +599,7 @@ function bnValue(U, kind, x) {
 function pageBottleneck(cv, m, t) {
     const U = units(m), v = m.v, ui = m.ui;
     const fmt = { temp: (c) => Math.round(U.temp(c)) + ' ' + U.tempU, dtemp: (c) => Math.round(U.dtemp(c)) + ' ' + U.tempU, press: (b) => fix(U.press(b), U.pressD) + ' ' + U.pressU };
-    const d = m.limits().verdict(fmt), lw = 760;
+    const d = m.limits().verdict(fmt), lw = UI.pw(760);
     UI.card(cv, L, T, lw, UI.hh(), 'What holds it back', { info: INFO.bottleneck });
     const hard = isNum(v.pedal) && v.pedal >= 85;
     ltext(cv, d.stretches ? 'From ' + d.stretches + (d.stretches === 1 ? ' hard pull, ' : ' hard pulls, ') + d.hardSeconds + ' s at full throttle' : 'Waits for a hard pull: full throttle for 3 s or more',
@@ -676,7 +684,7 @@ function pageBottleneck(cv, m, t) {
 /* ---------- Temps ---------- */
 
 function pageTemps(cv, m) {
-    const v = m.v, U = units(m), lw = 900;
+    const v = m.v, U = units(m), lw = UI.pw(900);
     UI.card(cv, L, T, lw, UI.hh(), 'Temperatures', { info: INFO.temps });
     const rows = [['Engine oil', 'oil', v.oil], ['Coolant', 'coolant', v.coolant], ['Gearbox oil', 'gearbox', v.gearbox],
         ['Intake air', 'intake', v.intake], ['Charge air', 'charge', v.charge], ['Exhaust gas (EGT)', 'egt', v.egt]].filter((r) => m.has(r[1]));
@@ -686,7 +694,7 @@ function pageTemps(cv, m) {
         ltext(cv, r[0], L + 20, ry, 19, '#c8ced6');
         if (isNum(r[2])) rtext(cv, Math.round(U.temp(UI.glide('dltemp|' + r[1], r[2]))) + ' ' + U.tempU, L + lw - 20, ry, 22, C.text, 'bold');
         else rtext(cv, '--', L + lw - 20, ry, 22, C.dim, 'bold');
-        UI.bar(cv, L + 272, ry + 14, lw - 292, 10, isNum(r[2]) ? (r[2] - lo) / (z.max - lo) : 0, M.zone(r[1], r[2]), 'dltb' + r[1]);
+        UI.bar(cv, L + UI.pw(272), ry + 14, lw - 292, 10, isNum(r[2]) ? (r[2] - lo) / (z.max - lo) : 0, M.zone(r[1], r[2]), 'dltb' + r[1]);
     });
     const h = m.h10;
     UI.chart(cv, L + lw + 14, T, R - L - lw - 14, UI.hh(), [
@@ -703,7 +711,7 @@ function pageTemps(cv, m) {
 function pageLog(cv, m) {
     const U = units(m), log = m.log(), ses = M.sessions(log.runs), ui = m.ui, now = m.lastT || Date.now();
     if (ui.logCompare) { pageCompare(cv, m); return; }      // the whole page, with Back to the log
-    const lw = 560;
+    const lw = UI.pw(560);
     UI.card(cv, L, T, lw, UI.hh(), 'Sessions', { info: INFO.logSessions, infoIcon: true });
     if (!ses.length) ltext(cv, 'No runs saved yet.', L + 20, T + 110, 20, C.dim);
     if (ui.logSession >= ses.length) ui.logSession = 0;
@@ -731,14 +739,14 @@ function pageLog(cv, m) {
         runTable(cv, m, x, T + 60, w, s.runs, { max: 5, pickAB: true, onPick: (r) => { ui.logRun = r.at; } });
         const pair = m.comparePair(), can = pair[0] && pair[1] && pair[0] !== pair[1];
         const bw = UI.button(cv, x + w - 20 - 230, UI.bottom() - 58, 'Compare A and B', can ? () => { ui.logCompare = true; } : null, { key: 'dlcmp', filled: can, w: 230 });
-        ltext(cv, (s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + '. ' : '') + 'Tap a run to open it, A and B to compare two' + (ui.cmpA == null && ui.cmpB == null ? ' (else the best and the last)' : '') + '.',
-            x + 20, UI.bottom() - 30, 15, C.dim);
+        UI.wrap(cv, (s.runs.length > 5 ? 'The newest 5 of ' + s.runs.length + '. ' : '') + 'Tap a run to open it, A and B to compare two' + (ui.cmpA == null && ui.cmpB == null ? ' (else the best and the last)' : '') + '.', 15, w - 40 - 250)
+            .slice(0, 3).forEach((ln, i, a) => ltext(cv, ln, x + 20, UI.bottom() - 30 - (a.length - 1 - i) * 20, 15, C.dim));
         void bw;
     }
 }
 function runDetail(cv, m, x, y, w, h, run, s) {
     const U = units(m), ui = m.ui, idx = s ? s.runs.indexOf(run) + 1 : 0;
-    const half = 420;
+    const half = Math.round(w * 0.5);
     runCard(cv, m, x, y, half, h, run, { label: 'Run ' + (idx || '') + ', ' + clock(run.at), outline: '#3c4048' });
     const cx = x + half + 14, cw = w - half - 14;
     const rl = runLabels(run.trace && run.trace.length ? run.trace[run.trace.length - 1][0] : 12);
@@ -752,22 +760,22 @@ function runDetail(cv, m, x, y, w, h, run, s) {
     const by = y + h - 46;
     let bx = cx;
     bx += UI.button(cv, bx, by, 'Back', () => { ui.logRun = null; }, { key: 'dlback' }) + 12;
-    bx += UI.button(cv, bx, by, ui.cmpA === run.at ? 'Run A' : 'Compare as A', () => { ui.cmpA = run.at; if (ui.cmpB === run.at) ui.cmpB = null; }, { key: 'dlA', filled: ui.cmpA === run.at }) + 12;
-    UI.button(cv, bx, by, ui.cmpB === run.at ? 'Run B' : 'Compare as B', () => { ui.cmpB = run.at; if (ui.cmpA === run.at) ui.cmpA = null; }, { key: 'dlB', filled: ui.cmpB === run.at });
+    bx += UI.button(cv, bx, by, ui.cmpA === run.at ? 'Run A' : 'Set as A', () => { ui.cmpA = run.at; if (ui.cmpB === run.at) ui.cmpB = null; }, { key: 'dlA', filled: ui.cmpA === run.at }) + 12;
+    UI.button(cv, bx, by, ui.cmpB === run.at ? 'Run B' : 'Set as B', () => { ui.cmpB = run.at; if (ui.cmpA === run.at) ui.cmpA = null; }, { key: 'dlB', filled: ui.cmpB === run.at });
 }
 
 /* ---------- Compare ---------- */
 
 function pageCompare(cv, m) {
     const U = units(m), pair = m.comparePair(), a = pair[0], b = pair[1], now = m.lastT || Date.now();
-    const lw = 560;
+    const lw = UI.pw(560);
     UI.card(cv, L, T, lw, UI.hh(), 'Run A vs run B', { info: INFO.compare });
     if (!a || !b || a === b) {
         ltext(cv, 'Two runs are needed: pick A and B in the list.', L + 20, T + 110, 18, C.dim);
         UI.button(cv, L + 20, UI.bottom() - 58, 'Back to the log', () => { m.ui.logCompare = false; }, { key: 'dlcmpback' });
         return;
     }
-    const cA = L + 250, cB = L + 380, cD = L + lw - 20;
+    const cA = L + UI.pw(250), cB = L + UI.pw(380), cD = L + lw - 20;
     const tag = (r, col, cx) => {
         cv.roundRect(cx - 98, T + 44, 18, 6, 3, col);
         rtext(cv, dayName(r.at, now).replace('Today', 'today') + ' ' + clock(r.at), cx, T + 52, 13, C.dim);
@@ -801,7 +809,7 @@ function pageCompare(cv, m) {
         { name: 'A', color: 'info', values: traceOver(a, top2[0], rl.end).map(top2[2]) },
         { name: 'B', color: 'accent', values: traceOver(b, top2[0], rl.end).map(top2[2]) },
     ], { label: top2[1], yTicks: 3, yUnit: top2[3], xLabels: rl.labels, legend: 'right', info: top2[4], fill: false });
-    const y2 = T + top + 14, h2 = UI.bottom() - y2, airCard = m.has('intake') || m.has('kPa'), cw2 = airCard ? 560 : w;
+    const y2 = T + top + 14, h2 = UI.bottom() - y2, airCard = m.has('intake') || m.has('kPa'), cw2 = airCard ? Math.round(w * 0.55) : w;
     if (m.has('charge')) {
         UI.chart(cv, x, y2, airCard ? cw2 : w, h2, [
             { name: 'A', color: 'info', values: traceOver(a, 'charge', rl.end).map(U.temp) },
@@ -819,7 +827,7 @@ function pageCompare(cv, m) {
     lines.forEach((l, i) => {
         const ry = y2 + 64 + i * 28;
         ltext(cv, l[0], ax + 20, ry, 16, C.dim);
-        rtext(cv, l[1], ax + 210, ry, 17, C.blue, 'bold');
+        rtext(cv, l[1], ax + Math.round(aw * 0.62), ry, 17, C.blue, 'bold');
         rtext(cv, l[2] + (l[3] ? ' ' + l[3] : ''), ax + aw - 20, ry, 17, C.orange, 'bold');
     });
     const raw = isNum(a.result[fa]) && isNum(b.result[fb]) ? b.result[fb] - a.result[fa] : null;

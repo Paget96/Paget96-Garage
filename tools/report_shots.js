@@ -47,10 +47,10 @@ function shot(name, page) {
     let rec = null;
     for (let i = 0; i < 36; i++) {
         clock += 1000 / 60;
-        rec = new Recorder(UI.W, UI.H);
+        rec = UI.zoom(new Recorder(UI.RW, UI.RH));
         page(rec, i / 60);
     }
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     fs.writeFileSync(path.join(out, name + '.png'), cv.png(9));
     return rec;

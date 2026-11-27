@@ -264,8 +264,12 @@ test('capabilities: found once, a miss never takes a yes back, pages follow them
     assert.strictEqual(M.found(c, 'tpms', true), true);
     assert.strictEqual(M.found(c, 'tpms', false), false);
     assert.strictEqual(c.tpms, true);
-    assert.deepStrictEqual(M.pagesFor({}, {}), [0, 6, 7]);
-    assert.deepStrictEqual(M.pagesFor({ faults: true, soc: true }, {}), [0, 1, 2, 6, 7]);
+    // the engine pages stay until the engine unit has answered (a tap on them must open them, owner 2026-11-27 12:01)
+    assert.deepStrictEqual(M.pagesFor({}, {}), [0, 8, 9, 6, 7]);
+    assert.deepStrictEqual(M.pagesFor({ faults: true, soc: true }, {}), [0, 1, 2, 8, 9, 6, 7]);
+    const none = {}; M.ENGINE_CAPS.forEach((k) => { none[k] = false; });
+    assert.deepStrictEqual(M.pagesFor(none, {}), [0, 6, 7]);
+    assert.deepStrictEqual(M.pagesFor({ knock: true }, { engine: { engine: false } }), [0, 6, 7]);
     assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS, {}), [0, 1, 2, 3, 4, 5, 8, 9, 6, 7]);
 });
 test('capabilities: what the car does not report is left out of items, score and report', () => {

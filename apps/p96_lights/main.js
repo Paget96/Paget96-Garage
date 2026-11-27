@@ -21,7 +21,6 @@ const PR = require('./presets');
 const PF = require('./profiles');
 const CV = require('./carview');
 
-const W = 1600, H = 520;
 
 mgu.run({
     async start(ctx) {
@@ -325,7 +324,7 @@ mgu.run({
             st.demo = usingDemo(); st.now = t;
             st.status = armed() ? 'ARMED' : 'SIMULATED'; st.statusColor = armed() ? 'ok' : 'warm';
             if (lamps && !lamps.running && V.playAt != null && armed()) V.playAt = null;      // the car ended it (time, gate)
-            const cv = ctx.canvas(W, H);
+            const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
             if (cv.chrome) cv.chrome.tabs = UI.menu(P.TABS, st.tab, st.page);
             P.draw(cv, values(t), st, (t - t0) / 1000, act);
             await ui.image('MAIN_GFX', cv);

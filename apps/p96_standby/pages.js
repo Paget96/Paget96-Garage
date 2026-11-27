@@ -127,7 +127,7 @@ let clockDy = 0;     // the clock block moved down to the middle of a taller pag
 function digit(cv, ch, x, w, col) {
     if (ch === ' ') return;
     const pad = 24, lh = CLOCK_SIZE + 2 * pad;
-    cv.blit(G.layer('sbdigit|' + ch + '|' + w + '|' + col, w + 2 * pad, lh, (c) =>
+    cv.blit(UI.layer('sbdigit|' + ch + '|' + w + '|' + col, w + 2 * pad, lh, (c) =>
         UI.glowText(c, ch, pad + w / 2, pad + CLOCK_SIZE * 0.82, CLOCK_SIZE, col, { font: 'num', align: 'center' }, 8, 0.8), cv.textScale),
     x - pad, CLOCK_BASE + clockDy - CLOCK_SIZE * 0.82 - pad);
 }
@@ -227,10 +227,13 @@ function glanceCards(v) {
             extra: (cv, x, y, w) => {
                 // right aligned: the seats' bars, then the wheel (only what the car reports)
                 const seats = (isNum(s.DR) ? 1 : 0) + (isNum(s.PS) ? 1 : 0), wheel = v.has('wheel');
-                let bx = x + w - 36 - (seats ? seats * 118 - 22 : 0) - (wheel ? (seats ? 24 : 0) + 40 : 0);
-                if (isNum(s.DR)) { seatBars(cv, bx, y + 64, s.DR, 'driver'); bx += 118; }
-                if (isNum(s.PS)) { seatBars(cv, bx, y + 64, s.PS, 'passenger'); bx += 118; }
-                if (wheel) wheelGlyph(cv, bx + (seats ? 2 : 0) + 20, y + 69, !!v.wheel || !!wl, wl);
+                const need = (seats ? seats * 118 - 22 : 0) + (wheel ? (seats ? 24 : 0) + 40 : 0);
+                // beside the big word where the card is wide, else on a row under it
+                const under = w - 40 - need < 190, gy = under ? y + 112 : y + 64;
+                let bx = under ? x + 22 : x + w - 36 - need;
+                if (isNum(s.DR)) { seatBars(cv, bx, gy, s.DR, 'driver'); bx += 118; }
+                if (isNum(s.PS)) { seatBars(cv, bx, gy, s.PS, 'passenger'); bx += 118; }
+                if (wheel) wheelGlyph(cv, bx + (seats ? 2 : 0) + 20, gy + 5, !!v.wheel || !!wl, wl);
             } });
     }
     if (v.has('climate')) {
@@ -263,7 +266,7 @@ function pageGlance(cv, v) {
 
 function pageDrive(cv, v, st) {
     const d = v.drives, now = st.now, s = d ? d.summary(now) : null, day = d ? d.day(now) : null;
-    const lw = 760;
+    const lw = UI.pw(760);
     UI.card(cv, L, T, lw, UI.hh(), s && s.live ? 'This drive' : 'Last drive', { info: INFO.drive });
     if (!s) {
         cv.text('No drive yet today', L + lw / 2, T + 190, 30, C.dim, { font: 'bold', align: 'center', literal: true });

@@ -148,7 +148,7 @@ function now(cv, S, V, A, t) {
 
 /* ---------- Flap ---------- */
 function flapPage(cv, S, V, A, t) {
-    const f = S.flap, lw = 560, side = f.sides.indexOf(V.side) >= 0 ? V.side : f.sides[0];
+    const f = S.flap, lw = UI.pw(560), side = f.sides.indexOf(V.side) >= 0 ? V.side : f.sides[0];
     const v = f.views[side], d = f.decided[side] || {};
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Exhaust flap', { info: info('flap') });
     if (v.simulated) pillRight(cv, X0 + lw - 150, TOP + 12, 'SIMULATED', 'warm', false);
@@ -212,7 +212,8 @@ function flapPage(cv, S, V, A, t) {
     }
     const modes = [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']];
     const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
-    modes.forEach((m, i) => choice(cv, X0 + 20 + i * 130, bTop, 120, 44, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0]));
+    const bw = Math.floor((lw - 40 - 3 * 10) / 4);   // four buttons across the card's width
+    modes.forEach((m, i) => choice(cv, X0 + 20 + i * (bw + 10), bTop, bw, 44, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0]));
     // no foot line: the buttons take the room, and the SIMULATED badge and the line above already say it
     rulesCard(cv, S, V, A, X0 + lw + 14, X1 - X0 - lw - 14);
 }
@@ -241,7 +242,7 @@ function rulesCard(cv, S, V, A, x, w) {
         chev(cv, ax + 26, TOP + 362, 14, 'down', first + per < list.length ? C.accent : '#464a52');
         if (cv.target) { cv.target(ax - 14, TOP + 346, 28, 32, () => A.ruleScroll(-1), 'rup', 12); cv.target(ax + 12, TOP + 346, 28, 32, () => A.ruleScroll(1), 'rdown', 12); }
     }
-    const ay = TOP + UI.hh() - 48, aw = 220;
+    const ay = TOP + UI.hh() - 48, aw = UI.pw(220);
     cv.strokeRoundRect(x + 20, ay, aw, 36, 18, 2, C.accent);
     cv.text('+ Add a rule', x + 20 + aw / 2, ay + 24, 17, C.accent, { font: 'bold', align: 'center', literal: true });
     if (cv.target) cv.target(x + 20, ay, aw, 36, () => A.ruleOpen(null), 'addrule', 18);
@@ -298,7 +299,7 @@ function ruleDialog(S, V, A, index) {
 
 /* ---------- Flap log ---------- */
 function flapLog(cv, S, V, A, t) {
-    const lw = 620, wk = M.flapWeek(S.flapWeekLog || S.flapLog, S.at);
+    const lw = UI.pw(620), wk = M.flapWeek(S.flapWeekLog || S.flapLog, S.at);
     UI.card(cv, X0, TOP, lw, UI.hh(), 'This week', { info: info('week') });
     const bx = X0 + 20, bw = lw - 40, segs = [['OPEN', C.green, 'Open'], ['CLOSED', C.amber, 'Closed'], ['OEM', '#5a606a', 'Car decides']];
     let xx = bx;
@@ -403,7 +404,7 @@ function opf(cv, S, V, A, t) {
 
 /* ---------- Filter care ---------- */
 function care(cv, S, V, A, t) {
-    const lw = 760, dv = M.drives(S.drives, S.at), withAsh = has(S, 'ash');
+    const lw = UI.pw(760), dv = M.drives(S.drives, S.at), withAsh = has(S, 'ash');
     const w = withAsh ? lw : X1 - X0;
     UI.card(cv, X0, TOP, w, UI.hh(), 'Your drives and the ' + fname(), { info: info('drives') });
     const bx = X0 + 20, bw = w - 40;
@@ -456,7 +457,7 @@ function care(cv, S, V, A, t) {
 
 /* ---------- Cold start ---------- */
 function cold(cv, S, V, A, t) {
-    const lw = 1000, warm = S.warm || [], lo = M.lightOff(warm.map((p) => [p[0], p[1]]));
+    const lw = UI.pw(1000), warm = S.warm || [], lo = M.lightOff(warm.map((p) => [p[0], p[1]]));
     const egtS = warm.map((p) => p[1]), clS = warm.map((p) => p[2]);
     const series = [];
     if (has(S, 'egt')) series.push({ name: 'exhaust after cat', color: 'warm', values: egtS.length > 1 ? egtS : [null, null] });
@@ -496,7 +497,7 @@ function soundPage(cv, S, V, A, t) {
 function better(cv, S, V, A, t) {
     const v = S.v || {}, tp = M.tips({ engine: S.engine, hasFlap: has(S, 'flap') && (S.setup || {}).flaps !== 'removed', hasOpf: has(S, 'load') && (S.setup || {}).opf !== 'none', flap: has(S, 'flap') ? flapShown(S) : null,
         egt: has(S, 'egt') ? v.egt : null, load: has(S, 'load') ? v.load : null, rpm: has(S, 'rpm') ? v.rpm : null, mode: has(S, 'mode') ? v.mode : null });
-    const lw = 960;
+    const lw = UI.pw(960);
     UI.card(cv, X0, TOP, lw, UI.hh(), 'Better sound, no changes to the car', { info: info('tips') });
     tp.list.forEach((x, i) => {
         const yy = TOP + 72 + i * 64, c = x.ok === true ? C.green : x.ok === false ? C.amber : '#5a606a';
@@ -514,7 +515,7 @@ function better(cv, S, V, A, t) {
 
 /* ---------- History ---------- */
 function history(cv, S, V, A, t) {
-    const lw = 1000, days = M.loadDays(S.loads, S.at, 56), mark = S.mark || 80;
+    const lw = UI.pw(1000), days = M.loadDays(S.loads, S.at, 56), mark = S.mark || 80;
     UI.chart(cv, X0, TOP, lw, UI.hh(), [
         { name: 'filter load', color: 'ok', values: days.some((x) => x != null) ? days : [null, null] },
         { name: 'regeneration mark (estimate)', color: 'warm', values: [mark, mark] },
@@ -544,7 +545,7 @@ function setupPage(cv, S, V, A, t) {
     if (fd.flaps != null) foundTxt.push('flaps ' + fd.flaps + (fd.flaps === 2 ? ' (left and right)' : ''));
     // what the engine unit reports, shown as such: a part can still answer after it was taken out, so the driver's
     // choice always wins (owner, 2026-11-26 23:43); left of the card's own DEMO pill and info button
-    if (foundTxt.length) cv.text('the engine unit reports: ' + foundTxt.join(', '), X0 + 200, TOP + 34, 15, C.green, { literal: true });
+    if (foundTxt.length) cv.text('the engine unit reports: ' + foundTxt.join(', '), X0 + UI.pw(200), TOP + 34, 15, C.green, { literal: true });
     const cw = Math.floor((X1 - X0 - 40 - 2 * 14) / 3), ch = 146;
     M.SETUP.forEach((p, i) => {
         const x = X0 + 20 + (i % 3) * (cw + 14), y = TOP + 56 + Math.floor(i / 3) * (ch + 12);

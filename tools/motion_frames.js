@@ -92,11 +92,11 @@ let n = 0, nextShot = 0;
 const FRAME = 1000 / 60;
 for (let ms = 0; ms <= secs * 1000; ms += FRAME) {
     VT = START + Math.round(ms);
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     draw(rec);
     const shot = ms >= nextShot;
     if (shot || ST) {
-        const cv = new Canvas(UI.W, UI.H);
+        const cv = new Canvas(UI.RW, UI.RH);
         play(rec.words(), cv);
         if (ST) measure(cv, ms);
         if (shot) { fs.writeFileSync(path.join(out, ('000' + n++).slice(-4) + '.png'), cv.png(6)); nextShot += every; }

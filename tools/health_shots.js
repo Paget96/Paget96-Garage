@@ -61,12 +61,12 @@ const A = new Proxy({}, { get: (o, k) => (k === 'pick' ? (p) => { const d = V.di
 
 let t0 = clock;
 function frame() {
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     VIEW.draw(rec, state(), V, A, (clock - t0) / 1000);
     return rec;
 }
 function png(rec, file, scale) {
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     if (!scale) { fs.writeFileSync(file, cv.png(9)); return; }
     fs.writeFileSync(file, cv.png(1));

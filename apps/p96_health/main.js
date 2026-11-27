@@ -854,8 +854,10 @@ mgu.run({
             lastFrame = now;
             S = build();
             V.values = S.values;
-            const cv = ctx.canvas(UI.W, UI.H);
-            if (cv.chrome) cv.chrome.tabs = UI.menu(VIEW.TABS, V.page, V.mode);
+            const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
+            // only the pages this car has, as the page's own tab bar (a hidden page in the menu sent a tap back to Overview)
+            const pages = M.pagesFor(S.caps, S);
+            if (cv.chrome) cv.chrome.tabs = UI.menu(pages.map((i) => VIEW.TABS[i]), pages.indexOf(V.page), V.mode);
             if (V.dialog) {
                 V.dialog.a = UI.anim('p96health|dialog', V.dialog.open ? 1 : 0, 200);
                 if (!V.dialog.open && V.dialog.a <= 0) V.dialog = null;
@@ -865,10 +867,10 @@ mgu.run({
             await ui.image('MAIN_GFX', cv);
         }
         if (ctx.onTab) ctx.onTab((i) => {
-            const pick = UI.menuPick(VIEW.TABS, i);
-            if (pick === 'more') changed(); else if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); } else if (pick >= 0) { V.mode = 'main'; A.tab(pick); }
+            const pages = M.pagesFor(S.caps, S), pick = UI.menuPick(pages, i);
+            if (pick === 'more') changed(); else if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); } else if (pick >= 0 && pages[pick] != null) { V.mode = 'main'; A.tab(pages[pick]); }
         });
-        ui.onClick('BTN_PAGE', () => A.tab(UI.nextTab(V.page, VIEW.TABS.length, 1)));
+        ui.onClick('BTN_PAGE', () => { const pages = M.pagesFor(S.caps, S); A.tab(pages[UI.nextTab(Math.max(0, pages.indexOf(V.page)), pages.length, 1)]); });
         ui.onClick('BTN_SCAN', () => { scan(); });
         if (ctx.hideButton) { ctx.hideButton('BTN_PAGE'); ctx.hideButton('BTN_SCAN'); }
         var loop = ctx.loop('MAIN', Number(settings.get('fps')) || 60, render);

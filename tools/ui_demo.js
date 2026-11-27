@@ -164,9 +164,9 @@ function settingsPage(cv) {
 }
 
 function render(draw, file, t) {
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     draw(rec, t || 0);
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     fs.writeFileSync(file, cv.png(9));
     return rec;
@@ -182,7 +182,7 @@ const sRec = render(settingsPage, path.join(dir, 'ui-demo-settings.png'));
 if (sRec.targets.length < 20) throw new Error('settings page: expected a target per control, got ' + sRec.targets.length);
 
 // time a frame of the main page (the cached layers were recorded by the first frame)
-const rec = new Recorder(UI.W, UI.H);
+const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
 mainPage(rec);
 const N = 200, t0 = process.hrtime();
 for (let i = 0; i < N; i++) { rec.reset(); mainPage(rec); }

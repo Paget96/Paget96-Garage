@@ -133,14 +133,14 @@ function turnButtons(cv, act) {
         cv.text(b[0], bx + w / 2, by + 26, b[0].length > 1 ? 13 : 20, C.accent, { font: 'bold', align: 'center', literal: true });
         if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1], b[2]), 'lturn|' + i, 20);
     });
-    cv.text('Drag with a finger to turn it', L + 640 - 24, T + UI.hh() - 78, 13, C.dim, { align: 'right', literal: true });
+    cv.text('Drag with a finger to turn it', L + UI.pw(640) - 24, T + UI.hh() - 78, 13, C.dim, { align: 'right', literal: true });
 }
 
 /** Where the turnable car is drawn on the Ambient page (main.js takes a finger there). */
 function viewBox() { return { x: L + 70, y: T + 66, w: 640 - 140, h: UI.hh() - 176 }; }
 
 function pageAmbient(cv, v, st, t, act) {
-    const lw = 640, s = (v.ambient && v.ambient.scene) || {}, up = s.upper || { rgb: COLOURS[4][1], bright: 70 };
+    const lw = UI.pw(640), s = (v.ambient && v.ambient.scene) || {}, up = s.upper || { rgb: COLOURS[4][1], bright: 70 };
     UI.card(cv, L, T, lw, UI.hh(), 'Ambient light', { info: INFO.ambient });
     // the cabin seen through, every ambient light at its place in the colour it shows, turnable (owner, 2026-11-27
     // 00:40: rotate the car and see where which colour is): the car's own lights when it listed them, else BMW's set
@@ -203,7 +203,7 @@ function pageAmbient(cv, v, st, t, act) {
 function pageParty(cv, v, st, t, act) {
     const list = v.presets || PF.READY, p = list[v.preset || 0] || list[0] || PF.READY[0];
     if (v.edit && p && !p.ready) return partyEditor(cv, v, p, act);
-    const lw = 640;
+    const lw = UI.pw(640);
     UI.card(cv, L, T, lw, UI.hh(), p.name, { info: p.kind === 'flash' ? INFO.flash : INFO.party });
     // the whole car turning like the cabin on Ambient, its lamps lit on this beat and the cabin in the beat's colour
     // this moment of the show: flashing, each beat's lamps full on; smooth, each beat fading into the next
@@ -287,7 +287,7 @@ const OUTSIDE = [
 ];
 
 function pageOutside(cv, v, st, t, act) {
-    const lw = 1000, o = v.outside || {};
+    const lw = UI.pw(1000), o = v.outside || {};
     UI.card(cv, L, T, lw, UI.hh(), 'Outside lights: the car\'s own settings', { info: INFO.outside });
     const rh = Math.min(64, (UI.hh() - 120) / OUTSIDE.length);
     OUTSIDE.forEach((r, i) => {

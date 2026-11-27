@@ -14,7 +14,8 @@ if (process.env.GARAGE_FRAME !== 'off') {
     const RT = path.join(__dirname, '..', 'kit', 'runtime');
     const REC = require(path.join(RT, 'record')), CAN = require(path.join(RT, 'canvas'));
     const UI = require('../lib/ui');
-    const SW = 84 + 180 + 1600, SH = 720, LEFT = 84, STRIP = 76, GAP = 6, RAIL = 180, TOP = 100;
+    // the menu's width in the kit's page px: our 180 logical px, drawn ZOOM times bigger (lib/ui.js zoom())
+    const RAIL = Math.round(180 * UI.ZOOM), SW = 84 + RAIL + 1600, SH = 720, LEFT = 84, STRIP = 76, GAP = 6, TOP = 100;
     // drawn 1:1 (the software canvas blends scaled layers badly); the car scales the same picture by 1.031
     const S = 1, OX = LEFT + Math.round(RAIL * S), OY = Math.round(STRIP + GAP - TOP * S);
     const EXTRA = Math.floor((SH - GAP - OY) / S - 520);

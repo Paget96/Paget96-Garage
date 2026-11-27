@@ -32,7 +32,6 @@ const Report = require('./garage_report');
 const M = require('./model');
 const P = require('./pages');
 
-const W = 1600, H = 520;
 const HIST_MS = 10000, HIST_N = 60;          // 10 minutes of outside and battery, one sample each 10 s
 const VOLT_MS = 10000;
 
@@ -246,7 +245,7 @@ mgu.run({
             st.demo = d; st.status = on ? 'LIVE' : 'WAIT'; st.statusColor = on ? 'ok' : 'dim'; st.now = t;
             st.menuA = M.menuAlpha(lastTap, t, st.settings.menuDelay);
             st.nightP = UI.anim('sbnight', M.isNight(String(st.settings.night), d ? null : live.carNight, UI.T.carTime(t)) ? 1 : 0, 1500);
-            const cv = ctx.canvas(W, H);
+            const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
             // where the kit runs the screen, it draws the tabs and routes their taps to ctx.onTab (F10)
             if (cv.chrome) cv.chrome.tabs = UI.menu(P.TABS, st.tab, st.page);
             P.draw(cv, values(t), st, (t - t0) / 1000, act);

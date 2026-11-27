@@ -53,9 +53,9 @@ m.report = new (require('../lib/report').Flow)(() => ({ spec: require('../apps/p
 function run(ms) { const end = VT + ms; while (VT < end) { VT += 50; m.tick(VT); } }
 /** Draw one frame now into a Canvas. */
 function frame() {
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     P.draw(rec, m, (VT - START) / 1000);
-    const cv = new Canvas(UI.W, UI.H);
+    const cv = new Canvas(UI.RW, UI.RH);
     play(rec.words(), cv);
     return { cv, rec };
 }
@@ -69,7 +69,7 @@ function shot(name, settle) {
 }
 /** Press the target named key in the frame now (as a tap would). */
 function press(key) {
-    const rec = new Recorder(UI.W, UI.H);
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     P.draw(rec, m, (VT - START) / 1000);
     const q = rec.targets.filter((x) => x.key === key)[0];
     if (!q) throw new Error('no target ' + key + ' (have ' + rec.targets.map((x) => x.key).join(', ') + ')');
@@ -79,7 +79,7 @@ function press(key) {
 /* ---------- every info text fits its popup (lib/ui.js popupPanel: text from y 138, the note ends at 346) ---------- */
 
 {
-    const rec = new Recorder(UI.W, UI.H), tw = 1300 - 690 - 40, long = [];
+    const rec = UI.zoom(new Recorder(UI.RW, UI.RH)), tw = 1300 - 690 - 40, long = [];
     Object.keys(INFO).forEach((k) => {
         const inf = INFO[k], head = UI.wrap(rec, inf.title || '', 26, tw - 50, 'bold').length;
         const body = UI.wrap(rec, inf.text || '', 17, tw).length, note = inf.note ? UI.wrap(rec, inf.note, 16, tw - 170).length : 0;

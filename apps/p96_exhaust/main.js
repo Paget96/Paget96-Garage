@@ -496,7 +496,7 @@ mgu.run({
             lastFrame = now;
             S = build();
             V.values = values();
-            const cv = ctx.canvas(UI.W, UI.H);
+            const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
             const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
             if (cv.chrome) cv.chrome.tabs = UI.menu(pages.map((i) => names[i]), pages.indexOf(V.page), V.mode);
             if (V.dialog) {
