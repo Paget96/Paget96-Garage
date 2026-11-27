@@ -11,7 +11,8 @@
  *   node tools/datalog_preview.js [media dir] [frames dir]
  *
  * Every frame is drawn the way the app draws it (pages.js draw()); the clock only moves the demo and the glides. It also
- * fails when an info text is too long for its popup. The README media come from the emulator (datalog_emu_capture.py).
+ * fails when an info text is too long for its popup. The README media come from here too (the emulator capture,
+ * datalog_emu_capture.py, still taps the old tab bar).
  */
 const fs = require('fs');
 const path = require('path');
