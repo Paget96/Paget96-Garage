@@ -21,12 +21,13 @@ function ui() {
 const UI = ui();
 const E = (function () { try { return require('./garage_engine'); } catch (e) { return require('../../lib/engine'); } })();
 const PR = require('./presets');
+const PF = require('./profiles');
 const { drawCarView, MAX_PITCH, MAX_ROLL } = require('./carview');
 const LIN = require('./lin');
 const C = UI.C, T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN;
 const lit = { literal: true };
 const TITLE = 'LIGHTS';
-const TABS = ['Ambient', 'Party', 'Flash', 'Outside'];
+const TABS = ['Ambient', 'Shows', 'Outside'];
 
 const APP_ROWS = [
     { key: 'doorRed', label: 'Open door red', hint: 'The lights on an open door blink red, as the car\'s own warning does', type: 'choice', default: 'on',
@@ -62,7 +63,9 @@ const INFO = {
         text: 'The ambient lights hang on two light buses of the body controller. Lights writes a colour to every light of a bus at once, then single lights that differ: about five writes a second.\n\nThe car\'s own colour gives every light back to the car, as do Stop all and leaving the app.',
         note: 'In the car now: what the car\'s own Ambient light menu is set to, read from the car (the number is the car\'s colour slot).' },
     party: { label: 'Party', title: 'Light sequences over the car\'s own lamps', draw: (cv, x, y, w, h, t) => carLamps(cv, x + w / 2, y + h / 2, Math.min(1, (h - 40) / 320), PR.lit(PR.DEFAULTS[0], Math.floor(t * 4) % PR.BEATS), null),
-        text: 'Each beat switches its lamps on for 30 to 150 ms; the body controller switches every one off again by itself. So a lamp is never left on, even if the app stops in the middle.\n\nA run stops by itself after 30 s, when the car moves, when you leave the app, or with Stop all.' },
+        text: 'Each beat switches its lamps on for 30 to 150 ms; the body controller switches every one off again by itself. So a lamp is never left on, even if the app stops in the middle.\n\nThe cabin\'s colour row lays a colour over every ambient light on its beats.\n\nA run stops by itself after 30 s, when the car moves, when you leave the app, or with Stop all.' },
+    edit: { label: 'Edit a show', title: 'Beat by beat', draw: null,
+        text: 'A row per lamp and one for the cabin\'s colour; tap a beat to switch that lamp on in it, tap the colour row to step through the colours. Beat sets how long each beat lasts: 150 ms is the fastest the car allows.\n\nThe ready made shows stay as they are; Copy and edit makes one of yours from any of them.' },
     flash: { label: 'Flash', title: 'High beam flashes', draw: (cv, x, y, w, h, t) => carLamps(cv, x + w / 2, y + h / 2, Math.min(1, (h - 40) / 320), new Set(Math.floor(t * 3) % 2 ? ['high'] : []), null),
         text: 'The car\'s own high beam, each flash under 150 ms and switched off by the car itself. For a show on private ground, never on a public road. Stops after 30 s, when the car moves, or with Stop all.' },
     live: { label: 'Lamps now', title: 'Which output is lit, and how bright', draw: null,
@@ -121,6 +124,17 @@ function gateLine(v, what) {
 
 /* ---------- Ambient ---------- */
 
+/** The controller's way to turn the car: round either way, leaning back, straight above (each held 10 s). */
+function turnButtons(cv, act) {
+    [['<', -1, 0], ['>', 1, 0], ['tilt', 0, 1], ['top', 0, -1]].forEach((b, i) => {
+        const bx = L + 24 + i * 58, by = T + UI.hh() - 104, w = b[0].length > 1 ? 52 : 44;
+        cv.roundRect(bx, by, w, 40, 20, '#2a2d34');
+        cv.text(b[0], bx + w / 2, by + 26, b[0].length > 1 ? 13 : 20, C.accent, { font: 'bold', align: 'center', literal: true });
+        if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1], b[2]), 'lturn|' + i, 20);
+    });
+    cv.text('Drag with a finger to turn it', L + 640 - 24, T + UI.hh() - 78, 13, C.dim, { align: 'right', literal: true });
+}
+
 /** Where the turnable car is drawn on the Ambient page (main.js takes a finger there). */
 function viewBox() { return { x: L + 70, y: T + 66, w: 640 - 140, h: UI.hh() - 176 }; }
 
@@ -141,15 +155,8 @@ function pageAmbient(cv, v, st, t, act) {
     };
     const view = v.view || { pitch: 0, roll: 0 };
     drawCarView(cv, t, viewBox(), shown, colourOf, view);
-    // turning by the controller: a push round either way, leaning back further, straight above (a finger turns it freely)
-    [['<', -1, 0], ['>', 1, 0], ['tilt', 0, 1], ['top', 0, -1]].forEach((b, i) => {
-        const bx = L + 24 + i * 58, by = T + UI.hh() - 104, w = b[0].length > 1 ? 52 : 44;
-        cv.roundRect(bx, by, w, 40, 20, '#2a2d34');
-        cv.text(b[0], bx + w / 2, by + 26, b[0].length > 1 ? 13 : 20, C.accent, { font: 'bold', align: 'center', literal: true });
-        if (cv.target) cv.target(bx - 4, by - 6, w + 8, 52, () => act.turn(b[1], b[2]), 'lturn|' + i, 20);
-    });
+    turnButtons(cv, act);
     // that it turns by finger (owner, 2026-11-27 00:48), right of the buttons
-    cv.text('Drag with a finger to turn it', L + lw - 24, T + UI.hh() - 78, 13, C.dim, { align: 'right', literal: true });
     const g = gateLine(v, 'ambient');
     cv.text(g[0], L + 20, T + UI.hh() - 16, 14, g[1], lit);
     // what the car's own menu says now, and which lights the body controller has (read from the car)
@@ -193,54 +200,70 @@ function pageAmbient(cv, v, st, t, act) {
 /* ---------- Party ---------- */
 
 function pageParty(cv, v, st, t, act) {
-    const lw = 640, list = v.presets || PR.DEFAULTS, p = list[v.preset || 0] || list[0];
-    UI.card(cv, L, T, lw, UI.hh(), 'Party: ' + p.name, { info: INFO.party });
-    const k = Math.min(1.3, (UI.hh() - 90) / 320);
-    carLamps(cv, L + lw / 2, T + UI.hh() / 2 + 8, k, PR.lit(p, v.beat || 0), null);
+    const list = v.presets || PF.READY, p = list[v.preset || 0] || list[0] || PF.READY[0];
+    if (v.edit && p && !p.ready) return partyEditor(cv, v, p, act);
+    const lw = 640;
+    UI.card(cv, L, T, lw, UI.hh(), p.name, { info: p.kind === 'flash' ? INFO.flash : INFO.party });
+    // the whole car turning like the cabin on Ambient, its lamps lit on this beat and the cabin in the beat's colour
+    const amb = PF.ambAt(p, v.beat || 0), on = {};
+    PF.lit(p, v.beat || 0).forEach((fn) => { on[fn] = LAMP_COL[fn] || [255, 255, 240]; });
+    drawCarView(cv, t, viewBox(), [], () => null, Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on, cabin: amb }));
+    turnButtons(cv, act);
     // the beats under the car: the one playing now lit
-    const bw = (lw - 40) / PR.BEATS;
-    for (let i = 0; i < PR.BEATS; i++) cv.roundRect(L + 20 + i * bw + 2, T + UI.hh() - 46, bw - 4, 8, 4, i === (v.beat || 0) ? C.accent : p.beats[i].length ? '#4a4f58' : '#2a2d34');
+    const bw = (lw - 40) / PF.BEATS;
+    for (let i = 0; i < PF.BEATS; i++) cv.roundRect(L + 20 + i * bw + 2, T + UI.hh() - 46, bw - 4, 8, 4, i === (v.beat || 0) ? C.accent : p.beats[i].length || PF.ambAt(p, i) ? '#4a4f58' : '#2a2d34');
     const g = gateLine(v, 'sequence');
     cv.text(g[0], L + 20, T + UI.hh() - 16, 14, g[1], lit);
     stopAll(cv, v, L + lw - 20, T + 52, act);
-    const x = L + lw + 14, w = R - x;
-    UI.card(cv, x, T, w, UI.hh(), 'Sequences', { info: INFO.party });
-    const rh = Math.min(56, (UI.hh() - 140) / list.length);
+    // right: the shows, ready made or yours, in two columns; a ready one is copied into Yours to be edited
+    const x = L + lw + 14, w = R - x, mine = v.group === 'Yours';
+    UI.card(cv, x, T, w, UI.hh(), 'Light shows', { info: INFO.party });
+    UI.segmented(cv, x + w - 20, T + 70, PF.GROUPS.concat([['Yours', 'Yours (' + (v.mineCount || 0) + ')']]), v.group || 'Party', act.group, 'lgroup');
+    if (mine && !list.length) cv.text('None yet: pick a ready made show and tap Copy and edit', x + 20, T + 130, 16, C.dim, lit);
+    const per = Math.ceil(list.length / 2), cw = (w - 30) / 2, rh = Math.min(48, (UI.hh() - 180) / Math.max(1, per));
     list.forEach((q, i) => {
-        const yy = T + 50 + i * rh, sel = i === (v.preset || 0);
-        if (sel) cv.roundRect(x + 10, yy, w - 20, rh - 6, 18, '#262a33');
-        cv.text(q.name, x + 28, yy + rh / 2 + 3, 19, sel ? C.text : C.dim, { font: 'bold', literal: true });
-        cv.text(q.beatMs + ' ms a beat', x + w - 28, yy + rh / 2 + 3, 14, C.dim, { align: 'right', literal: true });
-        if (cv.target) cv.target(x + 10, yy, w - 20, rh - 6, () => act.pick(i), 'lpre|' + i, 18);
+        const cx = x + 10 + Math.floor(i / per) * (cw + 10), yy = T + 100 + (i % per) * rh, sel = i === (v.preset || 0);
+        if (sel) cv.roundRect(cx, yy, cw, rh - 4, 16, '#262a33');
+        cv.text(q.name, cx + 16, yy + rh / 2 + 4, 17, sel ? C.text : C.dim, { font: 'bold', literal: true });
+        cv.text((v.msOf ? v.msOf(q) : q.beatMs) + ' ms', cx + cw - 16, yy + rh / 2 + 3, 13, C.dim, { align: 'right', literal: true });
+        if (cv.target) cv.target(cx, yy, cw, rh - 4, () => act.pick(i), 'lpre|' + (q.id || i), 16);
     });
-    // Play, Pause (keeps the beat, Play goes on from it) and Stop
-    const running = v.lamps && v.lamps.running === 'sequence', paused = v.paused != null;
+    // Play, Pause (keeps the beat, Play goes on from it) and Stop; editing while nothing plays
+    const running = v.lamps && (v.lamps.running === 'sequence' || v.lamps.running === 'strobe'), paused = v.paused != null, by = T + UI.hh() - 64;
     let bx = x + 20;
-    bx += UI.button(cv, bx, T + UI.hh() - 64, running ? 'Pause' : paused ? 'Go on' : 'Play', running ? act.pause : act.play, { key: 'lplay', filled: true }) + 12;
-    if (running || paused) UI.button(cv, bx, T + UI.hh() - 64, 'Stop', act.stop, { key: 'lstop' });
+    bx += UI.button(cv, bx, by, running || (v.playing && !v.armed) ? 'Pause' : paused ? 'Go on' : 'Play', running || (v.playing && !v.armed) ? act.pause : act.play, { key: 'lplay', filled: true }) + 12;
+    if (running || paused || v.playing) bx += UI.button(cv, bx, by, 'Stop', act.stop, { key: 'lstop' }) + 12;
+    else if (act.edit) UI.button(cv, bx, by, p.ready ? 'Copy and edit' : 'Edit', act.edit, { key: 'ledit' });
+    // how fast it goes: every show, a ready made one too (kept apart, the show stays as it came)
+    UI.stepper(cv, x + w - 20, by + 22, v.msOf ? v.msOf(p) : p.beatMs, { unit: 'ms', decimals: 0, key: 'lspd', onMinus: () => act.speed(-1), onPlus: () => act.speed(1) });
+    cv.text('Beat', x + w - 250, by + 28, 15, C.dim, { align: 'right', literal: true });
 }
 
-/* ---------- Flash ---------- */
-
-function pageFlash(cv, v, st, t, act) {
-    const lw = 640, f = v.flash || {}, rate = f.rate || 'normal', per = { fast: 0.18, normal: 0.3, slow: 0.6 }[rate];
-    UI.card(cv, L, T, lw, UI.hh(), 'High beam flashes', { info: INFO.flash });
-    const k = Math.min(1.3, (UI.hh() - 90) / 320), ph = Math.floor(t / per) % 2;
-    const running = v.lamps && v.lamps.running === 'strobe';
-    const on = new Set(running || !v.armed ? (f.pattern === 'alternate' ? [ph ? 'cornL' : 'cornR', 'high'] : ph ? ['high'] : []) : []);
-    carLamps(cv, L + lw / 2, T + UI.hh() / 2 + 8, k, on, null);
-    const g = gateLine(v, 'strobe');
-    cv.text(g[0], L + 20, T + UI.hh() - 16, 14, g[1], lit);
-    stopAll(cv, v, L + lw - 20, T + 52, act);
-    const x = L + lw + 14, w = R - x;
-    UI.card(cv, x, T, w, UI.hh(), 'How', { info: INFO.flash });
-    cv.text('Pattern', x + 20, T + 86, 16, C.dim, lit);
-    UI.segmented(cv, x + w - 20, T + 80, [['both', 'Both'], ['alternate', 'Left and right']], f.pattern || 'both', act.flashPattern, 'lpat');
-    cv.text('Speed', x + 20, T + 146, 16, C.dim, lit);
-    UI.segmented(cv, x + w - 20, T + 140, [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']], rate, act.flashRate, 'lrate');
-    UI.wrap(cv, 'For a show on private ground, never on a public road: the car\'s own high beam, each flash under 150 ms, and the car takes its lights back by itself when the app stops.', 15, w - 40)
-        .forEach((ln, i) => cv.text(ln, x + 20, T + 210 + i * 22, 15, C.dim, lit));
-    UI.button(cv, x + 20, T + UI.hh() - 64, running ? 'Stop' : 'Start', running ? act.stop : act.flash, { key: 'lflash', filled: true });
+/** A show of yours, beat by beat: a row per light and one for the cabin's colour, tap a beat to switch it. */
+function partyEditor(cv, v, p, act) {
+    const w = R - L, hh = UI.hh();
+    UI.card(cv, L, T, w, hh, 'Edit: ' + p.name, { info: INFO.edit });
+    // its speed, and the way out
+    const cy = T + 30;
+    cv.text('Beat', L + w - 640, cy + 6, 15, C.dim, lit);
+    UI.stepper(cv, L + w - 430, cy, p.beatMs, { unit: 'ms', decimals: 0, key: 'lspeed', onMinus: () => act.speed(-1), onPlus: () => act.speed(1) });
+    let bx = L + w - 410;
+    bx += UI.button(cv, bx, cy - 20, 'Delete', act.remove, { key: 'ldel' }) + 10;
+    UI.button(cv, bx, cy - 20, 'Done', act.done, { key: 'ldone', filled: true });
+    const rows = PR.LIGHTS.concat([['amb', 'Cabin colour']]);
+    const top = T + 64, lab = 170, rh = Math.floor((hh - 76) / rows.length), cw = (w - 40 - lab) / PF.BEATS;
+    for (let b = 0; b < PF.BEATS; b++) if (b % 4 === 0) cv.fillRect(Math.round(L + 20 + lab + b * cw), top - 2, 1, rh * rows.length, [255, 255, 255, 30]);
+    rows.forEach((r, i) => {
+        const y = top + i * rh, amb = r[0] === 'amb';
+        cv.text(r[1], L + 24, y + rh / 2 + 5, 14, C.dim, { literal: true });
+        for (let b = 0; b < PF.BEATS; b++) {
+            const cx = L + 20 + lab + b * cw, on = amb ? PF.ambAt(p, b) : p.beats[b].indexOf(r[0]) >= 0;
+            const fill = amb ? (on ? [on[0], on[1], on[2], 230] : '#22252b') : on ? LAMP_COL[r[0]] || C.accent : '#22252b';
+            cv.roundRect(cx + 2, y + 2, cw - 4, rh - 4, 6, fill);
+            if (b === (v.beat || 0) && v.playing) cv.strokeRoundRect(cx + 1, y + 1, cw - 2, rh - 2, 7, 2, C.text);
+            if (cv.target) cv.target(cx, y, cw, rh, () => act.cell(b, r[0]), 'lcell|' + r[0] + '|' + b, 6);
+        }
+    });
 }
 
 /* ---------- Outside: the coding settings ---------- */
@@ -305,7 +328,7 @@ const TOPICS = [
     UI.DEMO_TOPIC,
 ];
 const HELP_TOPICS = TOPICS.concat([UI.REPORT_TOPIC]);
-const PAGES = [pageAmbient, pageParty, pageFlash, pageOutside];
+const PAGES = [pageAmbient, pageParty, pageOutside];
 
 function head(cv, st, act) {
     UI.background(cv);

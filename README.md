@@ -485,8 +485,8 @@ car with two flaps, Left flap is (bank 1 or 2).
 
 ### Lights
 
-The car's own lights: any colour on the ambient light, light sequences over the outside lamps and
-high beam flashes, the last two only while the car stands still. Simulated until you arm it in
+The car's own lights: any colour on the ambient light, and light shows over the outside lamps
+(ready made and your own, beat by beat), only while the car stands still. Simulated until you arm it in
 Settings; the car takes its lights back by itself when the app stops. Not tried on a car as Lights
 yet.
 
@@ -495,8 +495,8 @@ yet.
 | Page | Screenshot |
 |---|---|
 | Ambient | ![](docs/media/p96_lights/ambient.png) |
-| Party | ![](docs/media/p96_lights/party.png) |
-| Flash | ![](docs/media/p96_lights/flash.png) |
+| Shows | ![](docs/media/p96_lights/party.png) |
+| Edit a show | ![](docs/media/p96_lights/party-edit.png) |
 ## How every app works
 
 Every Paget96 Garage app follows the same rules, so once you know one, you know them all.

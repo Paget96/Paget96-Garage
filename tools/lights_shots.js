@@ -13,12 +13,13 @@ const { Canvas } = require(path.join(RT, 'canvas'));
 const UI = require('../lib/ui');
 const P = require('../apps/p96_lights/pages');
 const PR = require('../apps/p96_lights/presets');
+const PF = require('../apps/p96_lights/profiles');
 
 const out = process.argv[2] || path.join(__dirname, '..', 'docs', 'media', 'p96_lights');
 if (!fs.existsSync(out)) fs.mkdirSync(out, { recursive: true });
 const st = { page: 'main', tab: 0, topic: 0, settings: Object.assign({}, P.DEFAULTS, { demo: 'on' }), status: 'SIMULATED', statusColor: 'warm', demo: true, now: Date.now() };
 const act = new Proxy({}, { get: () => () => {} });
-const v = { armed: false, moving: false, presets: PR.DEFAULTS, preset: 0, beat: 13, flash: { pattern: 'both', rate: 'normal' },
+const v = { armed: false, moving: false, presets: PF.inGroup('Party', { mine: [] }), preset: 0, group: 'Party', mineCount: 1, view: null, beat: 13, flash: { pattern: 'both', rate: 'normal' },
     ambient: { scene: { kind: 'solid', upper: { rgb: P.COLOURS[5][1], bright: 80 }, lower: { rgb: P.COLOURS[5][1], bright: 80 } } }, lamps: { running: null } };
 function shot(name, set, t) {
     Object.assign(st, { page: 'main' }, set);
@@ -32,9 +33,11 @@ function shot(name, set, t) {
 v.ambient.lights = require('../apps/p96_lights/lin').sample().concat(Object.keys(require('../apps/p96_lights/lin').PLACES).map((k) => ({ name: require('../apps/p96_lights/lin').PLACES[k][0] })).filter((l) => /Sunroof|seat back|Console|B-pillar|blade/.test(l.name)));
 v.carAmbient = 4; v.ambient.n = v.ambient.lights.length;
 shot('ambient', { tab: 0 });
-v.view = { yaw: 35, pitch: 38, roll: 0 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.view = null; v.regionColours = {}; shot('party', { tab: 1 }, 0.25); shot('flash', { tab: 2 }, 0.35);
+v.view = { yaw: 35, pitch: 38, roll: 0 }; v.regionColours = { pockets: { rgb: [255, 30, 20], bright: 90 } }; shot('ambient-turned', { tab: 0 }, 1); v.regionColours = {}; v.view = { yaw: 150, pitch: 35, roll: 0 }; v.beat = 0; v.preset = 6; shot('party', { tab: 1 }, 0.25); v.preset = 0; v.beat = 13; v.view = null;
+{ const store = { mine: [] }; const m = PF.copy(PF.READY[7], store); Object.assign(v, { presets: store.mine, preset: 0, group: 'mine', edit: true, playing: true, beat: 4 });
+    shot('party-edit', { tab: 1 }, 0.25); Object.assign(v, { presets: PF.inGroup('Party', { mine: [] }), preset: 0, group: 'Party', edit: false, playing: false, beat: 13 }); void m; }
 v.live = { on: true, rows: [['Left headlight, channel 1', '75 %', true], ['Left headlight, channel 9', '41 %', true], ['Right headlight, channel 1', '75 %', true], ['Body controller outputs on', '6', false]] };
-shot('outside', { tab: 3 });
+shot('outside', { tab: 2 });
 shot('help', { page: 'help', topic: 1 }, 1); shot('settings', { page: 'settings' });
 // the GIF: Party playing Welcome, then Ambient breathing
 const fr = path.join(out, '..', '..', '..', '.stage', 'lights-frames');
