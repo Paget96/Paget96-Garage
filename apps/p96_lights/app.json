@@ -2,7 +2,7 @@
   "id": "p96_lights",
   "title": "Lights",
   "description": "The car's lights: any colour on the ambient light, light sequences and high beam flashes while parked, simulated until you arm it",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "vendor": "custom",
   "loggingId": "PGL1",
   "iconGlyph": "lights",

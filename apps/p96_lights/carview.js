@@ -278,7 +278,8 @@ function drawLamps(cv, S, lit, flow, col) {
     }
     const mid = S([0, 0, 0.6])[2];
     Object.keys(lit).forEach((fn) => lampPoints(fn).forEach((p) => {
-        const q = S(p), f = q[2] < mid - 0.3 ? 0.4 : 1, c = lit[fn];
+        const c = lit[fn], q = S(p), f = (q[2] < mid - 0.3 ? 0.4 : 1) * (c[3] != null ? c[3] : 1);    // c[3]: how far up (a fade)
+        if (f < 0.02) return;
         [[24, 0.12], [14, 0.28], [8, 0.55]].forEach(([r, a]) => cv.circle(q[0], q[1], r, [c[0], c[1], c[2], Math.round(255 * a * f)]));
         cv.circle(q[0], q[1], 4, [255, 255, 255, Math.round(240 * f)]);
     }));

@@ -188,6 +188,7 @@ mgu.run({
             done: () => { V.edit = false; PF.save(PFILE, store); },
             cell: (beat, fn) => { const p = presets[V.preset]; if (!p || p.ready) return; if (fn === 'amb') PF.ambNext(p, beat); else PF.toggle(p, beat, fn); PF.save(PFILE, store); },
             speed: (d) => { const p = presets[V.preset]; if (!p || V.playAt != null) return; PF.speedOf(p, store, d); PF.save(PFILE, store); },
+            smooth: (on) => { const p = presets[V.preset]; if (!p || V.playAt != null) return; PF.setSmooth(p, store, on); PF.save(PFILE, store); },
             remove: () => {
                 const p = presets[V.preset]; if (!p || p.ready || V.playAt != null) return;
                 store.mine.splice(V.preset, 1); PF.save(PFILE, store);
@@ -214,9 +215,10 @@ mgu.run({
                         }));
                     } else if (lights && p.amb && p.amb.some(Boolean) && !allowed('ambient')) {
                         const at0 = V.playAt;
+                        const sm = PF.smoothOf(p, store);
                         lights.overlay('party', () => true, () => {
-                            const c = V.playAt === at0 ? PF.ambAt(p, Math.floor((now() - at0) / PF.msOf(p, store)) % PF.BEATS) : null;
-                            return c ? { rgb: c, bright: 100 } : { rgb: [0, 0, 0], bright: 0 };
+                            const q = V.playAt === at0 ? PF.at(p, ((now() - at0) / PF.msOf(p, store)) % PF.BEATS, sm) : null;
+                            return q && q.amb ? { rgb: q.amb, bright: Math.round(100 * q.ambLevel) } : { rgb: [0, 0, 0], bright: 0 };
                         });
                     }
                 });
@@ -246,7 +248,7 @@ mgu.run({
             const p = presets[V.preset] || presets[0];
             const beatF = V.playAt != null || !armed() ? ((t - (V.playAt || t0)) / PF.msOf(p, store)) % PF.BEATS : 0, beat = Math.floor(beatF);
             return {
-                armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, beatF: beatF, msOf: (q) => PF.msOf(q, store), group: V.group, edit: V.edit, mineCount: store.mine.length, playing: V.playAt != null, beat: beat, flash: V.flash,
+                armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, beatF: beatF, smoothOf: (q) => PF.smoothOf(q, store), msOf: (q) => PF.msOf(q, store), group: V.group, edit: V.edit, mineCount: store.mine.length, playing: V.playAt != null, beat: beat, flash: V.flash,
                 ambient: { state: lights ? lights.state : null, n: lights ? lights.lights.length : 0, lights: lights ? lights.lights : [], scene: V.scene, ours: !!V.ours && armed() },
                 carAmbient: carAmbient, view: V.view, region: V.region, regionColours: V.regionColours, paused: V.paused, outsideWant: V.outsideWant, outside: {}, live: V.live,
                 lamps: lamps ? { kind: lamps.kind, running: lamps.running, note: lamps.note } : { running: V.playAt != null && !armed() ? null : null },

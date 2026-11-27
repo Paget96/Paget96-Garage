@@ -43,11 +43,19 @@ shot('help', { page: 'help', topic: 1 }, 1); shot('settings', { page: 'settings'
 const fr = path.join(out, '..', '..', '..', '.stage', 'lights-frames');
 if (!fs.existsSync(fr)) fs.mkdirSync(fr, { recursive: true });
 fs.readdirSync(fr).forEach((f) => fs.unlinkSync(path.join(fr, f)));
-for (let i = 0; i < 64; i++) {
-    const t = i * 0.08, gif = i < 40;
-    v.beat = Math.floor(t * 1000 / 250) % PR.BEATS;
-    v.ambient.scene.kind = 'breathing';
-    Object.assign(st, { page: 'main', tab: gif ? 1 : 0 });
+// the GIF (tools/frames_to_gif.py makes it): the cabin turning on Ambient, then Flow on the turning car, then Disco fading
+const flowAt = PF.inGroup('Party', { mine: [] }).findIndex((q) => q.id === 'flow'), discoAt = PF.inGroup('Party', { mine: [] }).findIndex((q) => q.id === 'disco');
+const N = 120;
+for (let i = 0; i < N; i++) {
+    const t = i * 0.08, part = i < 35 ? 0 : i < 90 ? 1 : 2;
+    v.view = { yaw: (200 + i * 3) % 360, pitch: 22 + 14 * Math.sin(i / 18), roll: 0 };
+    v.ambient.scene.kind = part === 0 ? 'rainbow' : 'solid';
+    v.preset = part === 1 ? flowAt : discoAt;
+    v.smoothOf = (q) => q.kind === 'flow' || q.id === 'disco';
+    const ms = part === 1 ? 150 : 250;
+    v.beatF = ((t - (part === 1 ? 35 : 90) * 0.08) * 1000 / ms) % PF.BEATS; if (v.beatF < 0) v.beatF += PF.BEATS;
+    v.beat = Math.floor(v.beatF); v.playing = part > 0;
+    Object.assign(st, { page: 'main', tab: part ? 1 : 0 });
     if (global.CF) global.CF.tabs = () => [P.TABS, st.tab, st.page];
     const rec = new Recorder(UI.W, UI.H);
     P.draw(rec, v, st, t, act);

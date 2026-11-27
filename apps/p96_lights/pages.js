@@ -64,9 +64,9 @@ const INFO = {
         text: 'The ambient lights hang on two light buses of the body controller. Lights writes a colour to every light of a bus at once, then single lights that differ: about five writes a second.\n\nThe car\'s own colour gives every light back to the car, as do Stop all and leaving the app.',
         note: 'In the car now: what the car\'s own Ambient light menu is set to, read from the car (the number is the car\'s colour slot).' },
     party: { label: 'Party', title: 'Light sequences over the car\'s own lamps', draw: (cv, x, y, w, h, t) => carLamps(cv, x + w / 2, y + h / 2, Math.min(1, (h - 40) / 320), PR.lit(PR.DEFAULTS[0], Math.floor(t * 4) % PR.BEATS), null),
-        text: 'Each beat switches its lamps on for 30 to 150 ms; the body controller switches every one off again by itself. So a lamp is never left on, even if the app stops in the middle.\n\nThe cabin\'s colour row lays a colour over every ambient light on its beats.\n\nA run stops by itself after 30 s, when the car moves, when you leave the app, or with Stop all.' },
+        text: 'Each beat switches its lamps on for 30 to 150 ms; the body controller switches every one off again by itself. So a lamp is never left on, even if the app stops in the middle.\n\nThe cabin\'s colour row lays a colour over every ambient light on its beats. Flash or Smooth sets whether a beat flashes or fades into the next; on the car only the ambient really fades, the outside lamps switch on and off.\n\nA run stops by itself after 30 s, when the car moves, when you leave the app, or with Stop all.' },
     edit: { label: 'Edit a show', title: 'Beat by beat', draw: null,
-        text: 'A row per lamp and one for the cabin\'s colour; tap a beat to switch that lamp on in it, tap the colour row to step through the colours. Beat sets how long each beat lasts: 150 ms is the fastest the car allows.\n\nThe ready made shows stay as they are; Copy and edit makes one of yours from any of them.' },
+        text: 'A row per lamp and one for the cabin\'s colour; tap a beat to switch that lamp on in it, tap the colour row to step through the colours. Beat sets how long each beat lasts: 150 ms is the fastest the car allows. Smooth fades each beat into the next instead of flashing it: the cabin\'s ambient fades on the car too, the outside lamps there only switch on and off (the body controller gives them no brightness), so on the car they still step.\n\nThe ready made shows stay as they are; Copy and edit makes one of yours from any of them.' },
     flash: { label: 'Flash', title: 'High beam flashes', draw: (cv, x, y, w, h, t) => carLamps(cv, x + w / 2, y + h / 2, Math.min(1, (h - 40) / 320), new Set(Math.floor(t * 3) % 2 ? ['high'] : []), null),
         text: 'The car\'s own high beam, each flash under 150 ms and switched off by the car itself. For a show on private ground, never on a public road. Stops after 30 s, when the car moves, or with Stop all.' },
     live: { label: 'Lamps now', title: 'Which output is lit, and how bright', draw: null,
@@ -206,15 +206,17 @@ function pageParty(cv, v, st, t, act) {
     const lw = 640;
     UI.card(cv, L, T, lw, UI.hh(), p.name, { info: p.kind === 'flash' ? INFO.flash : INFO.party });
     // the whole car turning like the cabin on Ambient, its lamps lit on this beat and the cabin in the beat's colour
-    const amb = PF.ambAt(p, v.beat || 0), on = {};
-    PF.lit(p, v.beat || 0).forEach((fn) => { on[fn] = LAMP_COL[fn] || [255, 255, 240]; });
+    // this moment of the show: flashing, each beat's lamps full on; smooth, each beat fading into the next
+    const smooth = v.smoothOf ? v.smoothOf(p) : false, now = PF.at(p, v.beatF != null ? v.beatF : v.beat || 0, smooth), on = {};
+    Object.keys(now.lamps).forEach((fn) => { on[fn] = (LAMP_COL[fn] || [255, 255, 240]).concat([now.lamps[fn]]); });
+    const amb = now.amb, ambB = Math.round(100 * now.ambLevel);
     const cabinLights = v.ambient && v.ambient.lights && v.ambient.lights.length ? v.ambient.lights : LIN.sample();
     if (p.kind === 'flow') {
         // the wave between beats too, so it glides: the lamps and the cabin in the ambient's own colour
         const w = PF.flowW(v.beatF != null ? v.beatF : v.beat || 0), rgb = (v.ambient && v.ambient.scene && v.ambient.scene.upper && v.ambient.scene.upper.rgb) || [120, 200, 255];
         drawCarView(cv, t, viewBox(), cabinLights, (l) => { const b = Math.round(100 * CVW.flowAt(CVW.lightU(l), w)); return b < 5 ? null : { rgb: rgb, bright: b }; },
             Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, flow: w, lampCol: LAMP_COL }));
-    } else drawCarView(cv, t, viewBox(), cabinLights, () => (amb ? { rgb: amb, bright: 100 } : null), Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on }));
+    } else drawCarView(cv, t, viewBox(), cabinLights, () => (amb && ambB >= 5 ? { rgb: amb, bright: ambB } : null), Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on }));
     turnButtons(cv, act);
     // the beats under the car: the one playing now lit
     const bw = (lw - 40) / PF.BEATS;
@@ -243,7 +245,8 @@ function pageParty(cv, v, st, t, act) {
     else if (act.edit) UI.button(cv, bx, by, p.ready ? 'Copy and edit' : 'Edit', act.edit, { key: 'ledit' });
     // how fast it goes: every show, a ready made one too (kept apart, the show stays as it came)
     UI.stepper(cv, x + w - 20, by + 22, v.msOf ? v.msOf(p) : p.beatMs, { unit: 'ms', decimals: 0, key: 'lspd', onMinus: () => act.speed(-1), onPlus: () => act.speed(1) });
-    cv.text('Beat', x + w - 250, by + 28, 15, C.dim, { align: 'right', literal: true });
+    // from beat to beat: a flash, or a fade in and out (the Flow always fades)
+    if (p.kind !== 'flow' && p.kind !== 'flash') UI.segmented(cv, x + w - 200, by + 22, [['flash', 'Flash'], ['smooth', 'Smooth']], smooth ? 'smooth' : 'flash', (k) => act.smooth(k === 'smooth'), 'lsmooth');
 }
 
 /** A show of yours, beat by beat: a row per light and one for the cabin's colour, tap a beat to switch it. */

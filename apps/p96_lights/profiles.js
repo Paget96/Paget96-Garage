@@ -55,7 +55,7 @@ function clean(p, i) {
     return {
         id: p && typeof p.id === 'string' ? p.id : 'm' + i,
         name: p && typeof p.name === 'string' && p.name.length < 28 ? p.name : 'Mine ' + (i + 1),
-        group: 'Yours', ready: false,
+        group: 'Yours', ready: false, smooth: !!(p && p.smooth),
         beatMs: Math.max(MIN_MS, Math.min(MAX_MS, ms)),
         beats: mk((k) => (Array.isArray(beats[k]) ? beats[k].filter((f) => ALL.indexOf(f) >= 0) : [])),
         amb: mk((k) => (Array.isArray(amb[k]) && amb[k].length === 3 ? amb[k].map((n) => Math.max(0, Math.min(255, n | 0))) : null)),
@@ -65,12 +65,33 @@ function clean(p, i) {
 function load(file) {
     let s = null;
     try { s = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { s = null; }
-    const speed = {};
+    const speed = {}, smooth = {};
+    if (s && s.smooth && typeof s.smooth === 'object') Object.keys(s.smooth).forEach((k) => { if (s.smooth[k] === true) smooth[k] = true; });
     if (s && s.speed && typeof s.speed === 'object') Object.keys(s.speed).forEach((k) => { const v = +s.speed[k]; if (v >= MIN_MS && v <= MAX_MS) speed[k] = v; });
-    return { mine: (s && Array.isArray(s.mine) ? s.mine : []).slice(0, MINE).map(clean), speed: speed };
+    return { mine: (s && Array.isArray(s.mine) ? s.mine : []).slice(0, MINE).map(clean), speed: speed, smooth: smooth };
 }
-function save(file, store) { try { fs.writeFileSync(file, JSON.stringify({ mine: store.mine, speed: store.speed || {} })); return true; } catch (e) { return false; } }
+function save(file, store) { try { fs.writeFileSync(file, JSON.stringify({ mine: store.mine, speed: store.speed || {}, smooth: store.smooth || {} })); return true; } catch (e) { return false; } }
 /** A ready made show's beat as the user set it (kept apart, so the show itself never changes), else its own. */
+/** Whether a show fades from beat to beat (owner, 2026-11-27 01:23) rather than flashing: yours in itself, a ready
+ *  made one in store.smooth beside it, the Flow always. */
+const smoothOf = (p, store) => (p.kind === 'flow' ? true : p.ready ? !!(store && store.smooth && store.smooth[p.id]) : !!p.smooth);
+function setSmooth(p, store, on) {
+    if (p.kind === 'flow') return;
+    if (p.ready) { store.smooth = store.smooth || {}; if (on) store.smooth[p.id] = true; else delete store.smooth[p.id]; } else p.smooth = !!on;
+}
+const ease = (f) => f * f * (3 - 2 * f);
+/** How lit each lamp and the cabin are at a fractional beat: { lamps: { fn: 0..1 }, amb: rgb | null, ambLevel 0..1 }.
+ *  Flashing: the beat's lamps full on. Smooth: each beat fades into the next. */
+function at(p, beatF, smooth) {
+    const i = Math.floor(beatF) % BEATS, j = (i + 1) % BEATS, f = smooth ? ease(beatF - Math.floor(beatF)) : 0;
+    const lamps = {};
+    p.beats[i].forEach((fn) => { lamps[fn] = (lamps[fn] || 0) + (1 - f); });
+    if (smooth) p.beats[j].forEach((fn) => { lamps[fn] = Math.min(1, (lamps[fn] || 0) + f); });
+    const a = ambAt(p, i), b = smooth ? ambAt(p, j) : null;
+    const amb = a && b ? a.map((v, k) => Math.round(v * (1 - f) + b[k] * f)) : a || b;
+    const ambLevel = a && b ? 1 : a ? 1 - f : b ? f : 0;
+    return { lamps, amb, ambLevel };
+}
 const msOf = (p, store) => (p.ready && store && store.speed && store.speed[p.id]) || p.beatMs;
 /** One step faster (d -1) or slower (+1): yours in itself, a ready made one in store.speed. */
 function speedOf(p, store, d) {
@@ -101,4 +122,4 @@ const ambAt = (p, beat) => (p && p.amb && p.amb[beat]) || null;
 const uses = (p) => { const s = new Set(); p.beats.forEach((b) => b.forEach((f) => s.add(f))); return s; };
 const has = (p, fns) => { for (const f of uses(p)) if (fns.indexOf(f) < 0) return false; return true; };
 
-module.exports = { flowW, GROUPS, msOf, speedOf, inGroup, rateOf, BEATS, MINE, MIN_MS, MAX_MS, STEP_MS, AMB, ALL, READY, load, save, copy, toggle, ambNext, speed, lit, ambAt, uses, has, clean };
+module.exports = { smoothOf, setSmooth, at, flowW, GROUPS, msOf, speedOf, inGroup, rateOf, BEATS, MINE, MIN_MS, MAX_MS, STEP_MS, AMB, ALL, READY, load, save, copy, toggle, ambNext, speed, lit, ambAt, uses, has, clean };
