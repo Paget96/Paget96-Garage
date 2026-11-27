@@ -19,6 +19,7 @@ const Report = require('./garage_report');
 const P = require('./pages');
 const PR = require('./presets');
 const PF = require('./profiles');
+const CV = require('./carview');
 
 const W = 1600, H = 520;
 
@@ -99,7 +100,7 @@ mgu.run({
         const stopAll = (why) => {
             V.playAt = null; V.paused = null;
             try { if (lamps && lamps.running) lamps.stop(); } catch (e) { /* stopping */ }
-            try { if (lights) { lights.overlay('party', null); Object.keys(V.regionColours).forEach((k) => lights.overlay('reg|' + k, null)); lights.carColour(); } } catch (e) { /* stopping */ }
+            try { if (lights) { lights.overlay('party', null); lights.lights.forEach((l, i) => lights.overlay('flow|' + i, null)); Object.keys(V.regionColours).forEach((k) => lights.overlay('reg|' + k, null)); lights.carColour(); } } catch (e) { /* stopping */ }
             V.regionColours = {}; V.scene = Object.assign({}, V.scene, { own: true }); V.ours = false;
             if (why) log.info('lights: stopped, ' + why);
         };
@@ -205,7 +206,13 @@ mgu.run({
                         else lamps.play(beats, { beatMs: PF.msOf(p, store) });
                     }
                     // the cabin's colour row: laid over every ambient light on its beats, the rest of the time as it was
-                    if (lights && p.amb && p.amb.some(Boolean) && !allowed('ambient')) {
+                    if (lights && p.kind === 'flow' && !allowed('ambient')) {
+                        const at0 = V.playAt, ms = PF.msOf(p, store), rgb = V.scene.upper.rgb;
+                        lights.lights.forEach((l, i) => lights.overlay('flow|' + i, (x) => x === l, () => {
+                            const w = V.playAt === at0 ? PF.flowW(((now() - at0) / ms) % PF.BEATS) : -1;
+                            return { rgb: rgb, bright: Math.round(100 * CV.flowAt(CV.lightU(l), w)) };
+                        }));
+                    } else if (lights && p.amb && p.amb.some(Boolean) && !allowed('ambient')) {
                         const at0 = V.playAt;
                         lights.overlay('party', () => true, () => {
                             const c = V.playAt === at0 ? PF.ambAt(p, Math.floor((now() - at0) / PF.msOf(p, store)) % PF.BEATS) : null;
@@ -237,16 +244,16 @@ mgu.run({
 
         function values(t) {
             const p = presets[V.preset] || presets[0];
-            const beat = V.playAt != null || !armed() ? Math.floor((t - (V.playAt || t0)) / PF.msOf(p, store)) % PF.BEATS : 0;
+            const beatF = V.playAt != null || !armed() ? ((t - (V.playAt || t0)) / PF.msOf(p, store)) % PF.BEATS : 0, beat = Math.floor(beatF);
             return {
-                armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, msOf: (q) => PF.msOf(q, store), group: V.group, edit: V.edit, mineCount: store.mine.length, playing: V.playAt != null, beat: beat, flash: V.flash,
+                armed: armed(), moving: usingDemo() ? false : moving(), presets: presets, preset: V.preset, beatF: beatF, msOf: (q) => PF.msOf(q, store), group: V.group, edit: V.edit, mineCount: store.mine.length, playing: V.playAt != null, beat: beat, flash: V.flash,
                 ambient: { state: lights ? lights.state : null, n: lights ? lights.lights.length : 0, lights: lights ? lights.lights : [], scene: V.scene, ours: !!V.ours && armed() },
                 carAmbient: carAmbient, view: V.view, region: V.region, regionColours: V.regionColours, paused: V.paused, outsideWant: V.outsideWant, outside: {}, live: V.live,
                 lamps: lamps ? { kind: lamps.kind, running: lamps.running, note: lamps.note } : { running: V.playAt != null && !armed() ? null : null },
             };
         }
 
-        function partyAmbientOff() { try { if (lights) lights.overlay('party', null); } catch (e) { /* stopping */ } }
+        function partyAmbientOff() { try { if (lights) { lights.overlay('party', null); lights.lights.forEach((l, i) => lights.overlay('flow|' + i, null)); } } catch (e) { /* stopping */ } }
         V.group = 'Party'; V.edit = false;
 
         /* ---------- the car on the Ambient page turns like a 3D model (owner, 2026-11-27 00:45) ----------

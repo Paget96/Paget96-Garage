@@ -12,6 +12,7 @@
  */
 const fs = require('fs');
 const PR = require('./presets');
+const CV = require('./carview');
 
 const BEATS = PR.BEATS, MINE = 8;
 const MIN_MS = 150, MAX_MS = 1000, STEP_MS = 50;          // the body controller holds a flash at most 150 ms
@@ -25,10 +26,14 @@ const col = (n) => AMB.filter((a) => a[0] === n)[0][1];
 
 // the ready made shows: the six sequences of presets.js (with a colour beat for the cabin) and the shows after
 // BimmerLight's groups (owner's screenshots, 2026-11-27): hazard with every light, the taillight shows, strobes
+// the flow: where the wave is on a beat (a little before the nose to a little past the tail), and the lamps it lights
+const flowW = (beat) => -0.1 + 1.2 * beat / (BEATS - 1);
+const flowBeats = () => mk((i) => ALL.filter((fn) => CV.lampPoints(fn).some((p) => CV.flowAt(CV.flowU(p), flowW(i)) > 0.45)));
 const GROUPS = [['Flash', 'Flash'], ['Party', 'Party'], ['Taillight', 'Rear'], ['Strobe', 'Strobe']];
 const READY = [
     ...PR.DEFAULTS.map((d, i) => ({ id: 'r' + i, name: d.name, group: 'Party', beatMs: d.beatMs, beats: d.beats.map((b) => b.slice()),
         amb: mk((k) => (i === 0 ? (k % 4 === 0 ? col('White') : null) : i === 5 ? (k % 2 ? null : col('Orange')) : null)) })),
+    { id: 'flow', name: 'Flow, front to back', group: 'Party', kind: 'flow', beatMs: 150, beats: flowBeats(), amb: mk(() => null) },
     { id: 'hazAll', name: 'Hazard, every light', group: 'Party', beatMs: 400, beats: mk((i) => (i % 2 ? [] : ALL.slice())), amb: mk((i) => (i % 2 ? null : col('Orange'))) },
     { id: 'disco', name: 'Disco', group: 'Party', beatMs: 250, beats: mk((i) => [['high'], ['parkL', 'parkR'], ['fog'], ['cornL', 'cornR']][i % 4]),
         amb: mk((i) => AMB[i % AMB.length][1]) },
@@ -96,4 +101,4 @@ const ambAt = (p, beat) => (p && p.amb && p.amb[beat]) || null;
 const uses = (p) => { const s = new Set(); p.beats.forEach((b) => b.forEach((f) => s.add(f))); return s; };
 const has = (p, fns) => { for (const f of uses(p)) if (fns.indexOf(f) < 0) return false; return true; };
 
-module.exports = { GROUPS, msOf, speedOf, inGroup, rateOf, BEATS, MINE, MIN_MS, MAX_MS, STEP_MS, AMB, ALL, READY, load, save, copy, toggle, ambNext, speed, lit, ambAt, uses, has, clean };
+module.exports = { flowW, GROUPS, msOf, speedOf, inGroup, rateOf, BEATS, MINE, MIN_MS, MAX_MS, STEP_MS, AMB, ALL, READY, load, save, copy, toggle, ambNext, speed, lit, ambAt, uses, has, clean };

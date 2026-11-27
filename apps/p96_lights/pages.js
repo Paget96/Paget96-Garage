@@ -22,6 +22,7 @@ const UI = ui();
 const E = (function () { try { return require('./garage_engine'); } catch (e) { return require('../../lib/engine'); } })();
 const PR = require('./presets');
 const PF = require('./profiles');
+const CVW = require('./carview');
 const { drawCarView, MAX_PITCH, MAX_ROLL } = require('./carview');
 const LIN = require('./lin');
 const C = UI.C, T = UI.CONTENT_TOP, L = UI.MARGIN, R = UI.W - UI.MARGIN;
@@ -208,7 +209,12 @@ function pageParty(cv, v, st, t, act) {
     const amb = PF.ambAt(p, v.beat || 0), on = {};
     PF.lit(p, v.beat || 0).forEach((fn) => { on[fn] = LAMP_COL[fn] || [255, 255, 240]; });
     const cabinLights = v.ambient && v.ambient.lights && v.ambient.lights.length ? v.ambient.lights : LIN.sample();
-    drawCarView(cv, t, viewBox(), cabinLights, () => (amb ? { rgb: amb, bright: 100 } : null), Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on }));
+    if (p.kind === 'flow') {
+        // the wave between beats too, so it glides: the lamps and the cabin in the ambient's own colour
+        const w = PF.flowW(v.beatF != null ? v.beatF : v.beat || 0), rgb = (v.ambient && v.ambient.scene && v.ambient.scene.upper && v.ambient.scene.upper.rgb) || [120, 200, 255];
+        drawCarView(cv, t, viewBox(), cabinLights, (l) => { const b = Math.round(100 * CVW.flowAt(CVW.lightU(l), w)); return b < 5 ? null : { rgb: rgb, bright: b }; },
+            Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, flow: w, lampCol: LAMP_COL }));
+    } else drawCarView(cv, t, viewBox(), cabinLights, () => (amb ? { rgb: amb, bright: 100 } : null), Object.assign({}, v.view || { pitch: 0, roll: 0 }, { exterior: true, lamps: on }));
     turnButtons(cv, act);
     // the beats under the car: the one playing now lit
     const bw = (lw - 40) / PF.BEATS;

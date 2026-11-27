@@ -225,7 +225,7 @@ function drawCarView(cv, t, box, lights, colourOf, opts) {
         cv.line(a[0], a[1], b[0], b[1], WID[kind], [c[0], c[1], c[2], Math.round(255 * al)]);
     });
     if (!lit) drawLights();
-    if (ext) drawLamps(cv, S, o.lamps || {});
+    if (ext) drawLamps(cv, S, o.lamps || {}, o.flow, o.lampCol || {});
 }
 
 /*
@@ -244,8 +244,38 @@ function lampPoints(fn) {
     (LAMP3D[fn] || []).forEach((p) => { out.push(p); if (!SIDED[fn] && p[1]) out.push([p[0], -p[1], p[2]]); });
     return out;
 }
-/** The outside lamps that are lit, glowing at their places (those on the far side of the car fainter). */
-function drawLamps(cv, S, lit) {
+/*
+ * The flow (owner, 2026-11-27 01:18): light running over the car from the lowest lamp at the front, up the nose, back
+ * through the cabin, and down the tail to the lowest lamp there. flowU(p) is a point's place on that way, 0 at the
+ * front fog lights .. 1 at the rear fog light; flowAt(u, w) how lit it is while the wave is at w: a soft bump, so one
+ * set is fading out while the next comes up.
+ */
+function flowU(p) {
+    const [x, , z] = p, h = Math.max(0, Math.min(1, (z - 0.3) / 0.75));
+    if (x > 1.3) return 0.28 * h;                                   // the nose: from the fog lights up to the headlights
+    if (x < -1.65) return 0.72 + 0.28 * (1 - h);                   // the tail: from the top down to the rear fog light
+    return 0.28 + 0.44 * (1.3 - x) / 2.95;                          // the cabin, front to back
+}
+const FLOW_W = 0.13;
+const flowAt = (u, w) => Math.exp(-Math.pow((u - w) / FLOW_W, 2));
+/** A cabin light's place on the way (its middle). */
+const lightU = (l) => flowU(lightPoint(l.x2 != null ? (l.x + l.x2) / 2 : l.x, l.y2 != null ? (l.y + l.y2) / 2 : l.y, l.part, isRoof(l)));
+/** An outside function's place: the middle of its lamps. */
+const fnU = (fn) => { const ps = lampPoints(fn); return ps.reduce((a, p) => a + flowU(p), 0) / Math.max(1, ps.length); };
+
+/** The outside lamps that are lit, glowing at their places (those on the far side of the car fainter). lit: { fn: rgb },
+ *  or with o.flow (the wave's place) every lamp at the strength flowAt gives it. */
+function drawLamps(cv, S, lit, flow, col) {
+    if (flow != null) {
+        const mid = S([0, 0, 0.6])[2];
+        Object.keys(LAMP3D).forEach((fn) => lampPoints(fn).forEach((p) => {
+            const a = flowAt(flowU(p), flow), q = S(p), f = (q[2] < mid - 0.3 ? 0.4 : 1) * a, c = col[fn] || [255, 255, 240];
+            if (a < 0.03) return;
+            [[24, 0.12], [14, 0.28], [8, 0.55]].forEach(([r, al]) => cv.circle(q[0], q[1], r, [c[0], c[1], c[2], Math.round(255 * al * f)]));
+            cv.circle(q[0], q[1], 4, [255, 255, 255, Math.round(240 * f)]);
+        }));
+        return;
+    }
     const mid = S([0, 0, 0.6])[2];
     Object.keys(lit).forEach((fn) => lampPoints(fn).forEach((p) => {
         const q = S(p), f = q[2] < mid - 0.3 ? 0.4 : 1, c = lit[fn];
@@ -254,4 +284,4 @@ function drawLamps(cv, S, lit) {
     }));
 }
 
-module.exports = { drawCarView, MAX_PITCH, MAX_ROLL, LAMP3D };
+module.exports = { drawCarView, MAX_PITCH, MAX_ROLL, LAMP3D, flowU, flowAt, lightU, fnU, lampPoints };
