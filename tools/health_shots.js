@@ -43,7 +43,7 @@ fs.mkdirSync(out, { recursive: true });
 
 const demo = DEMO.state(clock, CAR);
 function state() {
-    const S = M.derive(Object.assign({}, demo, { at: clock, demo: true, live: false, engine: CAR || E.demoCar('b48'), eng: DEMO.engineValues(clock, CAR || E.demoCar('b48')) }), Object.assign({}, UI.DISPLAY_DEFAULTS,
+    const S = M.derive(Object.assign({}, demo, { at: clock, demo: true, live: false, engine: CAR || E.demoCar('b48'), eng: DEMO.engineValues(clock, CAR || E.demoCar('b48')), dc: DEMO.driveCheck(clock, CAR || E.demoCar('b48')) }), Object.assign({}, UI.DISPLAY_DEFAULTS,
         { batteryWarn: 12.4, tyreWarn: 0.1, nightly: 'on', units: 'metric', intervals: 'strict' }), T.faultShort);
     S.checkedText = 'checked 2 min ago';
     S.downBecause = 'the rear left tyre and the stored charge air fault.';
@@ -100,7 +100,7 @@ const clearDlg = (ticked) => VIEW.clearDialog(clearUnits, ticked || M.clearDefau
 
 if (CAR) {
     const pages = M.pagesFor(state().caps, state());
-    pages.forEach((i) => shot(VIEW.TABS[i].toLowerCase(), () => { V.page = i; }));
+    pages.forEach((i) => shot(VIEW.TABS[i].toLowerCase().replace(/ /g, '-'), () => { V.page = i; }));
     if (pages.indexOf(8) >= 0) ['rough', 'ignition'].forEach((k) => shot('engine-' + k, () => { V.page = 8; V.cyl = k; }));
     shot('help-engine', () => { V.mode = 'help'; V.helpSel = T.TOPICS.findIndex((tp) => /per cylinder/.test(tp.title)); });
     if (pages.indexOf(8) >= 0) { Object.assign(V, { page: 8, mode: 'main', dialog: null }); UI.closeInfo(); settle(300); UI.openInfo(VIEW.info('misfire')); settle(2600); png(frame(), path.join(out, 'popup-misfire.png')); shots.push('popup-misfire'); UI.closeInfo(); }
@@ -108,7 +108,7 @@ if (CAR) {
 } else if (!gifDir) {
     // pages
     const infos = (rec) => { if (!rec.targets.some((q) => /^p96info/.test(q.key))) throw new Error('no (i) on the page'); };
-    VIEW.TABS.forEach((tab, i) => shot(tab.toLowerCase(), () => { V.page = i; }, infos));
+    VIEW.TABS.forEach((tab, i) => shot(tab.toLowerCase().replace(/ /g, '-'), () => { V.page = i; }, infos));
     shot('faults-info', () => { V.page = 1; V.mem = 'info'; });
     shot('faults-permanent', () => { V.page = 1; V.mem = 'perm'; });
     shot('faults-history', () => { V.page = 1; V.mem = 'history'; });

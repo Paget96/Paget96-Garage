@@ -280,7 +280,21 @@ ART.rail = function (cv, x, y, w, h, t) {
     const p = ENGINE && ENGINE.fuel ? ENGINE : E.demoCar('b48'), hi = p.rail[1], v = p.rail[0] + (hi - p.rail[0]) * (0.5 + 0.4 * Math.sin(t * 1.4));
     UI.ring(cv, x + w / 2, y + h / 2 + 10, Math.min(110, h / 2 - 50), { value: v, min: 0, max: hi, decimals: 0, unit: 'bar', color: 'ok', scale: { step: p.diesel ? 500 : 50 }, smooth: false });
 };
+/** Drive check: a value and its target over a drive; they move together, three times the value leaves it (red), the
+ *  third time makes it a finding. */
+ART.driveCheck = function (cv, x, y, w, h, t) {
+    const px = x + 40, pw = w - 80, top = y + 30, ph = h - 110, n = 90, sh = (t * 0.25) % 1;
+    const out = (f) => [0.22, 0.52, 0.8].some((c) => Math.abs(f - c) < 0.04);
+    const want = (f) => 0.5 + 0.3 * Math.sin(f * 9 + sh * 6.283), tgt = [], act = [];
+    for (let i = 0; i <= n; i++) { const f = i / n; tgt.push([px + f * pw, top + ph * (1 - want(f))]); act.push([px + f * pw, top + ph * (1 - want(f) + (out(f) ? 0.22 : 0.02 * Math.sin(f * 40)))]); }
+    UI.curve(cv, tgt, 2, [150, 158, 170, 200]);
+    UI.curve(cv, act, 3, C.green);
+    [0.22, 0.52, 0.8].forEach((c, k) => { const xx = px + c * pw; cv.circle(xx, top + ph * (1 - want(c) + 0.22), 9, [255, 70, 60, 120]); cv.text(String(k + 1), xx, top + ph * (1 - want(c) + 0.22) - 14, 14, C.red, { font: 'bold', align: 'center', literal: true }); });
+    cv.text('grey: what the engine unit asks.   green: what the car does.   red: out of step', x + w / 2, y + h - 54, 14, DIM, { align: 'center', literal: true });
+    cv.text('the third time it comes back, it is a finding', x + w / 2, y + h - 28, 15, C.amber, { align: 'center', literal: true });
+};
 const BY_INFO = {
+    driveCheck: 'driveCheck', driveFound: 'driveCheck',
     score: 'score', hist: 'score', changes: 'score', faults: 'faults', byUnit: 'faults', memories: 'faults', timeline: 'faults',
     battery12: 'rest', rest: 'rest', nights: 'rest', verdict: 'rest', charge: 'rest', start: 'start', oil: 'oil', levels: 'oil',
     service: 'cbs', cbs: 'cbs', ours: 'cbs', parts: 'cbs', tyres: 'tyre', pressure: 'tyre', trend: 'tyre', warmup: 'warm',

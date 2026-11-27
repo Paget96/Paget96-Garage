@@ -38,6 +38,7 @@ const T = require('./texts');
 const VIEW = require('./view');
 const DEMO = require('./demo');
 const E = require('./garage_engine');
+const DC = require('./drivecheck');
 const { HealthLink, ENGINE } = require('./diaglink');
 
 const CDS = 'de.bmw.infotainment.vehicle.CDS', VEH = 'de.bmw.infotainment.vehicle.Vehicle2', TPMS = 'de.bmw.infotainment.vehicle.TPMS';
@@ -57,7 +58,7 @@ mgu.run({
         let P = {};
         try { P = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { /* first start */ }
         P = Object.assign({ log: {}, nights: [], starts: [], socHist: [], cold: {}, km: 0, done: {}, parts: [], partsOff: [], scores: [],
-            changes: [], seen: {}, reminded: {}, obd: null, readyLast: null, lastDriveEnd: null, warm: null, rest: null, restAt: null, startMin: null, caps: {}, carKey: 'car' }, P);
+            changes: [], seen: {}, reminded: {}, dcLearned: {}, dcDrives: [], obd: null, readyLast: null, lastDriveEnd: null, warm: null, rest: null, restAt: null, startMin: null, caps: {}, carKey: 'car' }, P);
         /** What this car supports, remembered per car (by its VIN, read from the engine unit when the screen first shows). */
         const caps = () => (P.caps[P.carKey] = P.caps[P.carKey] || {});
         const found = (k, yes) => { if (M.found(caps(), k, yes)) { save(); changed(); } };
@@ -100,7 +101,7 @@ mgu.run({
                     const rpm = r * 0.25 < ENGINE_STOPPED_RPM ? 0 : r * 0.25, was = live.rpm;
                     live.rpm = rpm; live.rpmAt = Date.now();
                     if (rpm > 0) { P.lastDriveEnd = null; }
-                    if (rpm === 0 && was > 0) { P.lastDriveEnd = Date.now(); save(); }
+                    if (rpm === 0 && was > 0) { P.lastDriveEnd = Date.now(); endDrive(); save(); }
                     if (rpm > 0 && was === 0) engineStarted();
                 },
                 statusEngineTemperature: (v) => {
@@ -141,6 +142,18 @@ mgu.run({
                     live.pressures = p; live.pAt = Date.now();
                     if (!caps().tpms) found('tpms', true);
                     coldReading(p);
+                },
+            }],
+            // the Drive check's outside air and gearbox oil (as Datalog reads them)
+            ['de.bmw.infrastructure.EnvironmentalInformation', {
+                ExteriorTemperature: (v) => { const raw = v && v.temperatureExterior; if (typeof raw === 'number' && raw !== 255) live.outside = raw * 0.5 - 40; },
+            }],
+            ['de.bmw.infrastructure.analytics.BasicDataSet', {
+                basicDataSet: (v) => {
+                    const raw = v && v.valueTemperatureTransmissionOil;
+                    if (typeof raw !== 'number' || raw === 255) return;
+                    if (live.gearboxFirst === undefined) live.gearboxFirst = raw;
+                    if (raw !== live.gearboxFirst) live.gearbox = raw - 48;          // a car that never fills it stays put
                 },
             }],
         ];
@@ -398,6 +411,75 @@ mgu.run({
                 }
             } catch (e) { log.warn('engine page: ' + e); } finally { readingEngine = false; changed(); }
         }
+        /* ---------- the Drive check (T35): while the car drives and Health is open ---------- */
+        /*
+         * Every 3 s with the engine running: a sample of everything the checks compare, read only: the broadcast values
+         * (revs, temperatures, speed, outside, gearbox, tyres) and the engine unit's (per cylinder, knock, camshafts,
+         * mixture, fuel pressure, load, the air and boost with its target). What the engine unit does not answer is
+         * not asked again on this car (caps). At the engine's stop the drive's findings and what it learned are kept.
+         */
+        let dc = new DC.DriveCheck({ cylinders: 0, learned: P.dcLearned }), dcStart = null, readingDrive = false;
+        const DRIVE_DIDS = {
+            load: { did: 0x5813, t: 'u8', k: 0.75, min: 0, max: 192 },
+            intakeAir: { did: 0x580F, t: 'u8', k: 0.75, min: -48, max: 150, off: -48 },
+            chargeAir: { did: 0x59D4, t: 'u16', k: 0.0234375, min: -40, max: 250, off: -273.15 },
+            manifold: { did: 0x4A2D, t: 'u16', k: 0.078125 / 1000, min: 0.2, max: 4 },
+            ambient: { did: 0x4201, t: 'u16', k: 0.0390625 / 1000, min: 0.5, max: 1.2 },
+            boostTargetAbs: { did: 0x4AB0, t: 'u16', k: 0.0390625 / 1000, min: 0.2, max: 4 },
+        };
+        const dval = (d, r) => { if (!r || r[0] !== 0x62 || ((r[1] << 8) | r[2]) !== d.did || r.length < 4) return null;
+            const raw = d.t === 'u8' ? r[3] : r.length < 5 ? null : (r[3] << 8) | r[4]; if (raw == null) return null;
+            const v = raw * d.k + (d.off || 0); return v < d.min || v > d.max ? null : v; };
+        async function sampleDrive() {
+            if (useDemo() || !shown || readingDrive || readingEngine || !(live.rpm > 400)) return;
+            readingDrive = true;
+            const x = { t: Date.now(), rpm: live.rpm, coolant: live.coolant, oil: live.oil, speed: live.speed, outside: live.outside, gearbox: live.gearbox, volts: live.volts };
+            try {
+                await getLink();
+                const p = engineNow(), c = caps(), dcap = P.dcCaps = P.dcCaps || {};
+                if (p.cylinders && !dc.cylinders) dc.cylinders = p.cylinders;
+                const per = { misfire: [], rough: [], ignition: [] };
+                for (const r of M.cylinderReads(p)) {
+                    if (!shown) break;
+                    if (c[r.kind] === false) continue;
+                    const v = M.decodeNum(M.CYL_FMT[r.kind], r.did, await link.read(r.addr, r.did).catch(() => null));
+                    if (v != null) { per[r.kind][r.cyl - 1] = v; eng.cyl[r.kind][r.cyl] = v; }
+                }
+                x.misfire = per.misfire; x.rough = per.rough; x.ignition = per.ignition;
+                for (const k of Object.keys(M.ENGINE_DIDS)) {
+                    const d = M.ENGINE_DIDS[k];
+                    if (!shown || c[d.cap || k] === false || (k === 'knock' && !p.knock)) continue;
+                    const v = M.decodeNum(d, d.did, await link.read(0x12, d.did).catch(() => null));
+                    if (v != null) { x[k] = v; eng[k] = v; }
+                }
+                for (const k of Object.keys(DRIVE_DIDS)) {
+                    if (!shown || dcap[k] === false) continue;
+                    const v = dval(DRIVE_DIDS[k], await link.read(0x12, DRIVE_DIDS[k].did).catch(() => null));
+                    if (v != null) { x[k] = v; dcap[k] = true; } else if (dcap[k] !== true) dcap[k] = false;
+                }
+                if (x.manifold != null && x.ambient != null) x.boost = x.manifold - x.ambient;
+                if (x.boostTargetAbs != null && x.ambient != null && x.boostTargetAbs > x.ambient) x.boostTarget = x.boostTargetAbs - x.ambient;
+                const pr = live.pressures || {};
+                if (Date.now() - live.pAt < 60000) x.tyres = M.WHEELS.map((w) => pr[w]);
+                if (dcStart == null) dcStart = x.t;
+                dc.feed(x);
+            } catch (e) { log.warn('drive check: ' + e); } finally { readingDrive = false; changed(); }
+        }
+        /** The engine stopped: the drive's findings into the list (newest first, ten kept), what was learned kept. */
+        function endDrive() {
+            if (dc.n >= 20) {
+                const f = dc.findings();
+                P.dcDrives.unshift({ at: Date.now(), minutes: Math.round((Date.now() - (dcStart || Date.now())) / 60000), readings: dc.n,
+                    findings: f.map((q) => ({ check: q.check, words: q.words, evidence: q.evidence })) });
+                P.dcDrives = P.dcDrives.slice(0, 10);
+                P.dcLearned = dc.learned();
+                f.forEach((q) => change('warm', q.words));
+                log.info('drive check: ' + dc.n + ' readings, ' + f.length + ' findings');
+            }
+            dc = new DC.DriveCheck({ cylinders: 0, learned: P.dcLearned }); dcStart = null;
+        }
+        setInterval(sampleDrive, 3000);
+
         /** Once a start, after the first engine read: which Engine page values this car answers (the page shows only then). */
         let engineProbed = false;
         async function probeEngine() {
@@ -468,7 +550,7 @@ mgu.run({
             let S;
             if (d) {
                 if (!demo || now - demoAt > 60000 || demo.carId !== settings.get('demoCar')) { demo = DEMO.state(now, demoCar()); demo.carId = settings.get('demoCar'); demoAt = now; }
-                S = Object.assign({}, demo, { demo: true, live: false, eng: DEMO.engineValues(now, demoCar()) });
+                S = Object.assign({}, demo, { demo: true, live: false, eng: DEMO.engineValues(now, demoCar()), dc: DEMO.driveCheck(now, demoCar()) });
                 S.used = demo.used;
             } else {
                 const coolantLow = live.cc == null ? null : Array.from(live.ccOn.keys()).some((k) => /coolant|kuehlm|kühlm/i.test(live.ccNames.get(k) || ''));
@@ -488,6 +570,7 @@ mgu.run({
                     fluids: { oilCl: live.oilCl, oilTemp: live.oil, coolantTemp: live.coolant, coolantLow: coolantLow, washerLow: washerLow },
                     warm: P.warm ? { oil: P.warm.oil, coolant: P.warm.coolant, minutes: Math.max(1, P.warm.oil.length / 2), when: M.ago(P.warm.at, now) } : null,
                     scores: P.scores, changes: P.changes, obd: P.obd, eng: eng,
+                    dc: { checks: dc.checks(), findings: dc.findings(), drives: P.dcDrives, readings: dc.n, minutes: dcStart ? Math.round((now - dcStart) / 60000) : 0, driving: live.rpm > 400 },
                 };
             }
             S.engine = engineNow();

@@ -280,6 +280,7 @@ and only the service items the car itself can reset get a Reset. The screenshots
 | A reminder when something is due | ![](docs/media/p96_health/reminder.png) |
 | Info popup (every card has an (i)) | ![](docs/media/p96_health/popup.png) |
 | How to use | ![](docs/media/p96_health/help.png) |
+| Drive check | ![](docs/media/p96_health/drive-check.png) |
 | Settings | ![](docs/media/p96_health/settings.png) |
 
 Every card's info popup is in [docs/media/p96_health/popups/](docs/media/p96_health/popups/).

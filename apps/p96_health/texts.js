@@ -31,6 +31,12 @@ function faultShort(code) {
 
 /** Info popup texts, by key (the art is in art.js, under the same key). */
 const INFO = {
+    driveCheck: { label: 'Drive check', title: 'What must agree, checked while you drive',
+        text: 'An engine runs in step: every cylinder fires alike, the mixture, the camshafts, the fuel pressure and the boost follow what the engine unit asks, the battery is charged while the engine runs, the engine warms up and stays below too hot. While you drive with Health open it reads all of that every few seconds and compares it, only like with like (the same revs and load, a warm engine), against what your own car usually does.\n\nOne odd moment is not a finding: it has to come back at least three times. Then it says what, where and how often, and what it points at.',
+        note: 'Reads only. An estimate from the car\'s own values, not a workshop diagnosis.' },
+    driveFound: { label: 'Found', title: 'What came back again and again',
+        text: 'Each finding names what is out of step, in what conditions and how often this drive, with how far it went. It points at the likely part: a plug or coil for a cylinder, the alternator for the charging, the thermostat for a slow warm-up.\n\nThe drives before stay listed, so you see whether something keeps coming back. A cylinder that always runs a little differently becomes your car\'s normal over a long drive and is not flagged again.',
+        note: '' },
     misfire: { label: 'Misfires per cylinder', title: 'Misfires: a cylinder that did not fire',
         text: 'The engine unit counts every time a cylinder does not burn its fuel: a worn spark plug or coil, a leaking injector, a bad mix. The bars show the count per cylinder since it was last cleared, one bar for each of this engine\'s cylinders (on a V8 bank 1 and bank 2 side by side).\n\nOne cylinder far above the others points at that cylinder\'s plug, coil or injector.',
         note: 'Normal: 0 on every cylinder, a few after a cold start are fine.' },
@@ -137,6 +143,9 @@ const INFO = {
 
 /** How to use: topics in order (the art key draws the middle). */
 const TOPICS = [
+    { title: 'Drive check', art: 'driveCheck',
+        text: 'While you drive with Health open it compares what must agree: the cylinders with each other, the mixture, camshafts, fuel pressure and boost with their targets, the charging, the cooling, the gearbox and the tyres.\n\nA finding only after it comes back three times, in plain words, with where and how often.',
+        note: 'Reads only. It learns your own car\'s normal.' },
     { title: 'Read the score', art: 'score',
         text: 'The score sums up six checks, 100 is a car with nothing to look at. Green is fine, amber means look at it soon, red now.\n\nTap any card for what it checks and why. A stored fault lowers the score a little, an active one a lot.\n\nHealth reads the car only while this app is open.',
         note: '' },

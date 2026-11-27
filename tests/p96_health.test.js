@@ -266,7 +266,7 @@ test('capabilities: found once, a miss never takes a yes back, pages follow them
     assert.strictEqual(c.tpms, true);
     assert.deepStrictEqual(M.pagesFor({}, {}), [0, 6, 7]);
     assert.deepStrictEqual(M.pagesFor({ faults: true, soc: true }, {}), [0, 1, 2, 6, 7]);
-    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS, {}), [0, 1, 2, 3, 4, 5, 8, 6, 7]);
+    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS, {}), [0, 1, 2, 3, 4, 5, 8, 9, 6, 7]);
 });
 test('capabilities: what the car does not report is left out of items, score and report', () => {
     const s = DEMO.state(Date.now());

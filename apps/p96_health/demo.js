@@ -168,4 +168,32 @@ function dueIn(now, n) {
     return ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
 }
 
-module.exports = { state, engineValues, units, faultLog, obd, obdAfterClear, SEEN, SNAPSHOT };
+/*
+ * The Drive check on demo data (T35): a 35 minute drive fed through drivecheck.js, with two things out of step that
+ * the checks find (cylinder 3 rougher under load, the rear left tyre losing pressure) and the rest in step; the
+ * earlier drives as Health keeps them. Made once a minute (the page draws every frame).
+ */
+let dcCache = null;
+function driveCheck(now, car) {
+    const p = car || E.demoCar('b48'), key = Math.floor((now || 0) / 60000) + '|' + (p.id || '');
+    if (dcCache && dcCache.key === key) return dcCache.v;
+    const DC = need('./drivecheck', './drivecheck');
+    const n = p.cylinders || 0, dc = new DC.DriveCheck({ cylinders: n }), t0 = (now || 0) - 35 * 60000;
+    let mis = new Array(n).fill(0);
+    if (p.engine !== false) for (let i = 0; i < 700; i++) {
+        const w = Math.sin(i / 9), load = 35 + 30 * Math.max(0, Math.sin(i / 23)), hot = load > 50;
+        const rough = [], ign = [];
+        for (let c = 0; c < n; c++) { rough.push(0.4 * Math.sin(i / 5 + c) + (c === 2 && hot && i % 7 === 0 ? 14 : 0)); ign.push(18.4 + 0.3 * Math.sin(i / 4 + c)); }
+        dc.feed({ t: t0 + i * 3000, rpm: 2200 + 900 * w * w, load: load, coolant: Math.min(92, 30 + i * 0.6), oil: Math.min(98, 25 + i * 0.5), speed: 80 + 20 * w,
+            outside: 6, volts: 14.2 + 0.1 * w, gearbox: 78, chargeAir: 28 + load * 0.15, intakeAir: 12, rough: rough, ignition: p.ignition ? ign : null, misfire: mis.slice(),
+            knock: p.knock ? 0.5 : null, lambda: p.diesel ? null : 1 + 0.01 * w, lambdaTarget: p.diesel ? null : 1, boost: 0.5 + 0.4 * load / 65, boostTarget: 0.52 + 0.4 * load / 65,
+            tyres: [2.42, 2.41, 2.33 - i * 0.0004, 2.32] });
+    }
+    const v = { checks: dc.checks(), findings: dc.findings(), readings: dc.n, minutes: 35, driving: true,
+        drives: [{ at: (now || 0) - 2 * 86400000, minutes: 24, readings: 480, findings: [] },
+            { at: (now || 0) - 4 * 86400000, minutes: 41, readings: 820, findings: [{ check: 'rough', words: 'Cylinder 3 runs rougher than the others 2 000 to 3 500 rpm, high load', evidence: '3 times this drive, up to 11.2 rad/s² off' }] }] };
+    dcCache = { key: key, v: v };
+    return v;
+}
+
+module.exports = { driveCheck, state, engineValues, units, faultLog, obd, obdAfterClear, SEEN, SNAPSHOT };

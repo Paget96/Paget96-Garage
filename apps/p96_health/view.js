@@ -24,7 +24,7 @@ const { artFor, setEngine } = require('./art');
 const QR = need('./kit/qr', '../../kit/runtime/qr');
 const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN;
 
-const TABS = ['Overview', 'Faults', 'Battery', 'Service', 'Tyres', 'Fluids', 'History', 'Share', 'Engine'];
+const TABS = ['Overview', 'Faults', 'Battery', 'Service', 'Tyres', 'Fluids', 'History', 'Share', 'Engine', 'Drive check'];
 const COL = { ok: C.green, warm: C.amber, bad: C.red, info: C.blue, dim: C.dim, accent: C.orange };
 const col = (c) => COL[c] || c || C.text;
 
@@ -681,6 +681,60 @@ function engine(cv, S, V, A, t) {
     });
 }
 
+/* ---------- Drive check (T35) ---------- */
+
+const DC_GROUPS = [['engine', 'Engine'], ['fuel', 'Fuel and air'], ['electric', 'Electrics'], ['cooling', 'Cooling'], ['mechanics', 'Mechanics']];
+const DC_COL = { ok: C.green, watch: C.amber, out: C.red, nodata: '#4a4f58' };
+/**
+ * What must agree, checked while the car drives (owner, 2026-11-27 02:44 and 02:49): left, every check in its group
+ * with a dot (green in step, amber seen once or twice, red out of step, grey not reported by this car); right, what
+ * was found, in words with its evidence, and the drives before.
+ */
+function driveCheck(cv, S, V, A, t) {
+    const d = S.dc || { checks: [], findings: [], drives: [] }, lw = 1000, top = TOP;
+    UI.card(cv, X0, top, lw, UI.hh(), 'Drive check: what must agree', { info: info('driveCheck') });
+    const head = d.readings ? (d.driving ? 'This drive: ' : 'Last drive: ') + d.minutes + ' min, ' + d.readings + ' readings, compared in like conditions'
+        : 'Starts when the engine runs, while Health is open: reads only, nothing is sent';
+    cv.text(head, X0 + 24, top + 62, 15, C.dim, { literal: true });
+    const gw = (lw - 48) / DC_GROUPS.length, gy = top + 80;
+    DC_GROUPS.forEach((g, i) => {
+        const gx = X0 + 24 + i * gw, rows = d.checks.filter((c) => c.group === g[0]);
+        const worst = rows.some((c) => c.state === 'out') ? 'out' : rows.some((c) => c.state === 'watch') ? 'watch' : rows.some((c) => c.state === 'ok') ? 'ok' : 'nodata';
+        cv.roundRect(gx, gy, gw - 14, 34, 17, worst === 'out' ? [255, 70, 60, 50] : worst === 'watch' ? [255, 176, 0, 40] : worst === 'ok' ? [70, 210, 130, 32] : '#22252b');
+        cv.text(g[1], gx + 16, gy + 23, 16, worst === 'nodata' ? C.dim : C.text, { font: 'bold', literal: true });
+        cv.circle(gx + gw - 34, gy + 17, 6, DC_COL[worst]);
+        rows.forEach((c, k) => {
+            const y = gy + 56 + k * 41;
+            cv.circle(gx + 8, y - 5, 5, DC_COL[c.state]);
+            UI.wrap(cv, c.label, 14, gw - 40).slice(0, 2).forEach((ln, j) => cv.text(ln, gx + 22, y + j * 17, 14, c.state === 'nodata' ? C.dim : c.state === 'out' ? C.red : C.text, { literal: true }));
+        });
+    });
+    // what was found, and the drives before
+    const rx = X0 + lw + 14, rw = X1 - rx;
+    UI.card(cv, rx, top, rw, UI.hh(), 'Found', { info: info('driveFound') });
+    let y = top + 60;
+    if (!d.findings.length) {
+        cv.text(d.readings ? 'Nothing out of step' : 'Nothing yet', rx + 20, y + 14, 22, d.readings ? C.green : C.dim, { font: 'bold', literal: true });
+        y += 40;
+    }
+    d.findings.slice(0, 3).forEach((f) => {
+        const lines = UI.wrap(cv, f.words, 16, rw - 84).slice(0, 3);   // room for the bold first line
+        cv.circle(rx + 26, y + 10, 6, C.red);
+        lines.forEach((ln, j) => cv.text(ln, rx + 42, y + 15 + j * 21, 16, C.text, { font: j ? null : 'bold', literal: true }));
+        cv.text(f.evidence, rx + 42, y + 17 + lines.length * 21, 13, C.amber, { literal: true });
+        y += lines.length * 21 + 38;
+    });
+    const dr = (d.drives || []).slice(0, Math.max(0, Math.floor((top + UI.hh() - 20 - y - 30) / 24)));
+    if (dr.length) {
+        cv.text('Drives before', rx + 20, y + 14, 14, C.dim, { literal: true });
+        dr.forEach((q, i) => {
+            const yy = y + 40 + i * 24;
+            cv.text(M.ago(q.at, S.at) + ', ' + q.minutes + ' min', rx + 20, yy, 14, C.text, { literal: true });
+            cv.text(q.findings.length ? q.findings.length + (q.findings.length === 1 ? ' finding' : ' findings') : 'all in step', rx + rw - 20, yy, 14, q.findings.length ? C.amber : C.green, { align: 'right', literal: true });
+        });
+    }
+}
+
 /* ---------- History ---------- */
 
 function history(cv, S, V, A, t) {
@@ -767,7 +821,7 @@ function appRowsFor(S) {
 
 /* ---------- one frame ---------- */
 
-const PAGES = [overview, faults, battery, service, tyres, fluids, history, share, engine];
+const PAGES = [overview, faults, battery, service, tyres, fluids, history, share, engine, driveCheck];
 
 /** Records one frame of Health on cv. t: seconds (for the animations). */
 function draw(cv, S, V, A, t) {

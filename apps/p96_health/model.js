@@ -666,7 +666,7 @@ function found(caps, k, yes) {
     if (yes) caps[k] = true; else if (was !== true) caps[k] = false;
     return was !== caps[k];
 }
-/** The pages this car has something for (indexes into the tab list: Overview, Faults, Battery, Service, Tyres, Fluids, History, Share). */
+/** The pages this car has something for (indexes into the tab list: Overview, Faults, Battery, Service, Tyres, Fluids, History, Share, Engine, Drive check). */
 function pagesFor(caps, S) {
     const out = [0];
     if (has(caps, 'faults')) out.push(1);
@@ -674,7 +674,7 @@ function pagesFor(caps, S) {
     if (has(caps, 'cbs') || (S && S.ours && S.ours.length)) out.push(3);
     if (has(caps, 'tpms')) out.push(4);
     if (has(caps, 'oilLevel') || has(caps, 'cc') || has(caps, 'oilTemp') || has(caps, 'coolantTemp')) out.push(5);
-    if (ENGINE_CAPS.some((k) => has(caps, k)) && !(S && S.engine && S.engine.engine === false)) out.push(8);
+    if (ENGINE_CAPS.some((k) => has(caps, k)) && !(S && S.engine && S.engine.engine === false)) out.push(8, 9);   // Engine, Drive check
     out.push(6, 7);
     return out;
 }
