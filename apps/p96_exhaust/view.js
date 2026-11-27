@@ -141,6 +141,65 @@ function now(cv, S, V, A, t) {
     row(cv, y, cards);
 }
 
+/** cv drawn k times smaller around (ox, oy): the few calls the flap picture uses. */
+function scaledAt(cv, ox, oy, k) {
+    const X = (x) => ox + (x - ox) * k, Y = (y) => oy + (y - oy) * k, P = (pts) => pts.map((q) => [X(q[0]), Y(q[1])]);
+    return {
+        roundRect: (x, y, w, h, r, c) => cv.roundRect(X(x), Y(y), w * k, h * k, r * k, c),
+        strokeRoundRect: (x, y, w, h, r, lw, c) => cv.strokeRoundRect(X(x), Y(y), w * k, h * k, r * k, lw * k, c),
+        fill: (pts, c) => cv.fill(P(pts), c),
+        line: (xa, ya, xb, yb, lw, c) => cv.line(X(xa), Y(ya), X(xb), Y(yb), lw * k, c),
+        circle: (x, y, r, c) => cv.circle(X(x), Y(y), r * k, c),
+        arc: (x, y, r0, r1, a0, a1, c, o) => cv.arc(X(x), Y(y), r0 * k, r1 * k, a0, a1, c, o),
+    };
+}
+/**
+ * The car's rear, a G20 seen from behind, with its tail pipes and the flaps in them (owner, 2026-11-26 22:21 and 23:45;
+ * back on Home 2026-11-27 22:38): drawn 500 px wide around (cx, cy), k times that.
+ */
+function carRear(cv0, f, cx, cy, k, t) {
+    const cv = scaledAt(cv0, cx, cy, k), two = f.sides.length > 1;
+    const ang = (s) => { const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested; return UI.glide('ex|flap|' + s, sh === 'OPEN' ? 0 : sh === 'CLOSED' ? 90 : 45, null, 10); };
+    cv.roundRect(cx - 250, cy + 48, 500, 16, 8, [0, 0, 0, 110]);
+    [-1, 1].forEach((q) => cv.roundRect(cx + q * 196 - 26, cy + 20, 52, 40, 10, '#0c0d10'));
+    cv.roundRect(cx - 240, cy - 64, 480, 118, 40, '#2a2e35');
+    cv.roundRect(cx - 236, cy - 60, 472, 40, 30, '#343942');
+    cv.strokeRoundRect(cx - 240, cy - 64, 480, 118, 40, 2.5, '#8a929c');
+    cv.fill([[cx - 168, cy - 86], [cx + 168, cy - 86], [cx + 196, cy - 62], [cx - 196, cy - 62]], '#30353d');
+    cv.line(cx - 166, cy - 86, cx + 166, cy - 86, 3, '#9aa2ac');
+    [-1, 1].forEach((q) => {
+        const o = cx + q * 232, i = cx + q * 140;
+        cv.line(o, cy - 50, i, cy - 50, 12, [255, 40, 30, 50]);
+        cv.line(o, cy - 50, i, cy - 50, 5, '#ff3b2f');
+        cv.line(o, cy - 50, o - q * 6, cy - 24, 5, '#ff3b2f');
+        cv.line(i, cy - 50, i - q * 22, cy - 50, 3, '#ffb3a8');
+    });
+    cv.roundRect(cx - 70, cy - 42, 140, 38, 8, '#1f2228');
+    cv.roundRect(cx - 60, cy - 36, 120, 26, 4, '#d7dde4');
+    cv.roundRect(cx - 60, cy - 36, 14, 26, 3, '#2a5bd7');
+    cv.fill([[cx - 214, cy + 12], [cx + 214, cy + 12], [cx + 192, cy + 52], [cx - 192, cy + 52]], '#111318');
+    for (let q = -2; q <= 2; q++) cv.line(cx + q * 26, cy + 16, cx + q * 30, cy + 50, 3, '#1d2026');
+    [-1, 1].forEach((q) => {
+        const tx = cx + q * 150, ty = cy + 32, s = two ? (q < 0 ? 'left' : 'right') : 'both', hasFlap = two || q > 0;
+        cv.circle(tx, ty, 32, '#0a0b0d');
+        cv.arc(tx, ty, 22, 30, 0, 360, '#9aa2ac');
+        cv.arc(tx, ty, 25, 29, 200, 340, '#eef2f6', { round: true });
+        cv.circle(tx, ty, 22, '#050607');
+        if (!hasFlap || !f.views[s]) return;
+        const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested, a = ang(s) * Math.PI / 180;
+        const col = sh === 'OPEN' ? C.green : sh === 'CLOSED' ? C.amber : '#9aa1ad', ry = Math.max(2, 20 * Math.sin(a));
+        const disc = [];
+        for (let n = 0; n < 28; n++) { const th = n / 28 * Math.PI * 2; disc.push([tx + Math.cos(th) * 20, ty + Math.sin(th) * ry]); }
+        cv.fill(disc, col);
+        cv.line(tx - 25, ty, tx + 25, ty, 2.5, '#5c636f');
+        // gas leaving an open pipe
+        if (sh === 'OPEN') for (let n = 0; n < 3; n++) {
+            const p = (t * 1.2 + n / 3) % 1, al = Math.round(180 * (1 - p));
+            cv.arc(tx, ty + 6 + p * 30, 18 + p * 14, 21 + p * 14, 120, 240, [70, 210, 130, al], { round: true });
+        }
+    });
+}
+
 /* ---------- Home: the page the app opens on ---------- */
 /**
  * The flap, big, with its four buttons in reach (owner 2026-11-27 22:20: people want to open the flap the moment they
@@ -154,17 +213,20 @@ function home(cv, S, V, A, t) {
         const f = S.flap || {}, fs = flapShown(S), two = has(S, 'flap2');
         UI.card(cv, X0, TOP, lw, H, two ? 'Flaps' : 'Exhaust flap', { info: info('flapCard') });
         const word = fs === 'OEM' ? 'CAR DECIDES' : fs === 'CLOSED' ? 'CLOSED' : 'OPEN';
-        cv.text(word, X0 + 24, TOP + 102, 56, fs === 'OPEN' ? C.green : fs === 'CLOSED' ? C.amber : C.text, { font: 'bold', literal: true });
+        cv.text(word, X0 + 24, TOP + 92, 48, fs === 'OPEN' ? C.green : fs === 'CLOSED' ? C.amber : C.text, { font: 'bold', literal: true });
         const d = f.decided && f.decided[f.sides[0]], vw = f.views[f.sides[0]];
         const why = f.mode === 'AUTO' ? (d && d.rule ? 'by rule: ' + d.rule.name : (d && d.reason) || 'automatic') : 'set by hand';
-        cv.text(fit(cv, why + (vw && vw.simulated ? ', simulated' : ''), 20, lw - 48), X0 + 24, TOP + 138, 20, C.dim, { literal: true });
+        cv.text(fit(cv, why + (vw && vw.simulated ? ', simulated' : ''), 18, lw - 48), X0 + 24, TOP + 122, 18, C.dim, { literal: true });
         // three big buttons in one row, for every flap the car has (owner 2026-11-27 22:37: too many buttons; one side
         // choice is never wanted, all flaps open together). CAR is gone: AUTO with no rule holding is the car's own way
-        const gap = 14, bw = Math.floor((lw - 48 - 2 * gap) / 3), bh = Math.min(110, H - 200), by = TOP + H - 24 - bh;
+        const gap = 14, bw = Math.floor((lw - 48 - 2 * gap) / 3), bh = Math.max(56, Math.min(88, H - 290)), by = TOP + H - 22 - bh;
         const lit = f.mode === 'OEM' ? 'AUTO' : f.mode;
         [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE']].forEach((m, i) => {
-            choice(cv, X0 + 24 + i * (bw + gap), by, bw, bh, m[1], lit === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0], 30);
+            choice(cv, X0 + 24 + i * (bw + gap), by, bw, bh, m[1], lit === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0], 28);
         });
+        // the car's rear and its flaps between the words and the buttons (the picture from the Flap page)
+        const ay0 = TOP + 138, ah = by - 12 - ay0, k = Math.min(1, (lw - 48) / 500, ah / 185);   // 185: the car and the gas leaving the pipe
+        if (k > 0.3) carRear(cv, f, X0 + lw / 2, ay0 + 92 * k, k, t);
     }
     // the numbers: exhaust temperature, the filter's load, the engine
     const x = has(S, 'flap') ? X0 + lw + 14 : X0, w = X1 - x, h = S.hist || {};
