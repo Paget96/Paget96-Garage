@@ -20,7 +20,10 @@ import asyncio, json, os, shutil, subprocess, sys
 from playwright.async_api import async_playwright
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-PORT = int(os.environ.get('EMU_PORT', '8099'))   # another port when 8099 is taken (EMU_PORT=8111)
+PORT = int(os.environ.get('EMU_PORT', '8099'))
+# Chrome: CHROME in the environment, else where it usually is on Linux or Windows
+CHROME = os.environ.get('CHROME') or next((c for c in ['/usr/bin/google-chrome', r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'] if os.path.exists(c)), '/usr/bin/google-chrome')   # another port when 8099 is taken (EMU_PORT=8111)
 # where each tab is, per selected page, from the app's own drawing (the tab bar scrolls with the selection)
 TABMAP_JS = r"""
 let VT = Date.now(); Date.now = () => VT;
@@ -73,7 +76,7 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     async def main():
         async with async_playwright() as p:
-            b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
+            b = await p.chromium.launch(executable_path=CHROME, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
             pg = await b.new_page(viewport={'width': 1920, 'height': 1300})
             await pg.goto('http://127.0.0.1:%d/' % PORT + '?panel=bottom')
             await pg.wait_for_timeout(3000)
