@@ -123,7 +123,9 @@ function now(cv, S, V, A, t) {
         flap: has(S, 'flap') ? fs : 'OEM', flapAngle: ang, flap2: has(S, 'flap2') ? fs2 : null, flapAngle2: ang2, t: t, rpm: v.rpm == null ? null : v.rpm, boost: v.boost, key: 'ex|now' });
     const h = S.hist || {}, y = TOP + Math.round(UI.hh() * 0.5) + 14, ch = UI.hh() - Math.round(UI.hh() * 0.5) - 14;
     const cards = [];
-    if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: 'model from the engine unit',
+    // the catalysts' own temperatures when the car answers them (OBD 01 3C, 3D: T33), else the engine unit's model
+    const catSub = has(S, 'catT1') && v.catT1 != null ? 'catalyst ' + Math.round(v.catT1) + ' °C' + (has(S, 'catT2') && v.catT2 != null ? ', bank 2 ' + Math.round(v.catT2) + ' °C' : '') : 'model from the engine unit';
+    if (has(S, 'egt')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Exhaust after cat', value: v.egt, decimals: 0, unit: '°C', sub: catSub,
         color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') }));
     if (has(S, 'load')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' load', value: v.load, decimals: 0, unit: '%',
         sub: (v.soot != null ? 'soot ' + v.soot.toFixed(1) + ' g' : '') + (has(S, 'ash') && v.ash != null ? ', ash ' + Math.round(v.ash) + ' g' : ''),
@@ -350,6 +352,8 @@ function opf(cv, S, V, A, t) {
     if (has(S, 'ash') && v.ash != null) bits.push('ash ' + Math.round(v.ash) + ' g');
     if (has(S, 'pfTemp') && v.pfTemp != null) bits.push(Math.round(v.pfTemp) + ' °C');
     cv.text(bits.join('   .   '), cx, TOP + 328, 15, C.dim, { align: 'center', literal: true });
+    // the pressure across the filter (OBD 01 7A, 7B: T33), per bank on a car with two
+    if (has(S, 'dp1') && v.dp1 != null) cv.text('pressure across it ' + Math.round(v.dp1) + ' mbar' + (has(S, 'dp2') && v.dp2 != null ? ', bank 2 ' + Math.round(v.dp2) + ' mbar' : ''), cx, TOP + 300, 15, C.text, { align: 'center', literal: true });
     if (has(S, 'load')) cv.text('the mark: the car regenerates near ' + (S.mark || 80) + ' % (an estimate)', cx, TOP + 356, 14, C.amber, { align: 'center', literal: true });
     // the regeneration
     const mx = X0 + w1 + 14;

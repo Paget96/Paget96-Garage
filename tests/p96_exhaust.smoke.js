@@ -163,8 +163,9 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     assert.strictEqual(flapSent()[flapSent().length - 1], '12 2F 60 FD 00', 'not handed back below 2 500 rpm');
     flapSent().forEach((s) => assert.ok(/^12 2F 60 FD (03 03 E8|03 23 28|00)$/.test(s), 'unexpected request ' + s));
     // nothing but reads and the flap ever went out
-    // (and the engine's facts: OBD 01 51 the fuel type, 01 85 the AdBlue tank, lib/engine.js; reads)
-    sent.forEach((s) => assert.ok(/^12 (22|2F) /.test(s) || /^12 01 (51|85)$/.test(s), 'unexpected request ' + s));
+    // (and the engine's facts: OBD 01 51 the fuel type, 01 85 the AdBlue tank, lib/engine.js; 01 7A, 7B the filter's
+    // pressure, 01 3C, 3D the catalysts' temperatures (T33); reads)
+    sent.forEach((s) => assert.ok(/^12 (22|2F) /.test(s) || /^12 01 (51|85|7A|7B|3C|3D)$/.test(s), 'unexpected request ' + s));
     // the screen left: no more exhaust value reads
     visible('MAIN', false);
     await sleep(1200);

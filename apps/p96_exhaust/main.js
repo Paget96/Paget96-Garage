@@ -214,6 +214,18 @@ mgu.run({
                 const lv = E.parseAdBlue(r);
                 if (lv != null) { put('adblue', lv); found('adblue', true); } else if (r && r[0] === 0x7F) found('adblue', false);
             }
+            // the standard OBD values T33 adds: the pressure across the particulate filter per bank (01 7A, 7B) and the
+            // catalysts' own temperatures (01 3C bank 1, 3D bank 2); each asked until the car says it has none
+            const obd = async (key, pid, parse) => {
+                if (caps()[key] === false) return;
+                const r = await el.physical(0x12, 0x01, [pid], 1500, (x) => (x[0] === 0x41 && x[1] === pid) || (x[0] === 0x7F && x[1] === 0x01)).catch(() => null);
+                const x = parse(r, pid);
+                if (x != null) { put(key, x); found(key, true); } else if (r && (r[0] === 0x7F || r[0] === 0x41)) found(key, false);
+            };
+            if (detector.facts.engine !== false) {
+                await obd('dp1', 0x7A, E.parseFilterDp); await obd('dp2', 0x7B, E.parseFilterDp);
+                await obd('catT1', 0x3C, E.parseCatTemp); await obd('catT2', 0x3D, E.parseCatTemp);
+            }
         }
         let lastLoadAt = 0, lastLoadKm = -1e9, lastAshKm = -1e9;
         function afterRead() {
@@ -357,7 +369,7 @@ mgu.run({
                 S = { demo: false, at: now, live: carSeen || link.available, caps: caps(), v: {
                     rpm: fresh('rpm'), speed: fresh('speed'), gear: fresh('gear', 10000), mode: fresh('mode', 3600000), coolant: fresh('coolant', 60000),
                     outside: fresh('outside', 600000), soot: fresh('soot', 10000), ash: fresh('ash', 120000), load: fresh('load', 10000), pfTemp: fresh('pfTemp', 10000),
-                    egt: fresh('egt', 10000), exVanos: fresh('exVanos', 120000), engLoad: fresh('engLoad', 10000), adblue: fresh('adblue', 120000) },
+                    egt: fresh('egt', 10000), exVanos: fresh('exVanos', 120000), engLoad: fresh('engLoad', 10000), adblue: fresh('adblue', 120000), dp1: fresh('dp1', 120000), dp2: fresh('dp2', 120000), catT1: fresh('catT1', 120000), catT2: fresh('catT2', 120000) },
                     hist: hist, regens: P.regens, regen: regen.now(now), loads: P.loads, loadsKm: P.loadsKm, drives: P.drives, ash: P.ash, kmNow: Math.round(P.km),
                     warm: P.warm, warmWhen: P.warmWhen, warmOutside: P.warmOutside, lightOffs: P.lightOffs, starts: P.starts,
                     flapLog: P.flapLog, flapWeekLog: P.flapLog, setup: P.setup, setupFound: P.setupFound || {} };

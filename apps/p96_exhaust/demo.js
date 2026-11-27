@@ -20,10 +20,11 @@ function values(t, car) {
     const s = t / 1000, w = Math.sin(s / 7), w2 = Math.sin(s / 3.1);
     if (car && car.engine === false) return { speed: 92 + 6 * w, mode: 1, outside: 4 };
     if (car && car.diesel) return { rpm: 2100 + 180 * w, speed: 92 + 6 * w, gear: 6, mode: 1, coolant: 88, outside: 4, soot: 22.4, ash: 31, load: 46,
-        pfTemp: 360 + 10 * w2, egt: 390 + 12 * w, engLoad: 58 + 6 * w2, adblue: 62 };
+        pfTemp: 360 + 10 * w2, egt: 390 + 12 * w, engLoad: 58 + 6 * w2, adblue: 62, dp1: 34 + 3 * w2, catT1: 410 + 10 * w };
     const v8 = car && car.banks === 2;
     return { rpm: 3400 + 260 * w, speed: 92 + 6 * w, gear: 3, mode: 1, coolant: 91, outside: 4, soot: v8 ? 11.8 : 9.1, ash: v8 ? 19 : 14, load: 38,
-        pfTemp: 560 + 12 * w2, egt: (v8 ? 680 : 640) + 14 * w, exVanos: 12.5 + w, engLoad: 72 + 6 * w2 };
+        pfTemp: 560 + 12 * w2, egt: (v8 ? 680 : 640) + 14 * w, exVanos: 12.5 + w, engLoad: 72 + 6 * w2,
+        dp1: 18 + 2 * w2, dp2: v8 ? 19 + 2 * w : undefined, catT1: (v8 ? 700 : 655) + 12 * w, catT2: v8 ? 690 + 12 * w2 : undefined };
 }
 /** The demo car's exhaust on the Setup page: its flaps, no filter where it has none. */
 function setupFor(car) {

@@ -47,6 +47,11 @@ test('fuel type from OBD 01 51: petrol, diesel, electric, hybrids', () => {
 test('AdBlue level from OBD 01 85', () => {
     assert.strictEqual(Math.round(E.parseAdBlue([0x41, 0x85, 0x02, 0, 0, 0, 0, 128])), 50);
     assert.strictEqual(E.parseAdBlue([0x41, 0x85, 0]), null);
+    // T33: the pressure across the filter (01 7A, 0.01 kPa -> mbar, support bit 0) and a catalyst's temperature (01 3C)
+    assert.strictEqual(E.parseFilterDp([0x41, 0x7A, 0x01, 0x00, 0xC8, 0, 0, 0, 0], 0x7A), 20);
+    assert.strictEqual(E.parseFilterDp([0x41, 0x7A, 0x00, 0x00, 0xC8], 0x7A), null);
+    assert.strictEqual(E.parseFilterDp([0x41, 0x7B, 0x01, 0x00, 0xC8], 0x7A), null);
+    assert.strictEqual(E.parseCatTemp([0x41, 0x3C, 0x1B, 0x58], 0x3C), 660);
 });
 test('the detector asks fuel, index and cylinders once, keeps them, and reads nothing else', async () => {
     const asked = [];

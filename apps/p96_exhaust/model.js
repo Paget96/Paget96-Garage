@@ -348,7 +348,7 @@ function loadDays(samples, now, days) {
 /* ---------- what this car has ---------- */
 
 /** What the car can report, found when it first answers and remembered per car. Demo shows everything. */
-const CAPS = ['rpm', 'speed', 'gear', 'mode', 'coolant', 'outside', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2', 'adblue'];
+const CAPS = ['rpm', 'speed', 'gear', 'mode', 'coolant', 'outside', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2', 'adblue', 'dp1', 'dp2', 'catT1', 'catT2'];
 const ALL_CAPS = (function () { const o = {}; CAPS.forEach((k) => { o[k] = true; }); return o; })();
 const has = (caps, k) => !!(caps && caps[k] === true);
 /** Notes a reply: sets caps[k], says whether it changed. A true is never taken back by a miss. */
@@ -384,8 +384,9 @@ function pagesFor(caps, p) {
 function capsForCar(p) {
     const o = {};
     CAPS.forEach((k) => { o[k] = true; });
-    if (!p || p.engine === false) { ['rpm', 'gear', 'coolant', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2'].forEach((k) => { o[k] = false; }); return o; }
-    if (!p.filter) ['soot', 'ash', 'load', 'pfTemp'].forEach((k) => { o[k] = false; });
+    if (!p || p.engine === false) { ['rpm', 'gear', 'coolant', 'soot', 'ash', 'load', 'pfTemp', 'egt', 'exVanos', 'engLoad', 'catO2', 'flap', 'flap2', 'dp1', 'dp2', 'catT1', 'catT2'].forEach((k) => { o[k] = false; }); return o; }
+    if (!p.filter) ['soot', 'ash', 'load', 'pfTemp', 'dp1', 'dp2'].forEach((k) => { o[k] = false; });
+    if (p.banks !== 2) ['dp2', 'catT2'].forEach((k) => { o[k] = false; });      // the second bank's values: a V8's
     if (p.diesel) ['exVanos', 'catO2'].forEach((k) => { o[k] = false; });
     o.flap = p.flaps > 0; o.flap2 = p.flaps > 1;
     o.adblue = !!p.scr;
