@@ -136,7 +136,7 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
         await tap('p96tab0');          // Home: the flap's buttons (owner 2026-11-27 22:20)
         const fc = await frame();
         const order = UIx.pressOrder(fc.targets.slice());
-        ['mode|AUTO', 'mode|OPEN', 'mode|CLOSED', 'mode|OEM'].forEach((k) => {
+        ['mode|AUTO', 'mode|OPEN', 'mode|CLOSED'].forEach((k) => {
             const t = fc.targets.filter((q) => q.key === k)[0];
             assert.ok(t, 'no ' + k + ' (' + fc.targets.map((q) => q.key).join(',') + ')');
             const x = t.x + t.w / 2, y = t.y + t.h / 2;

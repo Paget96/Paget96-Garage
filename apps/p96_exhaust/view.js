@@ -158,19 +158,18 @@ function home(cv, S, V, A, t) {
         const d = f.decided && f.decided[f.sides[0]], vw = f.views[f.sides[0]];
         const why = f.mode === 'AUTO' ? (d && d.rule ? 'by rule: ' + d.rule.name : (d && d.reason) || 'automatic') : 'set by hand';
         cv.text(fit(cv, why + (vw && vw.simulated ? ', simulated' : ''), 20, lw - 48), X0 + 24, TOP + 138, 20, C.dim, { literal: true });
-        // two flaps: which one the buttons set
-        if (two) UI.segmented(cv, X0 + lw - 24, TOP + 82, [['both', 'Both'], ['left', 'Left'], ['right', 'Right']], V.side || 'both', A.flapSide, 'flapside');
-        // the four buttons, two by two, as big as the card allows
-        const gap = 14, bw = Math.floor((lw - 48 - gap) / 2), bh = Math.min(76, Math.floor((H - 170 - gap - 20) / 2)), by = TOP + H - 20 - 2 * bh - gap;
-        [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']].forEach((m, i) => {
-            const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
-            choice(cv, X0 + 24 + (i % 2) * (bw + gap), by + Math.floor(i / 2) * (bh + gap), bw, bh, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0], 26);
+        // three big buttons in one row, for every flap the car has (owner 2026-11-27 22:37: too many buttons; one side
+        // choice is never wanted, all flaps open together). CAR is gone: AUTO with no rule holding is the car's own way
+        const gap = 14, bw = Math.floor((lw - 48 - 2 * gap) / 3), bh = Math.min(110, H - 200), by = TOP + H - 24 - bh;
+        const lit = f.mode === 'OEM' ? 'AUTO' : f.mode;
+        [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE']].forEach((m, i) => {
+            choice(cv, X0 + 24 + i * (bw + gap), by, bw, bh, m[1], lit === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0], 30);
         });
     }
     // the numbers: exhaust temperature, the filter's load, the engine
     const x = has(S, 'flap') ? X0 + lw + 14 : X0, w = X1 - x, h = S.hist || {};
     const tiles = [];
-    if (has(S, 'egt')) tiles.push({ label: 'Exhaust temperature', value: v.egt, decimals: 0, unit: '°C', color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') });
+    if (has(S, 'egt')) tiles.push({ label: 'Exhaust temperature', value: v.egt, decimals: 0, unit: '°C', color: 'warm', info: info('egt') });
     if (has(S, 'load')) tiles.push({ label: fname() + ' load', value: v.load, decimals: 0, unit: '%', color: v.load != null && v.load >= 80 ? 'warm' : 'ok', info: info('opfLoad') });
     else if (has(S, 'soot')) tiles.push({ label: fname() + ' soot', value: v.soot, decimals: 1, unit: 'g', color: 'ok', info: info('opfLoad') });
     if (has(S, 'rpm')) tiles.push({ label: 'Engine', value: v.rpm, decimals: 0, unit: 'rpm', smooth: true, color: '#ecf0f5', info: info('engine') });

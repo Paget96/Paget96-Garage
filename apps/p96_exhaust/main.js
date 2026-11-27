@@ -540,7 +540,7 @@ mgu.run({
             if (act === 'none' || !M.has(S0.caps, 'flap')) return;
             const mo = modes(), ctl = useDemo() ? demoControl : control, cur = mo.both || mo[ctl.sides()[0]] || 'AUTO';
             const m = act === 'open' ? 'OPEN' : act === 'close' ? 'CLOSED' : cur === 'OPEN' ? 'AUTO' : 'OPEN';
-            V.page = M.HOME; V.mode = 'main'; V.side = 'both';
+            V.page = M.HOME; V.mode = 'main';
             log.info('opened: the flap set to ' + m + ' (' + act + ')');
             A.flapMode(m);
         }
