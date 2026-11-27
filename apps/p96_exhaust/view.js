@@ -213,9 +213,7 @@ function flapPage(cv, S, V, A, t) {
     const modes = [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']];
     const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
     modes.forEach((m, i) => choice(cv, X0 + 20 + i * 130, bTop, 120, 44, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0]));
-    // the foot line, where the buttons leave room (two flaps: the side row takes it; the badge and the line above say it)
-    if (!two) cv.text(v.simulated ? 'Simulated: nothing is sent to the car. Arm it in Settings.' : 'AUTO: the rules on the right decide. CAR: the car decides.',
-        X0 + 20, TOP + UI.hh() - 14, 14, v.simulated ? C.amber : C.dim, { literal: true });
+    // no foot line: the buttons take the room, and the SIMULATED badge and the line above already say it
     rulesCard(cv, S, V, A, X0 + lw + 14, X1 - X0 - lw - 14);
 }
 

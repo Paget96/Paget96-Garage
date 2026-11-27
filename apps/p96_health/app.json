@@ -3,7 +3,7 @@
   "title": "Health",
   "name": "Health",
   "description": "Paget96 Garage: one look at the whole car. Faults by unit with their history, the emission readiness and a clear, the 12 V battery, the car's service items with reset, tyres, fluids, a score from 0 to 100 and a report to share as a QR code",
-  "version": "1.2.14",
+  "version": "1.2.16",
   "vendor": "Paget96",
   "author": "Danijel Markov (Paget96)",
   "loggingId": "OB48",

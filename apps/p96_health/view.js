@@ -173,10 +173,10 @@ function faults(cv, S, V, A, t) {
     if (V.detail) return faultDetail(cv, S, V, A, t, rx, rw);
     memTabs(cv, rx + 20, TOP + 34, S, V, A);
     if (V.mem === 'ready') return readinessView(cv, S, V, A, t, rx, rw);
-    let bx = X1 - 56;              // clear of the card's (i)
+    let bx = X1 - (S.demo ? 104 : 56);   // clear of the card's (i), and of its DEMO beside it
     const clearW = UI.dialogButton(cv, bx, TOP + 10, 'Clear faults...', 'bad');
     if (cv.target) cv.target(bx - clearW, TOP + 10, clearW, 48, A.askClear, 'clear', 24);
-    bx -= clearW + 12;
+    bx -= clearW + 8;
     const saveW = UI.dialogButton(cv, bx, TOP + 10, 'Save report', null);
     if (cv.target) cv.target(bx - saveW, TOP + 10, saveW, 48, A.save, 'save', 24);
     let list = M.listOf(S.units, V.mem);
