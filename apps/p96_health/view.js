@@ -587,9 +587,9 @@ function fluids(cv, S, V, A, t) {
 const CYL_VIEWS = [['misfire', 'Misfires'], ['rough', 'Rough running'], ['ignition', 'Ignition']];
 const CYL_FMT = {
     // every value says what it is measured in (owner, 2026-11-27 00:02 and 00:04): the unit is in the title too
-    misfire: { label: 'Misfires per cylinder (count)', lo: 0, hi: 40, unit: 'misfires', unitLong: 'count since cleared', decimals: 0, info: 'misfire' },
-    rough: { label: 'Rough running per cylinder (rad/s²)', lo: -6, hi: 6, mid: 0, unit: 'rad/s²', unitLong: 'rad/s², 0 is even', decimals: 1, info: 'rough' },
-    ignition: { label: 'Ignition angle per cylinder (° before top dead centre)', lo: -10, hi: 40, mid: 0, unit: '° BTDC', unitLong: '° before top dead centre', decimals: 1, info: 'ignition' },
+    misfire: { label: 'Misfires per cylinder (count)', lo: 0, hi: 40, unit: 'misfires', unitLong: 'count since cleared', means: 'times it did not fire, since cleared', decimals: 0, info: 'misfire' },
+    rough: { label: 'Rough running per cylinder (rad/s²)', lo: -6, hi: 6, mid: 0, unit: 'rad/s²', unitLong: 'rad/s², 0 is even', means: 'how unevenly it turns the crank, 0 is even', decimals: 1, info: 'rough' },
+    ignition: { label: 'Ignition angle per cylinder (° before top dead centre)', lo: -10, hi: 40, mid: 0, unit: '° BTDC', unitLong: '° before top dead centre', means: 'when the spark comes, ° before the top', short: '°', decimals: 1, info: 'ignition' },
 };
 function engine(cv, S, V, A, t) {
     const cp = S.caps, p = S.engine || E.profile({}), ev = S.eng || {}, cyl = ev.cyl || {};
@@ -603,34 +603,65 @@ function engine(cv, S, V, A, t) {
     const hasRight = right.length || railOnly;
     const lw = views.length ? (hasRight ? 1000 : X1 - X0) : 0, rx = X0 + (lw ? lw + 14 : 0), rw = X1 - rx;
     if (views.length) {
-        // the three per-cylinder views on one card, one band each (owner, 2026-11-27 00:05: "sva tri na jednom ekranu"):
-        // a column per cylinder with its number and a bar, so 4, 6, 8 or 12 cylinders all fit (a V engine: a gap between
-        // the banks); each band names what it shows and its unit, its own info button
+        // the cylinders drawn as the engine has them (owner, 2026-11-27 02:48: more pictorial, with an explanation):
+        // a row of bores, each in the colour of its worst value, then one line in plain words of what stands out, then
+        // a band per value, its bars measured from the others so the odd one is the one that sticks out
         UI.card(cv, X0, TOP, lw, UI.hh(), 'Per cylinder', { info: info(CYL_FMT[views[0][0]].info) });
         const banks = E.cylinderBanks(p), nums = [].concat.apply([], banks.map((b) => b.cylinders));
         const n = Math.max(1, nums.length), gapB = banks.length > 1 ? 30 : 0, x0 = X0 + 250, x1 = X0 + lw - 24;
-        const cw = (x1 - x0 - gapB) / n, top = TOP + 52, bh = (UI.hh() - 52 - 34) / views.length;
-        views.forEach((vw, k) => {
-            const kind = vw[0], f = CYL_FMT[kind], vals = cyl[kind] || {}, y = top + k * bh;
-            if (k) cv.fillRect(X0 + 20, Math.round(y), lw - 40, 1, [255, 255, 255, 24]);
-            cv.text(vw[1], X0 + 24, y + bh / 2 - 4, 19, C.text, { font: 'bold', literal: true });
-            cv.text(f.unitLong, X0 + 24, y + bh / 2 + 20, 14, C.dim, { literal: true });
-            if (cv.target) cv.target(X0 + 12, y + 6, 220, bh - 12, () => A.cyl(kind), 'cylband|' + kind, 14);
-            nums.forEach((c, i) => {
-                const cx = x0 + i * cw + (banks.length > 1 && i >= banks[0].cylinders.length ? gapB : 0) + cw / 2;
-                const v = vals[c], st = M.cylStatus(kind, v, vals), col = st === 'bad' ? C.red : st === 'warm' ? C.amber : st === 'ok' ? C.green : C.dim;
-                cv.text(v == null ? '--' : v.toFixed(f.decimals), cx, y + bh / 2 - 6, n > 8 ? 17 : 21, v == null ? C.dim : C.text, { font: 'num', align: 'center', literal: true });
-                const tw = Math.min(70, cw - 14), ty = y + bh / 2 + 8, lo = f.lo, hi = f.hi, z = f.mid != null ? f.mid : lo;
-                cv.roundRect(cx - tw / 2, ty, tw, 8, 4, '#30343b');
-                if (v != null) {
-                    const at = (q) => cx - tw / 2 + tw * Math.max(0, Math.min(1, (q - lo) / (hi - lo)));
-                    const a0 = Math.min(at(z), at(v)), a1 = Math.max(at(z), at(v));
-                    cv.roundRect(a0, ty, Math.max(8, a1 - a0), 8, 4, col);
-                }
-                if (k === views.length - 1) cv.text(String(c), cx, y + bh - 6, 14, C.dim, { align: 'center', literal: true });
+        const cw = (x1 - x0 - gapB) / n, cxOf = (i) => x0 + i * cw + (banks.length > 1 && i >= banks[0].cylinders.length ? gapB : 0) + cw / 2;
+        const rank = { dim: 0, ok: 1, warm: 2, bad: 3 }, worst = {}, why = {};
+        views.forEach((vw) => {
+            const kind = vw[0], vals = cyl[kind] || {};
+            nums.forEach((c) => {
+                const st = M.cylStatus(kind, vals[c], vals);
+                if ((rank[st] || 0) > (rank[worst[c]] || 0)) worst[c] = st;
+                if (st === 'warm' || st === 'bad') (why[c] = why[c] || []).push(kind === 'misfire' ? vals[c] + (vals[c] === 1 ? ' misfire' : ' misfires') : kind === 'rough' ? 'runs rougher' : 'later spark than the others');
             });
         });
-        cv.text(banks.length > 1 ? 'cylinder numbers under the last row, bank 1 then bank 2' : 'cylinder numbers under the last row', X0 + 24, TOP + UI.hh() - 14, 14, C.dim, { literal: true });
+        // the engine: its bores in a block, numbered, a piston in each at the height of a turning crank
+        const by = TOP + 50, bh = 58, bw = Math.min(70, cw - 14);
+        cv.text(banks.length > 1 ? 'The engine, bank 1 and bank 2' : 'The engine', X0 + 24, by + 26, 19, C.text, { font: 'bold', literal: true });
+        cv.text('each cylinder in the colour of its worst value', X0 + 24, by + 48, 14, C.dim, { literal: true });
+        nums.forEach((c, i) => {
+            const cx = cxOf(i), st = worst[c] || 'dim', col = st === 'bad' ? C.red : st === 'warm' ? C.amber : st === 'ok' ? C.green : C.dim;
+            const fill = st === 'bad' ? [255, 70, 60, 60] : st === 'warm' ? [255, 176, 0, 55] : st === 'ok' ? [70, 210, 130, 40] : [60, 64, 72, 60];
+            cv.roundRect(cx - bw / 2, by, bw, bh, 10, fill);
+            cv.strokeRoundRect(cx - bw / 2, by, bw, bh, 10, 2, col);
+            const ph = 14 + 10 * (0.5 + 0.5 * Math.sin(t * 6 + i * Math.PI * 2 / n * (n > 4 ? 2 : 1)));
+            cv.roundRect(cx - bw / 2 + 6, by + bh - 6 - ph, bw - 12, 10, 4, [200, 206, 214, 150]);
+            cv.text(String(c), cx, by + 26, 20, C.text, { font: 'bold', align: 'center', literal: true });
+        });
+        // what stands out, in words
+        const odd = nums.filter((c) => why[c]);
+        const say = !Object.keys(worst).some((c) => worst[c] !== 'dim') ? 'Not read yet: the values come once the engine runs.'
+            : !odd.length ? 'All cylinders in step: none fires, turns or sparks differently from the others.'
+            : odd.slice(0, 3).map((c) => 'Cylinder ' + c + ': ' + why[c].join(', ')).join('.   ') + '.';
+        cv.text(say, X0 + 24, by + bh + 30, 16, odd.length ? C.amber : C.green, { literal: true });
+        const top = by + bh + 46, band = (TOP + UI.hh() - 10 - top) / views.length;
+        views.forEach((vw, k) => {
+            const kind = vw[0], f = CYL_FMT[kind], vals = cyl[kind] || {}, y = top + k * band;
+            cv.fillRect(X0 + 20, Math.round(y), lw - 40, 1, [255, 255, 255, 24]);
+            cv.text(vw[1], X0 + 24, y + band / 2 - 2, 18, C.text, { font: 'bold', literal: true });
+            cv.text(f.means, X0 + 24, y + band / 2 + 18, 13, C.dim, { literal: true });
+            if (cv.target) cv.target(X0 + 12, y + 4, 220, band - 8, () => A.cyl(kind), 'cylband|' + kind, 14);
+            const all = nums.map((c) => vals[c]).filter((v) => typeof v === 'number');
+            nums.forEach((c, i) => {
+                const cx = cxOf(i), v = vals[c], st = M.cylStatus(kind, v, vals), col = st === 'bad' ? C.red : st === 'warm' ? C.amber : st === 'ok' ? C.green : C.dim;
+                cv.text(v == null ? '--' : v.toFixed(f.decimals) + (f.short || ''), cx, y + band / 2 - 2, n > 8 ? 15 : 18, v == null ? C.dim : C.text, { font: 'num', align: 'center', literal: true });
+                // the bar: misfires from 0; rough running from even (0); the ignition angle from the others' middle
+                const tw = Math.min(120, cw - 24), ty = y + band / 2 + 8;
+                const others = all.filter((x, j) => j !== nums.indexOf(c)).sort((a, b) => a - b), mid = others.length ? others[Math.floor(others.length / 2)] : v;
+                const lo = kind === 'ignition' ? -8 : f.lo, hi = kind === 'ignition' ? 8 : f.hi, val = kind === 'ignition' && v != null ? v - mid : v;
+                cv.roundRect(cx - tw / 2, ty, tw, 8, 4, '#30343b');
+                if (lo < 0) cv.fillRect(Math.round(cx) - 1, ty - 3, 2, 14, [255, 255, 255, 60]);
+                if (val != null) {
+                    const at = (q) => cx - tw / 2 + tw * Math.max(0, Math.min(1, (q - lo) / (hi - lo))), z = lo < 0 ? 0 : lo;
+                    const a0 = Math.min(at(z), at(val)), a1 = Math.max(at(z), at(val));
+                    cv.roundRect(a0, ty, Math.max(8, a1 - a0), 8, 4, col);
+                }
+            });
+        });
         void V;
     }
     if (railOnly) {
