@@ -220,7 +220,8 @@ function flapPage(cv, S, V, A, t) {
 
 function rulesCard(cv, S, V, A, x, w) {
     UI.card(cv, x, TOP, w, UI.hh(), 'Automation (top rule wins)', { info: info('rules') });
-    const list = S.rules || [], per = 6, first = Math.max(0, Math.min(V.ruleFirst || 0, list.length - per));
+    // as many rows as fit above the Add button (the page is shorter without the car's extra room)
+    const list = S.rules || [], per = Math.max(2, Math.min(6, Math.floor((UI.hh() - 104) / 50))), first = Math.max(0, Math.min(V.ruleFirst || 0, list.length - per));
     const active = S.active || {};
     list.slice(first, first + per).forEach((r, k) => {
         const i = first + k, yy = TOP + 46 + k * 50, lit = S.flap.mode === 'AUTO' && Object.keys(active).some((s) => active[s] === r.id);
@@ -237,10 +238,11 @@ function rulesCard(cv, S, V, A, x, w) {
     if (!list.length) cv.text('No rules yet: add one, the top one wins.', x + 20, TOP + 90, 17, C.dim, { literal: true });
     if (list.length > per) {
         const ax = x + w - 300;
-        cv.text((first + 1) + '-' + Math.min(list.length, first + per) + ' of ' + list.length, ax - 24, TOP + 376, 14, C.dim, { align: 'right', literal: true });
-        chev(cv, ax, TOP + 362, 14, 'up', first > 0 ? C.accent : '#464a52');
-        chev(cv, ax + 26, TOP + 362, 14, 'down', first + per < list.length ? C.accent : '#464a52');
-        if (cv.target) { cv.target(ax - 14, TOP + 346, 28, 32, () => A.ruleScroll(-1), 'rup', 12); cv.target(ax + 12, TOP + 346, 28, 32, () => A.ruleScroll(1), 'rdown', 12); }
+        cv.text((first + 1) + '-' + Math.min(list.length, first + per) + ' of ' + list.length, ax - 24, TOP + UI.hh() - 30, 14, C.dim, { align: 'right', literal: true });
+        const py = TOP + UI.hh() - 44;
+        chev(cv, ax, py, 14, 'up', first > 0 ? C.accent : '#464a52');
+        chev(cv, ax + 26, py, 14, 'down', first + per < list.length ? C.accent : '#464a52');
+        if (cv.target) { cv.target(ax - 14, py - 16, 28, 32, () => A.ruleScroll(-1), 'rup', 12); cv.target(ax + 12, py - 16, 28, 32, () => A.ruleScroll(1), 'rdown', 12); }
     }
     const ay = TOP + UI.hh() - 48, aw = UI.pw(220);
     cv.strokeRoundRect(x + 20, ay, aw, 36, 18, 2, C.accent);
