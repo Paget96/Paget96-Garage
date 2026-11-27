@@ -24,6 +24,8 @@ const F = require('./flap');
 const T = require('./texts');
 const ART = require('./art');
 const E = need('./garage_engine', '../../lib/engine');
+// big enough to read from the seat (owner 2026-11-27 22:20): this app lays out on 1067 px, drawn 1.5 times bigger
+UI.setZoom(1.5);
 const C = UI.C, TOP = UI.CONTENT_TOP, X0 = UI.MARGIN, X1 = UI.W - UI.MARGIN;
 const TEXT2 = '#c8ced6';
 
@@ -133,89 +135,54 @@ function now(cv, S, V, A, t) {
     else if (has(S, 'soot')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: fname() + ' soot', value: v.soot, decimals: 1, unit: 'g', sub: 'in the particulate filter', color: 'ok', info: info('opfLoad') }));
     if (has(S, 'adblue')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'AdBlue tank', value: v.adblue, decimals: 0, unit: '%',
         sub: v.adblue == null ? 'reading' : v.adblue < 15 ? 'low: top up soon' : 'for the SCR catalyst', color: v.adblue != null && v.adblue < 15 ? 'warm' : 'info', info: info('adblue') }));
-    if (has(S, 'flap')) cards.push((x, w) => {
-        UI.card(cv, x, y, w, ch, has(S, 'flap2') ? 'Flaps' : 'Flap', { info: info('flapCard') });
-        const word = fs === 'OEM' ? 'CAR' : fs === 'CLOSED' ? 'CLOSED' : 'OPEN';
-        cv.text(word, x + 20, y + 80, 48, fs === 'OPEN' ? C.green : fs === 'CLOSED' ? C.amber : C.text, { font: 'bold', literal: true });
-        const d = S.flap.decided && S.flap.decided[S.flap.sides[0]];
-        const vw = S.flap.views[S.flap.sides[0]];
-        cv.text(fit(cv, (d ? d.reason : '') + ', ' + F.stateWords(vw).replace(/^simulated: .*/, 'simulated'), 16, w - 40), x + 20, y + ch - 13, 16, fs === 'OPEN' ? C.green : C.dim, { literal: true });
-    });
+    // the flap has its own card on Home
     if (has(S, 'rpm')) cards.push((x, w) => UI.stat(cv, x, y, w, ch, { label: 'Engine', value: v.rpm, decimals: 0, unit: 'rpm', smooth: true,
         sub: has(S, 'engLoad') && v.engLoad != null ? 'load ' + Math.round(v.engLoad) + ' %' : (v.gear ? 'gear ' + v.gear : ''), color: '#ecf0f5', history: h.rpm, minSpan: 200, seq: h.seq, every: 1000, info: info('engine') }));
     row(cv, y, cards);
 }
 
+/* ---------- Home: the page the app opens on ---------- */
+/**
+ * The flap, big, with its four buttons in reach (owner 2026-11-27 22:20: people want to open the flap the moment they
+ * open the app), and the three numbers that matter on the right. Without a flap the exhaust path takes its place.
+ */
+function home(cv, S, V, A, t) {
+    const v = S.v || {};
+    if (S.engine && S.engine.engine === false) return noExhaust(cv, S, t);
+    const H = UI.hh(), lw = has(S, 'flap') ? Math.round((X1 - X0) * 0.58) : 0;
+    if (has(S, 'flap')) {
+        const f = S.flap || {}, fs = flapShown(S), two = has(S, 'flap2');
+        UI.card(cv, X0, TOP, lw, H, two ? 'Flaps' : 'Exhaust flap', { info: info('flapCard') });
+        const word = fs === 'OEM' ? 'CAR DECIDES' : fs === 'CLOSED' ? 'CLOSED' : 'OPEN';
+        cv.text(word, X0 + 24, TOP + 102, 56, fs === 'OPEN' ? C.green : fs === 'CLOSED' ? C.amber : C.text, { font: 'bold', literal: true });
+        const d = f.decided && f.decided[f.sides[0]], vw = f.views[f.sides[0]];
+        const why = f.mode === 'AUTO' ? (d && d.rule ? 'by rule: ' + d.rule.name : (d && d.reason) || 'automatic') : 'set by hand';
+        cv.text(fit(cv, why + (vw && vw.simulated ? ', simulated' : ''), 20, lw - 48), X0 + 24, TOP + 138, 20, C.dim, { literal: true });
+        // two flaps: which one the buttons set
+        if (two) UI.segmented(cv, X0 + lw - 24, TOP + 82, [['both', 'Both'], ['left', 'Left'], ['right', 'Right']], V.side || 'both', A.flapSide, 'flapside');
+        // the four buttons, two by two, as big as the card allows
+        const gap = 14, bw = Math.floor((lw - 48 - gap) / 2), bh = Math.min(76, Math.floor((H - 170 - gap - 20) / 2)), by = TOP + H - 20 - 2 * bh - gap;
+        [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']].forEach((m, i) => {
+            const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
+            choice(cv, X0 + 24 + (i % 2) * (bw + gap), by + Math.floor(i / 2) * (bh + gap), bw, bh, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0], 26);
+        });
+    }
+    // the numbers: exhaust temperature, the filter's load, the engine
+    const x = has(S, 'flap') ? X0 + lw + 14 : X0, w = X1 - x, h = S.hist || {};
+    const tiles = [];
+    if (has(S, 'egt')) tiles.push({ label: 'Exhaust temperature', value: v.egt, decimals: 0, unit: '°C', color: 'warm', history: h.egt, minSpan: 20, seq: h.seq, every: 1000, info: info('egt') });
+    if (has(S, 'load')) tiles.push({ label: fname() + ' load', value: v.load, decimals: 0, unit: '%', color: v.load != null && v.load >= 80 ? 'warm' : 'ok', info: info('opfLoad') });
+    else if (has(S, 'soot')) tiles.push({ label: fname() + ' soot', value: v.soot, decimals: 1, unit: 'g', color: 'ok', info: info('opfLoad') });
+    if (has(S, 'rpm')) tiles.push({ label: 'Engine', value: v.rpm, decimals: 0, unit: 'rpm', smooth: true, color: '#ecf0f5', info: info('engine') });
+    if (!has(S, 'flap')) return now(cv, S, V, A, t);
+    const n = Math.max(1, tiles.length), th = Math.floor((H - 14 * (n - 1)) / n);
+    tiles.forEach((g, i) => UI.stat(cv, x, TOP + i * (th + 14), w, th, g));
+}
+
 /* ---------- Flap ---------- */
 function flapPage(cv, S, V, A, t) {
-    const f = S.flap, lw = UI.pw(560), side = f.sides.indexOf(V.side) >= 0 ? V.side : f.sides[0];
-    const v = f.views[side], d = f.decided[side] || {};
-    UI.card(cv, X0, TOP, lw, UI.hh(), 'Exhaust flap', { info: info('flap') });
-    if (v.simulated) pillRight(cv, X0 + lw - 150, TOP + 12, 'SIMULATED', 'warm', false);
-    const shown = v.confirmed !== 'UNKNOWN' ? v.confirmed : v.requested;
-    const word = shown === 'OPEN' ? 'OPEN' : shown === 'CLOSED' ? 'CLOSED' : 'THE CAR';
-    const cx = X0 + lw / 2;
-    cv.text(word, cx, TOP + 76, 34, shown === 'OPEN' ? C.green : shown === 'CLOSED' ? C.amber : C.text, { font: 'bold', align: 'center', literal: true });
-    // the rear silencer from behind and its two tail pipes (owner, 2026-11-26 22:21: the old drawing looked like a robot
-    // with antennas): a butterfly flap sits in the right pipe (both with two flaps), seen end on, so a shut flap fills
-    // the pipe and an open one is a thin edge
-    const cy = TOP + 182, two = f.sides.length > 1;
-    const ang = (s) => { const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested; return UI.glide('ex|flap|' + s, sh === 'OPEN' ? 0 : sh === 'CLOSED' ? 90 : 45, null, 10); };
-    // the car's rear, a G20 seen from behind (owner, 2026-11-26 23:45: "malko lepsa"): ground shadow, tyres under the
-    // arches, the body with a lighter top, the trunk lid and its lip, thin L-shaped lights with a glow, the plate in its
-    // recess, the diffuser with fins and the two tips in it
-    cv.roundRect(cx - 250, cy + 48, 500, 16, 8, [0, 0, 0, 110]);
-    [-1, 1].forEach((k) => cv.roundRect(cx + k * 196 - 26, cy + 20, 52, 40, 10, '#0c0d10'));
-    cv.roundRect(cx - 240, cy - 64, 480, 118, 40, '#2a2e35');
-    cv.roundRect(cx - 236, cy - 60, 472, 40, 30, '#343942');
-    cv.strokeRoundRect(cx - 240, cy - 64, 480, 118, 40, 2.5, '#8a929c');
-    cv.fill([[cx - 168, cy - 86], [cx + 168, cy - 86], [cx + 196, cy - 62], [cx - 196, cy - 62]], '#30353d');
-    cv.line(cx - 166, cy - 86, cx + 166, cy - 86, 3, '#9aa2ac');
-    [-1, 1].forEach((k) => {
-        const o = cx + k * 232, i = cx + k * 140;
-        cv.line(o, cy - 50, i, cy - 50, 12, [255, 40, 30, 50]);
-        cv.line(o, cy - 50, i, cy - 50, 5, '#ff3b2f');
-        cv.line(o, cy - 50, o - k * 6, cy - 24, 5, '#ff3b2f');
-        cv.line(i, cy - 50, i - k * 22, cy - 50, 3, '#ffb3a8');
-    });
-    cv.roundRect(cx - 70, cy - 42, 140, 38, 8, '#1f2228');
-    cv.roundRect(cx - 60, cy - 36, 120, 26, 4, '#d7dde4');
-    cv.roundRect(cx - 60, cy - 36, 14, 26, 3, '#2a5bd7');
-    cv.fill([[cx - 214, cy + 12], [cx + 214, cy + 12], [cx + 192, cy + 52], [cx - 192, cy + 52]], '#111318');
-    for (let q = -2; q <= 2; q++) cv.line(cx + q * 26, cy + 16, cx + q * 30, cy + 50, 3, '#1d2026');
-    [-1, 1].forEach((k) => {
-        const tx = cx + k * 150, ty = cy + 32, s = two ? (k < 0 ? 'left' : 'right') : 'both', hasFlap = two || k > 0;
-        cv.circle(tx, ty, 32, '#0a0b0d');
-        cv.arc(tx, ty, 22, 30, 0, 360, '#9aa2ac');
-        cv.arc(tx, ty, 25, 29, 200, 340, '#eef2f6', { round: true });
-        cv.circle(tx, ty, 22, '#050607');
-        if (!hasFlap) return;
-        const vv = f.views[s], sh = vv.confirmed !== 'UNKNOWN' ? vv.confirmed : vv.requested, a = ang(s) * Math.PI / 180;
-        const col = sh === 'OPEN' ? C.green : sh === 'CLOSED' ? C.amber : '#9aa1ad', ry = Math.max(2, 20 * Math.sin(a));
-        const disc = [];
-        for (let q = 0; q < 28; q++) { const th = q / 28 * Math.PI * 2; disc.push([tx + Math.cos(th) * 20, ty + Math.sin(th) * ry]); }
-        cv.fill(disc, col);
-        cv.line(tx - 25, ty, tx + 25, ty, 2.5, '#5c636f');
-        // gas leaving an open pipe
-        if (sh === 'OPEN') for (let q = 0; q < 3; q++) {
-            const p = (t * 1.2 + q / 3) % 1, al = Math.round(180 * (1 - p));
-            cv.arc(tx, ty + 6 + p * 30, 18 + p * 14, 21 + p * 14, 120, 240, [70, 210, 130, al], { round: true });
-        }
-    });
-    const by = f.mode === 'AUTO' ? (d.rule ? 'by rule: ' + d.rule.name : d.reason || '') : d.reason || '';
-    cv.text(fit(cv, by + '   .   ' + F.stateWords(v), 15, lw - 40), cx, TOP + 296, 15, v.error ? C.red : C.dim, { align: 'center', literal: true });
-    // with two flaps: which one the buttons set
-    let bTop = TOP + 334;
-    if (two) {
-        UI.segmented(cv, cx + 150, TOP + 322, [['both', 'Both'], ['left', 'Left'], ['right', 'Right']], V.side || 'both', A.flapSide, 'flapside');
-        bTop = TOP + 358;
-    }
-    const modes = [['AUTO', 'AUTO'], ['OPEN', 'OPEN'], ['CLOSED', 'CLOSE'], ['OEM', 'CAR']];
-    const mode = two && V.side && V.side !== 'both' ? (f.sideMode && f.sideMode[V.side]) || f.mode : f.mode;
-    const bw = Math.floor((lw - 40 - 3 * 10) / 4);   // four buttons across the card's width
-    modes.forEach((m, i) => choice(cv, X0 + 20 + i * (bw + 10), bTop, bw, 44, m[1], mode === m[0], C.accent, () => A.flapMode(m[0]), 'mode|' + m[0]));
-    // no foot line: the buttons take the room, and the SIMULATED badge and the line above already say it
-    rulesCard(cv, S, V, A, X0 + lw + 14, X1 - X0 - lw - 14);
+    // the flap itself and its buttons are on Home now (owner 2026-11-27 22:20); this page is the rules, the whole width
+    rulesCard(cv, S, V, A, X0, X1 - X0);
 }
 
 function rulesCard(cv, S, V, A, x, w) {
@@ -321,8 +288,10 @@ function flapLog(cv, S, V, A, t) {
     const top = wk.rules.slice(0, 4), max = top.length ? top[0].ms : 1;
     top.forEach((r, i) => {
         const yy = TOP + 298 + i * 24;
-        cv.text(fit(cv, r.name, 15, 190), bx, yy, 15, C.text, { literal: true });
-        UI.bar(cv, bx + 202, yy - 9, 280, 8, r.ms / max * 0.6, C.orange, 'wkr|' + i);
+        // name, bar, time: the bar takes what the name and the time leave
+        const nw = Math.round(bw * 0.38), tw = 90;
+        cv.text(fit(cv, r.name, 15, nw - 10), bx, yy, 15, C.text, { literal: true });
+        UI.bar(cv, bx + nw, yy - 9, bw - nw - tw, 8, r.ms / max * 0.9, C.orange, 'wkr|' + i);
         cv.text(M.hm(r.ms), bx + bw, yy, 15, C.dim, { align: 'right', literal: true });
     });
     if (!top.length) cv.text('No rule held the flap this week.', bx, TOP + 300, 15, C.dim, { literal: true });
@@ -342,7 +311,8 @@ function flapLog(cv, S, V, A, t) {
 
 /* ---------- OPF ---------- */
 function opf(cv, S, V, A, t) {
-    const v = S.v || {}, w1 = 430, w2 = 520;
+    // on a narrow (big) page the last regenerations stay on History: two cards share the width
+    const v = S.v || {}, third = UI.W >= 1300, w1 = third ? 430 : Math.round((X1 - X0 - 14) * 0.42), w2 = third ? 520 : X1 - X0 - 14 - w1;
     UI.card(cv, X0, TOP, w1, UI.hh(), ENG && ENG.filter === 'dpf' ? 'Diesel particulate filter' : 'Particulate filter', { info: info('opf') });
     const cx = X0 + w1 / 2;
     if (has(S, 'load')) {
@@ -388,6 +358,7 @@ function opf(cv, S, V, A, t) {
         cv.text(fit(cv, p[1], 18, bw, 'bold'), bx, yy + 24, 18, C.text, { font: 'bold', literal: true });
     });
     // the last five
+    if (!third) return;
     const tx = mx + w2 + 14, tw = X1 - tx;
     UI.card(cv, tx, TOP, tw, UI.hh(), 'Last 5 regenerations', { info: info('regens') });
     const cols = [tx + 20, tx + 252, tx + 362, tx + 450];
@@ -490,9 +461,9 @@ function soundPage(cv, S, V, A, t) {
         ART.wave(cv, p.x, TOP + 104, 100, l, t);
         cv.text(Math.round(l * 100) + ' %', p.x, TOP + 56, 15, C.text, { font: 'bold', align: 'center', literal: true });
     });
-    cv.text('Each cylinder fires a pressure pulse. The turbo and the filters smooth the pulses, the silencers take most of the loudness. The flap in the rear silencer: closed, through the silencer; open, the shortest way out.',
-        X0 + 20, TOP + UI.hh() - 40, 15, C.dim, { literal: true });
-    cv.text('The percentages illustrate each part, following your Setup page: not a measurement.', X0 + 20, TOP + UI.hh() - 16, 15, C.dim, { literal: true });
+    const foot = UI.wrap(cv, 'Each cylinder fires a pressure pulse. The turbo and the filters smooth the pulses, the silencers take most of the loudness. The flap in the rear silencer: closed, through the silencer; open, the shortest way out. ' +
+        'The percentages illustrate each part, following your Setup page: not a measurement.', 15, X1 - X0 - 40);
+    foot.forEach((ln, i) => cv.text(ln, X0 + 20, TOP + UI.hh() - 16 - (foot.length - 1 - i) * 21, 15, C.dim, { literal: true }));
 }
 
 /* ---------- Better sound ---------- */
@@ -548,16 +519,18 @@ function setupPage(cv, S, V, A, t) {
     // what the engine unit reports, shown as such: a part can still answer after it was taken out, so the driver's
     // choice always wins (owner, 2026-11-26 23:43); left of the card's own DEMO pill and info button
     if (foundTxt.length) cv.text('the engine unit reports: ' + foundTxt.join(', '), X0 + UI.pw(200), TOP + 34, 15, C.green, { literal: true });
-    const cw = Math.floor((X1 - X0 - 40 - 2 * 14) / 3), ch = 146;
+    const cw = Math.floor((X1 - X0 - 40 - 2 * 14) / 3), ch = Math.min(160, Math.floor((UI.hh() - 56 - 12 - 28) / 2));
     M.SETUP.forEach((p, i) => {
         const x = X0 + 20 + (i % 3) * (cw + 14), y = TOP + 56 + Math.floor(i / 3) * (ch + 12);
         cv.roundRect(x, y, cw, ch, 18, [255, 255, 255, 8]);
         cv.strokeRoundRect(x, y, cw, ch, 18, 1.5, [255, 255, 255, 22]);
-        cv.text(p.name, x + 20, y + 36, 21, C.text, { font: 'bold', literal: true });
         const auto = p.key === 'opf' ? fd.opf : p.key === 'cat' ? fd.cat : p.key === 'flaps' ? fd.flaps != null : false;
         const tag = auto ? (p.key === 'flaps' ? 'engine unit: ' + fd.flaps + ' answer' + (fd.flaps === 1 ? 's' : '') : p.key === 'opf' ? 'engine unit reports soot' : 'engine unit reports it') : 'you set';
-        cv.text(tag, x + cw - 20, y + 34, 14, auto ? C.green : C.blue, { align: 'right', literal: true });
-        let cx = x + 20, cy = y + 60, wrapped = false;
+        // the part's name, and who says so under it where the card is too narrow for both on one line
+        const one = cv.textWidth(p.name, 21, { font: 'bold' }) + cv.textWidth(tag, 14) + 60 <= cw;
+        cv.text(p.name, x + 20, y + 36, 21, C.text, { font: 'bold', literal: true });
+        cv.text(tag, one ? x + cw - 20 : x + 20, one ? y + 34 : y + 56, 14, auto ? C.green : C.blue, { align: one ? 'right' : 'left', literal: true });
+        let cx = x + 20, cy = one ? y + 60 : y + 70, wrapped = false;
         p.choices.forEach((c) => {
             // nothing is locked: what the engine unit reports is a hint, the driver knows what is under the car
             const lock = false;
@@ -570,7 +543,7 @@ function setupPage(cv, S, V, A, t) {
         const hint = wrapped ? '' : { flaps: s.flaps === '2' && fd.flaps === 2 ? 'Flap page controls both, or each one on its own' : '' }[p.key];
         if (hint) cv.text(hint, x + 20, y + ch - 18, 14, C.dim, { literal: true });
     });
-    cv.text('The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', X0 + 20, TOP + UI.hh() - 12, 14, C.dim, { literal: true });
+    cv.text(fit(cv, 'The drawing, the Sound page and the tips follow what you set here. The app only records it; it never advises removing a part.', 14, X1 - X0 - 40), X0 + 20, TOP + UI.hh() - 12, 14, C.dim, { literal: true });
 }
 
 /* ---------- How to use, Settings ---------- */
@@ -591,14 +564,17 @@ const APP_ROWS = [
     { key: 'hold', label: 'Hold OPEN and CLOSE', hint: 'Sent again every 15 s; off: the car takes it back after 20 s', type: 'bool', default: true },
     { key: 'closeLimit', label: 'Keep CLOSED up to', hint: 'Above this engine speed the car gets the flap back and opens it under load (less back pressure). Never: stays closed', type: 'choice', default: '4000',
         options: [['3000', '3 000'], ['4000', '4 000'], ['5000', '5 000'], ['0', 'Never']] },
+    // a favourite button (or anything that opens the app) as the flap's own button (owner 2026-11-27 22:20)
+    { key: 'openAction', label: 'When the app opens', hint: 'Put Exhaust on a favourite button: one press does this', type: 'choice', default: 'none',
+        options: [['none', 'Nothing'], ['open', 'Open'], ['toggle', 'Open / auto'], ['close', 'Close']] },
     { key: 'leftIs', label: 'Left flap is', hint: 'Which engine unit drives the left flap (check by ear)', type: 'choice', default: '1', options: [['1', 'Bank 1'], ['2', 'Bank 2']] },
 ];
 function appRowsFor(S) {
-    return (S.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'leftIs' ? has(S, 'flap2') : r.key === 'arm' || r.key === 'hold' || r.key === 'closeLimit' ? has(S, 'flap') : true)));
+    return (S.demo ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'leftIs' ? has(S, 'flap2') : r.key === 'arm' || r.key === 'hold' || r.key === 'closeLimit' || r.key === 'openAction' ? has(S, 'flap') : true)));
 }
 
 /* ---------- one frame ---------- */
-const PAGES = [now, flapPage, flapLog, opf, care, cold, soundPage, better, history, setupPage];
+const PAGES = [now, flapPage, flapLog, opf, care, cold, soundPage, better, history, setupPage, home];
 
 function draw(cv, S, V, A, t) {
     ENG = S.engine || null;
@@ -611,9 +587,9 @@ function draw(cv, S, V, A, t) {
         UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'EXHAUST', appLabel: 'Exhaust', onBack: A.back, onHelp: A.help,
             onReport: V.report ? () => V.report.open() : null, onLog: V.report ? () => V.report.openLog() : null });
     } else {
-        if (M.pagesFor(S.caps, S.engine).indexOf(V.page) < 0) V.page = 0;
+        if (M.pagesFor(S.caps, S.engine).indexOf(V.page) < 0) V.page = M.HOME;
         frame(cv, S, V, A);
-        PAGES[V.page || 0](cv, S, V, A, t);
+        PAGES[V.page == null ? M.HOME : V.page](cv, S, V, A, t);
     }
     if (V.dialog) UI.dialog(cv, V.dialog.d, t, { a: V.dialog.a == null ? 1 : V.dialog.a });
     UI.overlay(cv, t);

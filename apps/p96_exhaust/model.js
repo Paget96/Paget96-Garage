@@ -357,7 +357,9 @@ function found(caps, k, yes) {
     if (yes) caps[k] = true; else if (was !== true) caps[k] = false;
     return was !== caps[k];
 }
-const TABS = ['Now', 'Flap', 'Flap log', 'OPF', 'Filter care', 'Cold start', 'Sound', 'Better sound', 'History', 'Setup'];
+// page 10, Home, is the page the app opens on (owner 2026-11-27 22:20: open the flap from the first screen)
+const TABS = ['Exhaust path', 'Rules', 'Flap log', 'OPF', 'Filter care', 'Cold start', 'Sound', 'Better sound', 'History', 'Setup', 'Home'];
+const HOME = 10;
 /** The tab names for this engine: the filter page is OPF on a petrol and DPF on a diesel (lib/engine.js). */
 // the filter pages say which filter (OPF on a petrol, DPF on a diesel): a car has about ten filters
 function tabsFor(p) { const n = E.filterName(p); return TABS.map((t) => (t === 'OPF' ? (n === 'filter' ? 'Filter' : n) : t === 'Filter care' && n !== 'filter' ? n + ' care' : t)); }
@@ -366,8 +368,8 @@ function tabsFor(p) { const n = E.filterName(p); return TABS.map((t) => (t === '
  * which says so (owner rule 2026-11-26 19:03: pages that make no sense hide).
  */
 function pagesFor(caps, p) {
-    if (p && p.engine === false) return [0];
-    const out = [0];
+    if (p && p.engine === false) return [HOME];
+    const out = [HOME, 0];
     if (has(caps, 'flap')) out.push(1, 2);
     if (has(caps, 'soot') || has(caps, 'load')) out.push(3);
     if (has(caps, 'soot') || has(caps, 'ash') || has(caps, 'speed')) out.push(4);
@@ -376,6 +378,22 @@ function pagesFor(caps, p) {
     if (has(caps, 'load') || has(caps, 'soot')) out.push(8);
     out.push(9);
     return out;
+}
+/**
+ * The side menu's groups (owner 2026-11-27 22:20: a shorter menu): Home, Flap, the filter, Sound, More; each with the
+ * pages this car has, as [page, label]. lib/ui.js groupMenu() draws them.
+ */
+function groupsFor(caps, p) {
+    const pages = pagesFor(caps, p), on = (i) => pages.indexOf(i) >= 0, names = tabsFor(p);
+    const g = (name, list) => ({ name: name, pages: list.filter((q) => on(q[0])) });
+    const filter = names[3];
+    return [
+        g('Home', [[HOME, 'Home']]),
+        g('Flap', [[1, 'Rules'], [2, 'Log']]),
+        g(filter, [[3, filter], [4, 'Care'], [5, 'Cold start']]),
+        g('Sound', [[6, 'Sound'], [7, 'Better sound']]),
+        g('More', [[0, 'Exhaust path'], [8, 'History'], [9, 'Setup']]),
+    ].filter((x) => x.pages.length);
 }
 /**
  * A demo car's caps (lib/engine.js DEMO_CARS): what such a car reports. An electric car reports no engine values;
@@ -415,4 +433,4 @@ function kindsFor(caps) {
 module.exports = {
     levelAt, migrateSetup, CT, CATALOG, decode, Regen, untilNext, averageGap, REGEN_HOT, REGEN_COOL, drives, BUCKETS, ashFuture, ASH_FULL, lightOff,
     LIGHT_OFF, COLD_COOLANT, coldWeek, SETUP, SETUP_DEFAULT, sound, tips, flapWeek, hm, ago, clock, fmtThousands, loadDays,
-    CAPS, ALL_CAPS, has, found, TABS, tabsFor, pagesFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };
+    CAPS, ALL_CAPS, has, found, TABS, HOME, tabsFor, pagesFor, groupsFor, kindsFor, capsForCar, engineFor, DAY, WEEK, MIN };

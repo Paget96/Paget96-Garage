@@ -126,14 +126,14 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     assert.ok(sent.some((s) => /^12 22 62 FD/.test(s)), 'no flap probe');
     assert.deepStrictEqual(flapSent(), [], 'opening the app sent a flap command');
     // every page draws, live
-    for (let p = 0; p < 10; p++) { await tap('p96tab' + p); await frame(); }
+    for (let p = 0; p < 11; p++) { await tap('p96tab' + p); await frame(); }
     let cv = await frame();
     assert.ok(cv.targets.some((q) => q.key === 'p96help'));
     // a finger on each Flap button presses that button, not the card's info under it (owner, 20:18: the kit presses
     // the first target under a finger; UI.attach puts the buttons first, UI.pressOrder)
     {
         const UIx = require(path.join(dir, 'garage_ui.js'));
-        await tap('p96tab1');
+        await tap('p96tab0');          // Home: the flap's buttons (owner 2026-11-27 22:20)
         const fc = await frame();
         const order = UIx.pressOrder(fc.targets.slice());
         ['mode|AUTO', 'mode|OPEN', 'mode|CLOSED', 'mode|OEM'].forEach((k) => {
@@ -148,7 +148,7 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
         assert.ok(/^p96info/.test(order.filter((q) => ix >= q.x && ix < q.x + q.w && iy >= q.y && iy < q.y + q.h)[0].key), 'the (i) does not open the info');
     }
     // simulated: the buttons send nothing
-    await tap('p96tab1');
+    await tap('p96tab0');
     await tap('mode|AUTO');
     for (let i = 0; i < 6; i++) { drive(3500); await sleep(100); }
     await tap('mode|OPEN');
@@ -172,10 +172,19 @@ const flapSent = () => sent.filter((s) => / 2F /.test(s));
     const n = sent.filter((s) => /^12 22 57 74/.test(s)).length;
     for (let i = 0; i < 10; i++) { drive(2400); await sleep(100); }
     assert.strictEqual(sent.filter((s) => /^12 22 57 74/.test(s)).length, n, 'read with the screen hidden');
+    // a favourite button as the flap's button (owner 2026-11-27 22:20): opening the app opens the flap
+    settings.set('openAction', 'open');
+    const opened = flapSent().length;
+    visible('MAIN', true);
+    await sleep(300);
+    assert.strictEqual(flapSent().slice(opened)[0], '12 2F 60 FD 03 03 E8', 'opening the app did not open the flap: ' + flapSent().slice(opened).join(' | '));
+    settings.set('openAction', 'none');
+    visible('MAIN', false);
+    await sleep(300);
     // demo: every page draws
     settings.set('demo', 'on');
-    for (let p = 0; p < 10; p++) { await tap('p96tab' + p); await frame(); }
-    await tap('p96tab1');
+    for (let p = 0; p < 11; p++) { await tap('p96tab' + p); await frame(); }
+    await tap('p96tab2');
     await tap('addrule');
     cv = await frame();
     assert.ok(cv.targets.some((q) => q.key === 'kind|gear'));

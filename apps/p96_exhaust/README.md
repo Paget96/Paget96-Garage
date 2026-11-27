@@ -16,8 +16,9 @@ screenshots use demo data (Demo data On, so the header shows the amber DEMO pill
 
 | Page | Screenshot |
 |---|---|
-| Now: engine to tail pipe, live | ![](../../docs/media/p96_exhaust/now.png) |
-| Flap: AUTO, OPEN, CLOSE, CAR and the rules | ![](../../docs/media/p96_exhaust/flap.png) |
+| Home: the flap and its four buttons, the numbers that matter (the app opens here) | ![](../../docs/media/p96_exhaust/home.png) |
+| More, Exhaust path: engine to tail pipe, live | ![](../../docs/media/p96_exhaust/now.png) |
+| Flap, Rules: the top rule that holds wins | ![](../../docs/media/p96_exhaust/flap.png) |
 | Flap: a car with two flaps | ![](../../docs/media/p96_exhaust/flap-two.png) |
 | Flap: add a rule | ![](../../docs/media/p96_exhaust/rule-new.png) |
 | Flap: change a rule, with an "and" | ![](../../docs/media/p96_exhaust/rule-edit.png) |
@@ -99,3 +100,10 @@ car with two flaps, Left flap is (bank 1 or 2).
 
 **Send a report** sits at the top of the Settings page, and How to use explains it: a QR code that your phone opens as
 a filled-in GitHub issue, after a screen that shows every line it carries ([Send a report](../../README.md#send-a-report)).
+
+## Bigger, and a button for the flap
+
+Exhaust is drawn 1.5 times bigger than the other apps' first layout, to be read from the seat, with fewer things on a
+page. The menu holds five groups (Home, Flap, the filter, Sound, More); the group shown lists its pages under it.
+Settings, When the app opens: Open, Open / auto or Close; save Exhaust on a favourite button of the car and one press
+opens the app and sets the flap (only with the flap control armed). After a minute away the app comes back on Home.

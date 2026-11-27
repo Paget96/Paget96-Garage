@@ -390,7 +390,7 @@ mgu.run({
         }
 
         /* ---------- where the user is, and what the taps do ---------- */
-        const V = { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when', values: {} };
+        const V = { page: M.HOME, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when', values: {} };
         V.report = Report.forApp(ctx);   // Settings, Send a report (lib/report.js)
         let S = null;
         const openDialog = (d) => { V.dialog = { d: d, open: true }; changed(); };
@@ -498,7 +498,8 @@ mgu.run({
             V.values = values();
             const cv = UI.zoom(ctx.canvas(UI.RW, UI.RH));
             const pages = M.pagesFor(S.caps, S.engine), names = M.tabsFor(S.engine);
-            if (cv.chrome) cv.chrome.tabs = UI.menu(pages.map((i) => names[i]), pages.indexOf(V.page), V.mode);
+            if (cv.chrome) cv.chrome.tabs = UI.groupMenu(M.groupsFor(S.caps, S.engine), V.page, V.mode);
+            void pages; void names;
             if (V.dialog) {
                 V.dialog.a = UI.anim('p96exhaust|dialog', V.dialog.open ? 1 : 0, 200);
                 if (!V.dialog.open && V.dialog.a <= 0) V.dialog = null;
@@ -509,10 +510,10 @@ mgu.run({
         const pagesNow = () => M.pagesFor(S ? S.caps : caps(), S ? S.engine : null);
         const step = (dir) => { const p = pagesNow(), i = p.indexOf(V.page); V.page = p[UI.nextTab(Math.max(0, i), p.length, dir)]; V.mode = 'main'; changed(); };
         if (ctx.onTab) ctx.onTab((i) => {
-            const p = pagesNow(), pick = UI.menuPick(p, i);
+            const pick = UI.menuPick(null, i);     // the group's page, or help, settings
             if (pick === 'more') changed();
             else if (pick === 'help' || pick === 'settings') { V.mode = pick; changed(); }
-            else if (p[pick] != null) { V.mode = 'main'; A.tab(p[pick]); }
+            else if (typeof pick === 'number' && pick >= 0) { V.mode = 'main'; A.tab(pick); }
         });
         ui.onClick('BTN_PAGE', () => step(1));
         ui.onClick('BTN_PREV', () => step(-1));
@@ -520,12 +521,28 @@ mgu.run({
         if (ctx.hideButton) { ctx.hideButton('BTN_PAGE'); ctx.hideButton('BTN_PREV'); }
         loop = ctx.loop('MAIN', Number(settings.get('fps')) || 60, render);
 
+        let hiddenAt = 0;
         function setShown(on) {
             if (on === shown) return;
             shown = on;
             link.setShown(on);
-            if (on) { readLoop(); probe(); } else { V.dialog = null; save(); }
+            if (on) {
+                readLoop(); probe();
+                // back after a minute or more: Home, the flap's buttons in reach (owner 2026-11-27 22:20, proposed (claude))
+                if (hiddenAt && Date.now() - hiddenAt > 60000 && V.mode === 'main' && !V.dialog) V.page = M.HOME;
+                openAction();
+            } else { V.dialog = null; save(); hiddenAt = Date.now(); }
             changed();
+        }
+        /** The app opened: what the settings say a press on its favourite button does to the flap. */
+        function openAction() {
+            const act = settings.get('openAction') || 'none', S0 = S || build();
+            if (act === 'none' || !M.has(S0.caps, 'flap')) return;
+            const mo = modes(), ctl = useDemo() ? demoControl : control, cur = mo.both || mo[ctl.sides()[0]] || 'AUTO';
+            const m = act === 'open' ? 'OPEN' : act === 'close' ? 'CLOSED' : cur === 'OPEN' ? 'AUTO' : 'OPEN';
+            V.page = M.HOME; V.mode = 'main'; V.side = 'both';
+            log.info('opened: the flap set to ' + m + ' (' + act + ')');
+            A.flapMode(m);
         }
         ui.onVisible((name, on) => { if (name === 'MAIN') setShown(on); });
         if (ui.isVisible && ui.isVisible('MAIN')) setShown(true);

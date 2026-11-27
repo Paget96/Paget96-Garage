@@ -15,9 +15,12 @@ if (process.env.GARAGE_FRAME !== 'off') {
     const REC = require(path.join(RT, 'record')), CAN = require(path.join(RT, 'canvas'));
     const UI = require('../lib/ui');
     // the menu's width in the kit's page px: our 180 logical px, drawn ZOOM times bigger (lib/ui.js zoom())
-    const RAIL = Math.round(180 * UI.ZOOM), SW = 84 + RAIL + 1600, SH = 720, LEFT = 84, STRIP = 76, GAP = 6, TOP = 100;
+    // the menu's width follows the app's zoom, read when a frame is drawn (an app's view sets it after this loads)
+    const SH = 720, LEFT = 84, STRIP = 76, GAP = 6, TOP = 100;
+    const RAIL = () => Math.round(180 * UI.ZOOM), SWf = () => LEFT + RAIL() + 1600;
     // drawn 1:1 (the software canvas blends scaled layers badly); the car scales the same picture by 1.031
-    const S = 1, OX = LEFT + Math.round(RAIL * S), OY = Math.round(STRIP + GAP - TOP * S);
+    const S = 1, OY = Math.round(STRIP + GAP - TOP * S);
+    let OX = LEFT + RAIL(), SW = SWf();
     const EXTRA = Math.floor((SH - GAP - OY) / S - 520);
     UI.useRail(true);
     const CF = module.exports = { tabs: null, clock: '22:10' };
@@ -34,6 +37,7 @@ if (process.env.GARAGE_FRAME !== 'off') {
     class Can extends BaseCan {
         constructor(w, h) {
             const frame = w === 1600 && h === 520;
+            if (frame) { SW = SWf(); OX = LEFT + RAIL(); }
             super(frame ? SW : w, frame ? SH : h);
             this.carFrame = frame;
         }
@@ -80,7 +84,7 @@ if (process.env.GARAGE_FRAME !== 'off') {
     // every page draws its background first: the menu lists the tool's pages with the one shown lit
     const background = UI.background;
     UI.background = function () {
-        if (CF.tabs) { const t = CF.tabs(); if (t) UI.menu(t[0], t[1], t[2]); }
+        if (CF.tabs) { const t = CF.tabs(); if (t) { if (t[3] === 'groups') UI.groupMenu(t[0], t[1], t[2]); else UI.menu(t[0], t[1], t[2]); } }
         return background.apply(this, arguments);
     };
 }

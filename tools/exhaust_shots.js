@@ -70,7 +70,7 @@ function state() {
     if (regenNow) S.regen = DEMO.regenNow();
     return S;
 }
-const V = { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when',
+const V = { page: M.HOME, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when',
     // the shots are demo data: Demo data On, so the header shows the DEMO pill and every card says DEMO (D26)
     values: { demo: 'on', demoCar: (CAR || E.demoCar('b48')).id } };
 // Settings, Send a report: the flow as the app makes it (lib/report.js), on the app's own app.json
@@ -80,7 +80,7 @@ const A = new Proxy({}, { get: () => noop });
 
 const t0 = clock;
 function frame() {
-    if (global.CF && !global.CF.tabs) global.CF.tabs = () => { const S = state(), pg = M.pagesFor(S.caps, S.engine), nm = M.tabsFor(S.engine); return [pg.map((i) => nm[i]), pg.indexOf(V.page), V.mode]; };
+    if (global.CF && !global.CF.tabs) global.CF.tabs = () => { const S = state(); return [M.groupsFor(S.caps, S.engine), V.page, V.mode, 'groups']; };
     const rec = UI.zoom(new Recorder(UI.RW, UI.RH));
     VIEW.draw(rec, state(), V, A, (clock - t0) / 1000);
     return rec;
@@ -95,7 +95,7 @@ function settle(ms) { for (let i = 0; i < (ms || 2000) / 16; i++) { clock += 16;
 
 const shots = [];
 function reset() {
-    Object.assign(V, { page: 0, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when' });
+    Object.assign(V, { page: M.HOME, mode: 'main', side: 'both', ruleFirst: 0, dialog: null, helpSel: 0, edit: null, editPart: 'when' });
     regenNow = false; caps = CAR ? M.capsForCar(CAR) : M.ALL_CAPS;
     UI.closeInfo();
 }
@@ -131,14 +131,14 @@ const dlg = (d) => { V.dialog = { d: d, open: true, a: 1 }; };
 const ruleDlg = (r, part, index) => { V.edit = R.draft(r); V.editPart = part || 'when'; dlg(VIEW.ruleDialog(state(), V, A, index == null ? -1 : index)); };
 
 if (CAR) {
-    const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup'];
+    const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup', 'home'];
     const pages = M.pagesFor(caps, CAR);
     pages.forEach((i) => shot(names[i], () => { V.page = i; }, infos));
     shot('help-cars', () => { V.mode = 'help'; V.helpSel = VIEW.helpTopics().length - 1; });
     if (CAR.diesel) { reset(); settle(300); UI.openInfo(VIEW.info('adblue')); settle(2600); png(frame(), path.join(out, 'popup-adblue.png')); shots.push('popup-adblue'); }
     console.log('%s: %d pictures in %s (%s)', CAR.id, shots.length, out, shots.join(', '));
 } else if (!gifDir) {
-    const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup'];
+    const names = ['now', 'flap', 'flap-log', 'opf', 'filter-care', 'cold-start', 'sound', 'better-sound', 'history', 'setup', 'home'];
     names.forEach((n, i) => shot(n, () => { V.page = i; }, infos));
     shot('opf-regen', () => { V.page = 3; regenNow = true; });
     shot('rule-new', () => { V.page = 1; ruleDlg(null); }, onlyDialogButtons(2));

@@ -311,8 +311,8 @@ test('the flap log: time per state and per rule over the week', () => {
     assert.strictEqual(M.hm(5 * 3600000 + 10 * MIN), '5 h 10 min');
 });
 test('pages and rule conditions follow what the car reports', () => {
-    assert.deepStrictEqual(M.pagesFor({ rpm: true }), [0, 6, 7, 9]);
-    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(M.pagesFor({ rpm: true }), [10, 0, 6, 7, 9]);
+    assert.deepStrictEqual(M.pagesFor(M.ALL_CAPS), [10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     assert.deepStrictEqual(M.kindsFor({ rpm: true, coolant: true }), ['rpm', 'coolant', 'time']);
 });
 test('demo data covers every page', () => {
@@ -326,11 +326,17 @@ const E = require(path.join(__dirname, '..', 'lib', 'engine'));
 const ART = require(path.join(APP, 'art'));
 test('each demo car: the pages that show and the ones that hide', () => {
     const pages = (id) => M.pagesFor(M.capsForCar(E.demoCar(id)), E.demoCar(id));
-    assert.deepStrictEqual(pages('b48'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    assert.deepStrictEqual(pages('s63'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    assert.deepStrictEqual(pages('b57'), [0, 3, 4, 5, 6, 7, 8, 9], 'a diesel without a flap: no Flap pages');
-    assert.deepStrictEqual(pages('phev'), [0, 3, 4, 5, 6, 7, 8, 9]);
-    assert.deepStrictEqual(pages('ev'), [0], 'an electric car: only the page that says there is no exhaust');
+    // 10 is Home, the page the app opens on (owner 2026-11-27 22:20)
+    assert.deepStrictEqual(pages('b48'), [10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('s63'), [10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('b57'), [10, 0, 3, 4, 5, 6, 7, 8, 9], 'a diesel without a flap: no Flap pages');
+    assert.deepStrictEqual(pages('phev'), [10, 0, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepStrictEqual(pages('ev'), [10], 'an electric car: only the page that says there is no exhaust');
+    // the side menu: five groups at most, Flap only with a flap
+    const groups = (id) => M.groupsFor(M.capsForCar(E.demoCar(id)), E.demoCar(id)).map((g) => g.name);
+    assert.deepStrictEqual(groups('b48'), ['Home', 'Flap', 'OPF', 'Sound', 'More']);
+    assert.deepStrictEqual(groups('b57'), ['Home', 'DPF', 'Sound', 'More']);
+    assert.deepStrictEqual(groups('ev'), ['Home']);
     assert.strictEqual(M.tabsFor(E.demoCar('b57'))[3], 'DPF');
     assert.strictEqual(M.tabsFor(E.demoCar('b48'))[3], 'OPF');
 });
