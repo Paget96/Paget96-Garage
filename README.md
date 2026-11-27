@@ -24,8 +24,13 @@
 
 <p align="center">
   <img src="docs/media/garage-live.gif" alt="Datalog, Exhaust, Health and Standby running live in the iDrive 7 screen" width="100%">
-  <br><sub>Live in the iDrive 7 screen (1920 x 720): Datalog, Exhaust, Health and Standby, demo values marked DEMO.</sub>
 </p>
+<p align="center"><sub>Live in the iDrive 7 screen (1920 x 720): Datalog, Exhaust, Health and Standby, demo values marked DEMO.</sub></p>
+
+<p align="center">
+  <img src="docs/media/p96_lights/lights.gif" alt="Lights: the turning cabin, the Flow show and a smooth show on a 3D G20" width="100%">
+</p>
+<p align="center"><sub>Lights: the ambient light on a cabin you turn with a finger, and light shows on a turning 3D car.</sub></p>
 
 | What you see live | |
 |---|---|
@@ -34,10 +39,12 @@
 | **Exhaust after the catalyst, particulate filter load and soot**, the flap's state and your own flap rules | Exhaust |
 | **Every control unit's faults** with freeze frames, misfires per cylinder, lambda, VANOS, battery, service, tyres | Health |
 | A calm **clock** with outside temperature, battery and range for waiting and night drives | Standby |
+| **Ambient light** by region, and **light shows** over the outside lamps, ready made or your own | Lights |
 
 > **Status, November 2026:** Health, Datalog, Exhaust and Standby are built and run on the developer's own car
-> (BMW G20, B48 engine, iDrive 7): touch, the side menu and live values are checked there. Still a preview until the
-> first release: report what you see with **Send a report** in each app's Settings.
+> (BMW G20, B48 engine, iDrive 7): touch, the side menu and live values are checked there. Lights is new: it runs
+> simulated until you arm it, and has not been tried on a car yet. Still a preview: report what you see with
+> **Send a report** in each app's Settings, and see what an app did on its **Log** page there.
 
 **Made by Danijel Markov (Paget96).** Follow the work and talk to us:
 [Instagram](https://www.instagram.com/thedakiness/) ·
@@ -90,6 +97,7 @@ describes.
 | <img src="apps/p96_health/icon.png" width="48"> | [Health](#p96_health) | One look at the whole car: faults with their history, 12 V battery, service, tyres, fluids, a score and a report to share |
 | <img src="apps/p96_datalog/icon.png" width="48"> | [Datalog](#p96_datalog) | 402 m runs with splits and weather corrected times, a dyno sheet, boost, the air, tyres, temperatures, a log and two runs compared |
 | <img src="apps/p96_standby/icon.png" width="48"> | [Standby](#p96_standby) | A calm clock for waiting and night drives, the car at a glance, this drive and today |
+| <img src="apps/p96_lights/icon.png" width="48"> | [Lights](#p96_lights) | The ambient light in any colour, by region, on a cabin you turn with a finger, and light shows over the outside lamps: ready made, or your own beat by beat, flashing or fading |
 | <img src="apps/p96_exhaust/icon.png" width="48"> | [Exhaust](#p96_exhaust) | The exhaust live, the flap with your own rules, the particulate filter and its regenerations, and a better sound without changing anything |
 
 ## Gallery
@@ -483,20 +491,47 @@ Hold OPEN and CLOSE (sent again every 15 s), Close: hand back above (3 000, 4 00
 car with two flaps, Left flap is (bank 1 or 2).
 
 
+<a id="p96_lights"></a>
 ### Lights
 
-The car's own lights: any colour on the ambient light, and light shows over the outside lamps
-(ready made and your own, beat by beat), only while the car stands still. Simulated until you arm it in
-Settings; the car takes its lights back by itself when the app stops. Not tried on a car as Lights
-yet.
+The car's own lights. **Ambient:** any colour on the ambient light, solid, breathing, a rainbow or a wave, how
+bright, and a colour per region (dash, doors, door pockets, console, seat backs, roof ...), shown on a see-through
+cabin that turns slowly by itself and that you turn with a finger. An open door can blink red. **Shows:** light
+shows over the outside lamps (high beam, cornering, fog, indicators, parking lights, brake, reverse, rear fog) and
+the cabin's colour, played on a turning 3D G20: ready made ones in Flash, Party, Rear and Strobe (among them
+Flow, light running from the front fog lights up the nose, back through the cabin and down the tail), and your
+own, copied from any of them and edited beat by beat, each at the speed you set, flashing or fading. **Outside:**
+the car's own light settings and the lamp outputs read live.
 
 ![Lights working](docs/media/p96_lights/lights.gif)
 
 | Page | Screenshot |
 |---|---|
 | Ambient | ![](docs/media/p96_lights/ambient.png) |
+| Ambient, turned, a region in red | ![](docs/media/p96_lights/ambient-turned.png) |
 | Shows | ![](docs/media/p96_lights/party.png) |
 | Edit a show | ![](docs/media/p96_lights/party-edit.png) |
+| Outside | ![](docs/media/p96_lights/outside.png) |
+| Settings | ![](docs/media/p96_lights/settings.png) |
+
+**Safety.** Everything is simulated until you arm it in Settings. The shows run only while the car stands still,
+for a show on private ground: each flash lasts at most 150 ms and the car switches it off itself, a run stops by
+itself after 30 s, when the car moves, when you leave the app, and with Stop all on every page. The ambient goes
+back to the car's own colour when the app stops.
+
+**Limits.**
+
+- Not tried on a car yet.
+- On the car only the ambient really fades: the outside lamps switch on and off, so a smooth show steps there.
+- Which lamps a car has is not read yet: every body controller of these cars has the same twelve light functions.
+- The Outside settings are kept, not written yet: writing waits for a read of the car's own coding first.
+
+**Works with.** BMWs with the MGU Store on iDrive 7 and a body controller of the G series (BDC); the ambient
+lights the body controller lists decide the regions shown.
+
+**Settings.** The Display block (the same in every Paget96 Garage app), then Lights' own: Open door red (on or off)
+and Light control (Simulated or Armed).
+
 ## How every app works
 
 Every Paget96 Garage app follows the same rules, so once you know one, you know them all.
