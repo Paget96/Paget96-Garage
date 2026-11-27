@@ -747,7 +747,7 @@ function draw(cv, S, V, A, t) {
         UI.reportPage(cv, V.report, t, { title: 'HEALTH', onHelp: () => { V.report.close(); A.help(); } });
     } else if (V.mode === 'settings') {
         UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'HEALTH', appLabel: 'Health', onBack: A.back, onHelp: A.help,
-            onReport: V.report ? () => V.report.open() : null });
+            onReport: V.report ? () => V.report.open() : null, onLog: V.report ? () => V.report.openLog() : null });
     } else {
         if (!S.caps) S.caps = M.ALL_CAPS;
         if (!S.cards) S.cards = overviewCards(S);

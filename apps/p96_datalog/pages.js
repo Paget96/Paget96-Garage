@@ -732,7 +732,7 @@ function draw(cv, m, t) {
         vals.demoCar = m.setting('demoCar');
         const rows = (m.isDemo() ? [E.DEMO_ROW] : []).concat(APP_ROWS.filter((r) => (r.key === 'boostTarget' || r.key === 'boostMax' ? m.has('boost') : r.key === 'tyreTarget' ? m.has('tyres') : true)));
         UI.settingsPage(cv, rows, vals, (k, val) => { if (m.settings) m.settings.set(k, val); }, { title: NAME, appLabel: 'Datalog',
-            onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; }, onReport: m.report ? () => m.report.open() : null });
+            onBack: () => { ui.view = 'main'; }, onHelp: () => { ui.view = 'help'; }, onReport: m.report ? () => m.report.open() : null, onLog: m.report ? () => m.report.openLog() : null });
     } else {
         head(cv, m);
         PAGES[ui.page](cv, m, t);

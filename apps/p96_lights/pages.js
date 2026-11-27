@@ -355,7 +355,7 @@ function draw(cv, v, st, t, act) {
         UI.reportPage(cv, st.report, t, { title: TITLE, onHelp: () => { st.report.close(); act.help(); } });
     } else if (st.page === 'settings') {
         UI.settingsPage(cv, APP_ROWS, st.settings, act.set, { title: TITLE, appLabel: 'Lights', onBack: act.back, onHelp: act.help,
-            onReport: st.report ? () => st.report.open() : null });
+            onReport: st.report ? () => st.report.open() : null, onLog: st.report ? () => st.report.openLog() : null });
     } else {
         head(cv, st, act);
         PAGES[st.tab || 0](cv, v, st, t, act);

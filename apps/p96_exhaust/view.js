@@ -604,7 +604,7 @@ function draw(cv, S, V, A, t) {
         UI.reportPage(cv, V.report, t, { title: 'EXHAUST', onHelp: () => { V.report.close(); A.help(); } });
     } else if (V.mode === 'settings') {
         UI.settingsPage(cv, appRowsFor(S), V.values || {}, A.setting, { title: 'EXHAUST', appLabel: 'Exhaust', onBack: A.back, onHelp: A.help,
-            onReport: V.report ? () => V.report.open() : null });
+            onReport: V.report ? () => V.report.open() : null, onLog: V.report ? () => V.report.openLog() : null });
     } else {
         if (M.pagesFor(S.caps, S.engine).indexOf(V.page) < 0) V.page = 0;
         frame(cv, S, V, A);

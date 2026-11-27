@@ -256,6 +256,20 @@ test('attach: the layout follows the setting; in Standard every target stays pre
     } finally { UI.setLayout('full'); }
 });
 
+test('the Log page: every entry newest first, levels, a VIN masked, stack lines dropped; Clear empties the files', () => {
+    const os = require('os'), dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p96log')), f = path.join(dir, 'x.log');
+    fs.writeFileSync(f, '2026-11-27T00:10:00.000Z INFO started\n2026-11-27T00:11:00.000Z WARN slow\n    at stack line\n2026-11-27T00:12:00.000Z ERROR no answer WBA8E91090A123456\n');
+    const fl = new R.Flow(() => ({}), () => [f + '.1', f]);
+    fl.openLog();
+    assert.strictEqual(fl.step, 'log'); assert.ok(fl.active());
+    assert.deepStrictEqual(fl.log.entries.map((e) => e.level), ['error', 'warn', 'info']);
+    assert.ok(fl.log.entries[0].text.indexOf('<VIN>') >= 0 && fl.log.entries[0].text.indexOf('WBA') < 0);
+    const rec = new Recorder(UI.W, UI.H); UI.reportPage(rec, fl, 0, { title: 'X' });
+    ['lognewer', 'logolder', 'logclear'].forEach((k) => assert.ok(rec.targets.some((q) => q.key === k || q.key === 'p96button|' + k || String(q.key).indexOf(k) >= 0), k));
+    fl.clearLog();
+    assert.strictEqual(fs.readFileSync(f, 'utf8'), ''); assert.strictEqual(fl.log.entries.length, 0);
+});
+
 test('Node 8: no optional chaining, nullish coalescing or object spread in lib/report.js', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'report.js'), 'utf8').replace(/\/\/.*$/gm, '');
     assert.ok(!/\?\.[a-zA-Z_(]/.test(src) && !/\?\?/.test(src) && !/\{\s*\.\.\./.test(src));
